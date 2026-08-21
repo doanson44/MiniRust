@@ -1,16 +1,16 @@
 [package]
-name = "minirust-web"
+name = "minirust-api"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "MiniRust Leptos SSR application"
+description = "MiniRust REST API"
 
 [dependencies]
 axum.workspace = true
-leptos.workspace = true
 minirust-config.workspace = true
 minirust-core.workspace = true
 minirust-services.workspace = true
+serde.workspace = true
 tokio.workspace = true
 tower-http.workspace = true
 tracing.workspace = true

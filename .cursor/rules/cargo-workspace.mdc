@@ -1,0 +1,15 @@
+---
+description: Cargo workspace and dependency conventions
+globs: "**/Cargo.toml"
+alwaysApply: false
+---
+
+# Cargo workspace
+
+Root `Cargo.toml` is the source of shared versions (`[workspace.dependencies]`).
+
+- Add members under `apps/` or `crates/`. Package names: `minirust-*`.
+- Depend with `foo.workspace = true`. Prefer `cargo add` over invented versions.
+- Edition 2021. Keep `resolver = "2"`.
+- Do not add Tiberius, Redis, Teloxide, JWT, or AI crates until that feature is in scope.
+- After dependency changes, keep `Cargo.lock` consistent; CI uses `--locked`.

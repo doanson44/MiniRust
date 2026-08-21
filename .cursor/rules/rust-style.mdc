@@ -1,0 +1,27 @@
+---
+description: Rust style, errors, logging, and tests for MiniRust sources
+globs: "**/*.rs"
+alwaysApply: false
+---
+
+# Rust style
+
+Prefer explicit, boring Rust. Avoid extra generics, macros, `unsafe`, `clone`, `Arc`, `Mutex`, `RwLock`, and trait objects unless required now.
+
+```rust
+// ❌ BAD — framework and I/O inside a service
+pub async fn hello() -> String {
+    println!("hello");
+    panic!("missing config");
+}
+
+// ✅ GOOD — pure service, caller maps to HTTP/HTML
+pub fn hello(&self) -> Greeting {
+    Greeting::new(format!("Hello from {APP_NAME}"))
+}
+```
+
+- Use `Result`. Do not `panic!` / `unwrap` on normal application paths.
+- Keep `AppError` internal. Map user-facing HTTP/HTML in the app crate, not in `core`.
+- Logging: `tracing` only. No `println!` or `dbg!` in apps. Initialize tracing once in `main`.
+- Tests should assert behavior (config, health, greeting, rendered HTML), not line coverage.

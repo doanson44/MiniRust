@@ -1,0 +1,9 @@
+[package]
+name = "minirust-services"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Application services shared by MiniRust apps"
+
+[dependencies]
+minirust-core.workspace = true

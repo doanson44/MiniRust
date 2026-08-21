@@ -1,0 +1,23 @@
+---
+description: Axum API handler and routing conventions
+globs: apps/api/**
+alwaysApply: false
+---
+
+# API (`minirust-api`)
+
+Bind from `minirust_config` (`ServerKind::Api`). Default development address is `127.0.0.1:3000`.
+
+- Keep routes in `router()`. Handlers extract `State`, call a service, return HTTP.
+- Current baseline: `GET /health`, `GET /api/v1/hello`.
+- JSON for API responses. Do not put business rules in handlers.
+- Use `TraceLayer` and `tracing` for request/startup logs.
+- Graceful shutdown via `ctrl_c` is already wired; keep it.
+- Tests: `oneshot` against `router(AppState::new())`, not a live process.
+
+```rust
+async fn hello(State(state): State<AppState>) -> impl IntoResponse {
+    let greeting = state.greetings.hello();
+    (StatusCode::OK, Json(HelloResponse { message: greeting.message }))
+}
+```

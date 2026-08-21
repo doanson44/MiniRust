@@ -1,0 +1,10 @@
+[package]
+name = "minirust-config"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Environment-based configuration for MiniRust"
+
+[dependencies]
+dotenvy.workspace = true
+minirust-core.workspace = true

@@ -1,5 +1,6 @@
+use minirust_api::router;
+use minirust_api::AppState;
 use minirust_config::{Config, ServerKind};
-use minirust_web::{router, AppState};
 use tracing_subscriber::EnvFilter;
 
 fn init_tracing(log_filter: &str) {
@@ -23,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::load()?;
     init_tracing(&config.log_filter);
 
-    let bind = config.server_bind(ServerKind::Web)?;
+    let bind = config.server_bind(ServerKind::Api)?;
     let addr = bind.socket_addr()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
@@ -32,13 +33,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         address = %addr,
         database_configured = config.database_url.is_some(),
         redis_configured = config.redis_url.is_some(),
-        "starting MiniRust web"
+        "starting MiniRust API"
     );
 
     axum::serve(listener, router(AppState::new()))
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 
-    tracing::info!("MiniRust web stopped");
+    tracing::info!("MiniRust API stopped");
     Ok(())
 }

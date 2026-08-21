@@ -1,3 +1,29 @@
 [workspace]
-members = ["apps/web"]
+members = [
+    "apps/api",
+    "apps/web",
+    "crates/config",
+    "crates/core",
+    "crates/services",
+]
 resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+axum = "0.8"
+dotenvy = "0.15"
+leptos = { version = "0.8", default-features = false, features = ["ssr"] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+minirust-config = { path = "crates/config" }
+minirust-core = { path = "crates/core" }
+minirust-services = { path = "crates/services" }

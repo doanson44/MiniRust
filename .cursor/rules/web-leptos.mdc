@@ -1,0 +1,22 @@
+---
+description: Leptos SSR web app conventions
+globs: apps/web/**
+alwaysApply: false
+---
+
+# Web (`minirust-web`)
+
+SSR-only Leptos (`features = ["ssr"]`), served by Axum. Do not add hydration, `cargo-leptos`, or WASM unless the user asks.
+
+- Render with `view! { ... }.to_html()` and prefix `<!DOCTYPE html>`.
+- Call `GreetingService` / `HealthService`. Do not duplicate API business rules.
+- Default development address is `127.0.0.1:3001`.
+- Baseline routes: `GET /` (HTML), `GET /health`.
+- Do not build CMS, auth UI, dashboards, or resume tools here yet.
+
+```rust
+pub fn render_home_page(message: &str) -> String {
+    let html = view! { <HomePage message=message.to_owned()/> }.to_html();
+    format!("<!DOCTYPE html>{html}")
+}
+```
