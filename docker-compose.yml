@@ -7,18 +7,10 @@
 #   docker compose --profile infra down
 #
 # MariaDB is available at localhost:3306.
-# Redis is available at redis://127.0.0.1:6379/
 #
-# The API and web applications do not connect to these services yet.
+# The API and web applications do not connect to this service yet.
 
 services:
-  redis:
-    image: redis:7-alpine
-    profiles: ["infra"]
-    ports:
-      - "6379:6379"
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-
   mariadb:
     image: mariadb:11
     profiles: ["infra"]
