@@ -2,36 +2,28 @@
 
 Rust workspace for a small, extensible web platform.
 
-The current repository is a runnable baseline: configuration, structured logging, a REST API, and a Leptos SSR page. It is not the full long-term product.
+The repository provides a runnable API, Leptos SSR web page, MariaDB connectivity, health checks, Swagger UI, and Docker Compose orchestration.
 
 ## Current scope
 
 Working today:
 
 - Cargo workspace
-- Shared `core`, `config`, and `services` crates
+- Shared `core`, `config`, `database`, and `services` crates
 - Axum REST API (`apps/api`)
 - Leptos SSR web app (`apps/web`)
 - Tailwind CSS as the frontend CSS framework
-- Environment configuration via `dotenvy`
-- Structured logging via `tracing`
-- Health and hello endpoints
-- Optional Docker Compose services for later MariaDB work
+- MariaDB access through SQLx
+- `/health` with a live MariaDB connectivity check
+- OpenAPI document at `/api/v1/openapi.json`
+- Swagger UI at `/swagger`
+- Docker Compose for MariaDB, API, and web
 
 Frontend styling policy:
 
 - Tailwind CSS is the only CSS framework used by MiniRust.
 - Bootstrap is not used and must not be introduced.
 - UI components should use Leptos and Tailwind utility classes.
-
-Not implemented yet:
-
-- Authentication
-- CMS, blog, user center, file manager
-- MariaDB persistence
-- Telegram bot
-- Background workers
-- AI, market data, resume builder, WebSocket, monitoring, and other product features
 
 ## Architecture
 
@@ -43,9 +35,11 @@ Handler (Axum)
 Application Service
  ↓
 Domain types (core)
+ ↓
+Database adapter
+ ↓
+MariaDB
 ```
-
-Infrastructure adapters (MariaDB/SQLx, Telegram, AI vendors) are not wired into startup. Future crates can be added under `crates/` without moving the existing apps.
 
 ```text
 MiniRust/
@@ -53,68 +47,80 @@ MiniRust/
 │   ├── api     # Axum REST API
 │   └── web     # Leptos SSR + Tailwind CSS
 └── crates/
-    ├── config  # environment configuration
-    ├── core    # shared types and errors
-    └── services
+    ├── config    # environment configuration
+    ├── core      # shared types and errors
+    ├── database  # MariaDB/SQLx adapter
+    └── services  # application services
 ```
 
-MariaDB is planned infrastructure and is optional and unused by this baseline. When persistence is implemented, database access belongs in repositories.
+Business logic remains independent from Axum, Leptos, SQLx, and MariaDB. Database access is isolated in `crates/database`.
 
-## Prerequisites
+## Endpoints
 
-- Rust stable (edition 2021)
-- Optional: Docker, only for local MariaDB
-- Node.js/npm only if required by the Tailwind build tooling introduced for `apps/web`
+API (`http://127.0.0.1:3000`):
 
-## Setup
+- `GET /health` — application and MariaDB health. Returns `200` when both are healthy and `503` when MariaDB is unavailable.
+- `GET /api/v1/hello` — greeting endpoint.
+- `POST /api/v1/echo` — validated echo endpoint.
+- `GET /api/v1/openapi.json` — OpenAPI 3.0 document.
+- `GET /swagger` — Swagger UI.
 
-```bash
-git clone https://github.com/doanson44/MiniRust.git
-cd MiniRust
-cp .env.example .env
-```
+Web (`http://127.0.0.1:3001`):
 
-`.env` is loaded automatically when present. It is not required for development defaults.
+- `GET /` — SSR index page.
+- `GET /health` — web process health.
 
-## Environment configuration
+## Environment
 
-| Variable | Default (development) | Purpose |
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| `MINIRUST_ENV` | `development` | `development` or `production` |
-| `MINIRUST_LOG` | `info` | Fallback tracing filter when `RUST_LOG` is unset |
+| `MINIRUST_ENV` | `development` | Runtime environment |
+| `MINIRUST_LOG` | `info` | Fallback tracing filter |
 | `MINIRUST_API_HOST` | `127.0.0.1` | API bind host |
 | `MINIRUST_API_PORT` | `3000` | API bind port |
 | `MINIRUST_WEB_HOST` | `127.0.0.1` | Web bind host |
 | `MINIRUST_WEB_PORT` | `3001` | Web bind port |
-| `MINIRUST_DATABASE_URL` | unset | MariaDB connection URL used by SQLx when persistence is implemented |
+| `MINIRUST_DATABASE_URL` | required by API | MariaDB SQLx connection URL |
 
-In production (`MINIRUST_ENV=production`), the process being started requires explicit host and port variables. The API requires `MINIRUST_API_HOST` and `MINIRUST_API_PORT`. The web app requires `MINIRUST_WEB_HOST` and `MINIRUST_WEB_PORT`.
+## Run locally
 
-Do not put secrets in logs or in committed files. `RUST_LOG` overrides `MINIRUST_LOG` when set.
-
-## Run
-
-API:
+Start MariaDB, create the database, and set `MINIRUST_DATABASE_URL` in `.env`, then run:
 
 ```bash
 cargo run -p minirust-api
-```
-
-- `GET http://127.0.0.1:3000/health`
-- `GET http://127.0.0.1:3000/api/v1/hello`
-
-Web:
-
-```bash
 cargo run -p minirust-web
 ```
 
-- `GET http://127.0.0.1:3001/` renders the SSR page
-- `GET http://127.0.0.1:3001/health`
+## Docker Compose
 
-Press `Ctrl+C` to shut down either process.
+The complete local stack is MariaDB + API + web:
 
-## Test, format, and lint
+```bash
+docker compose up -d --build
+```
+
+Check service state:
+
+```bash
+docker compose ps
+curl http://127.0.0.1:3000/health
+```
+
+The API waits for MariaDB to become healthy before starting. Its `/health` endpoint then performs `SELECT 1` against MariaDB, so the endpoint represents actual database connectivity rather than process liveness alone.
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+Remove the MariaDB volume as well:
+
+```bash
+docker compose down -v
+```
+
+## Verification
 
 ```bash
 cargo test --workspace --all-targets
@@ -122,16 +128,3 @@ cargo fmt --all -- --check
 cargo check --workspace
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 ```
-
-MariaDB is not required for these commands while persistence remains unimplemented.
-
-## Docker
-
-`docker-compose.yml` defines an optional MariaDB container behind the `infra` profile. It is for later persistence features, not for the default developer workflow.
-
-```bash
-docker compose --profile infra up -d
-docker compose --profile infra down
-```
-
-MariaDB is exposed on localhost:3306. The baseline applications still start without Docker.
