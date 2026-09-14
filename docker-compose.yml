@@ -1,23 +1,59 @@
-# Optional local infrastructure. Not required to compile or run the baseline.
-#
-# Start:
-#   docker compose --profile infra up -d
-#
-# Stop:
-#   docker compose --profile infra down
-#
-# MariaDB is available at localhost:3306.
-#
-# The API and web applications do not connect to this service yet.
-
 services:
   mariadb:
     image: mariadb:11
-    profiles: ["infra"]
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-minirust}
+      MARIADB_USER: ${MARIADB_USER:-minirust}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-minirust}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root}
     ports:
       - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u root -p$$MARIADB_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
     environment:
-      MARIADB_DATABASE: minirust
-      MARIADB_USER: minirust
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-}
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-}
+      MINIRUST_ENV: production
+      MINIRUST_API_HOST: 0.0.0.0
+      MINIRUST_API_PORT: 3000
+      MINIRUST_DATABASE_URL: mysql://${MARIADB_USER:-minirust}:${MARIADB_PASSWORD:-minirust}@mariadb:3306/${MARIADB_DATABASE:-minirust}
+    ports:
+      - "3000:3000"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      MINIRUST_ENV: production
+      MINIRUST_WEB_HOST: 0.0.0.0
+      MINIRUST_WEB_PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  mariadb_data:
