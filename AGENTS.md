@@ -14,4 +14,4 @@ Frontend standard:
 - Tailwind CSS is the only CSS framework for the frontend.
 - Do not add Bootstrap or another CSS/UI framework, and do not preserve Bootstrap compatibility.
 
-Do not implement authentication, CMS, MariaDB persistence, Redis, Telegram, AI, or other product features unless the user explicitly asks. Inspect the tree before changing it. Prefer the smallest change that preserves the workspace layout (`apps/*`, `crates/*`).
+Do not implement authentication, CMS, MariaDB, Telegram, AI, or other product features unless the user explicitly asks. Inspect the tree before changing it. Prefer the smallest change that preserves the workspace layout (`apps/*`, `crates/*`).
