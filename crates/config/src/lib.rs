@@ -1,7 +1,7 @@
 //! Application configuration loaded from the process environment.
 //!
 //! A `.env` file is loaded when present. Missing `.env` is not an error.
-//! Database and Redis URLs are accepted but unused by the current baseline.
+//! The database URL targets MariaDB through SQLx's `mysql` driver.
 
 use std::env;
 use std::fmt;
@@ -85,7 +85,7 @@ pub enum ServerKind {
 pub struct Config {
     pub environment: Environment,
     pub log_filter: String,
-    /// Optional SQL Server connection string. Unused by the baseline.
+    /// Optional MariaDB connection URL. Unused by the baseline.
     pub database_url: Option<String>,
     /// Optional Redis URL. Unused by the baseline.
     pub redis_url: Option<String>,
