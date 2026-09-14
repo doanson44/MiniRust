@@ -16,7 +16,7 @@ Working today:
 - Environment configuration via `dotenvy`
 - Structured logging via `tracing`
 - Health and hello endpoints
-- Optional Docker Compose services for later MariaDB and Redis work
+- Optional Docker Compose services for later MariaDB work
 
 Frontend styling policy:
 
@@ -29,7 +29,6 @@ Not implemented yet:
 - Authentication
 - CMS, blog, user center, file manager
 - MariaDB persistence
-- Redis cache, sessions, or rate limiting
 - Telegram bot
 - Background workers
 - AI, market data, resume builder, WebSocket, monitoring, and other product features
@@ -46,7 +45,7 @@ Application Service
 Domain types (core)
 ```
 
-Infrastructure adapters (MariaDB/SQLx, Redis, Telegram, AI vendors) are not wired into startup. Future crates can be added under `crates/` without moving the existing apps.
+Infrastructure adapters (MariaDB/SQLx, Telegram, AI vendors) are not wired into startup. Future crates can be added under `crates/` without moving the existing apps.
 
 ```text
 MiniRust/
@@ -59,12 +58,12 @@ MiniRust/
     └── services
 ```
 
-MariaDB and Redis are planned infrastructure. They are optional and unused by this baseline. When those features exist, persistence belongs in repositories, cache entries must have a TTL, and Redis must not be the source of truth for permanent business data.
+MariaDB is planned infrastructure and is optional and unused by this baseline. When persistence is implemented, database access belongs in repositories.
 
 ## Prerequisites
 
 - Rust stable (edition 2021)
-- Optional: Docker, only for local MariaDB or Redis
+- Optional: Docker, only for local MariaDB
 - Node.js/npm only if required by the Tailwind build tooling introduced for `apps/web`
 
 ## Setup
@@ -88,7 +87,6 @@ cp .env.example .env
 | `MINIRUST_WEB_HOST` | `127.0.0.1` | Web bind host |
 | `MINIRUST_WEB_PORT` | `3001` | Web bind port |
 | `MINIRUST_DATABASE_URL` | unset | MariaDB connection URL used by SQLx when persistence is implemented |
-| `MINIRUST_REDIS_URL` | unset | Redis connection URL |
 
 In production (`MINIRUST_ENV=production`), the process being started requires explicit host and port variables. The API requires `MINIRUST_API_HOST` and `MINIRUST_API_PORT`. The web app requires `MINIRUST_WEB_HOST` and `MINIRUST_WEB_PORT`.
 
@@ -125,11 +123,11 @@ cargo check --workspace
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 ```
 
-MariaDB and Redis are not required for these commands while persistence remains unimplemented.
+MariaDB is not required for these commands while persistence remains unimplemented.
 
 ## Docker
 
-`docker-compose.yml` defines optional MariaDB and Redis containers behind the `infra` profile. They are for later features, not for the default developer workflow.
+`docker-compose.yml` defines an optional MariaDB container behind the `infra` profile. It is for later persistence features, not for the default developer workflow.
 
 ```bash
 docker compose --profile infra up -d
