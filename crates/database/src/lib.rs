@@ -17,6 +17,9 @@ impl Database {
     }
 
     pub async fn health(&self) -> Result<(), sqlx::Error> {
-        sqlx::query("SELECT 1").execute(&self.pool).await.map(|_| ())
+        sqlx::query("SELECT 1")
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
     }
 }

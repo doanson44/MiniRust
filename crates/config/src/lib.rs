@@ -102,15 +102,25 @@ impl Config {
     }
 
     pub fn database_url(&self) -> Result<&str, ConfigError> {
-        self.database_url.as_deref().ok_or_else(|| {
-            ConfigError::MissingRequired(ENV_DATABASE_URL.to_owned())
-        })
+        self.database_url
+            .as_deref()
+            .ok_or_else(|| ConfigError::MissingRequired(ENV_DATABASE_URL.to_owned()))
     }
 
     pub fn server_bind(&self, kind: ServerKind) -> Result<ServerBind, ConfigError> {
         match kind {
-            ServerKind::Api => read_server_bind(self.environment, ENV_API_HOST, ENV_API_PORT, DEFAULT_API_PORT),
-            ServerKind::Web => read_server_bind(self.environment, ENV_WEB_HOST, ENV_WEB_PORT, DEFAULT_WEB_PORT),
+            ServerKind::Api => read_server_bind(
+                self.environment,
+                ENV_API_HOST,
+                ENV_API_PORT,
+                DEFAULT_API_PORT,
+            ),
+            ServerKind::Web => read_server_bind(
+                self.environment,
+                ENV_WEB_HOST,
+                ENV_WEB_PORT,
+                DEFAULT_WEB_PORT,
+            ),
         }
     }
 }
@@ -119,17 +129,28 @@ impl Config {
 pub enum ConfigError {
     Dotenv(String),
     MissingRequired(String),
-    InvalidPort { name: String, source: ParseIntError },
-    InvalidAddress { host: String, port: u16, source: AddrParseError },
+    InvalidPort {
+        name: String,
+        source: ParseIntError,
+    },
+    InvalidAddress {
+        host: String,
+        port: u16,
+        source: AddrParseError,
+    },
 }
 
 impl fmt::Display for ConfigError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Dotenv(message) => write!(formatter, "failed to load .env: {message}"),
-            Self::MissingRequired(name) => write!(formatter, "{name} is required when MINIRUST_ENV=production"),
+            Self::MissingRequired(name) => {
+                write!(formatter, "{name} is required when MINIRUST_ENV=production")
+            }
             Self::InvalidPort { name, source } => write!(formatter, "invalid {name}: {source}"),
-            Self::InvalidAddress { host, port, source } => write!(formatter, "invalid server address {host}:{port}: {source}"),
+            Self::InvalidAddress { host, port, source } => {
+                write!(formatter, "invalid server address {host}:{port}: {source}")
+            }
         }
     }
 }
@@ -145,7 +166,9 @@ impl std::error::Error for ConfigError {
 }
 
 impl From<ConfigError> for AppError {
-    fn from(error: ConfigError) -> Self { AppError::config(error.to_string()) }
+    fn from(error: ConfigError) -> Self {
+        AppError::config(error.to_string())
+    }
 }
 
 fn read_or_default(name: &str, default: &str) -> String {
@@ -169,7 +192,12 @@ fn require_var(name: &str) -> Result<String, ConfigError> {
     }
 }
 
-fn read_server_bind(environment: Environment, host_var: &str, port_var: &str, default_port: u16) -> Result<ServerBind, ConfigError> {
+fn read_server_bind(
+    environment: Environment,
+    host_var: &str,
+    port_var: &str,
+    default_port: u16,
+) -> Result<ServerBind, ConfigError> {
     match environment {
         Environment::Development => {
             let host = read_or_default(host_var, DEFAULT_HOST);
@@ -187,5 +215,8 @@ fn read_server_bind(environment: Environment, host_var: &str, port_var: &str, de
 }
 
 fn parse_port(name: &str, value: &str) -> Result<u16, ConfigError> {
-    value.parse().map_err(|source| ConfigError::InvalidPort { name: name.to_owned(), source })
+    value.parse().map_err(|source| ConfigError::InvalidPort {
+        name: name.to_owned(),
+        source,
+    })
 }

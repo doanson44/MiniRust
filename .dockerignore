@@ -1,0 +1,26 @@
+﻿# Rust build artifacts - never send to Docker
+target/
+
+# Git
+.git/
+.gitignore
+
+# Local env files (never in image)
+.env
+.env.local
+.env.*.local
+
+# IDE configs
+.cursor/
+.agents/
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs / CI (not needed at runtime)
+*.md
+.github/
+LICENSE

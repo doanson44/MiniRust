@@ -5,7 +5,11 @@ use tracing_subscriber::EnvFilter;
 
 fn init_tracing(log_filter: &str) {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_filter));
-    tracing_subscriber::fmt().with_env_filter(filter).with_target(true).compact().init();
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(true)
+        .compact()
+        .init();
 }
 
 async fn shutdown_signal() {
