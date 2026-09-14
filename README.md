@@ -12,10 +12,17 @@ Working today:
 - Shared `core`, `config`, and `services` crates
 - Axum REST API (`apps/api`)
 - Leptos SSR web app (`apps/web`)
+- Tailwind CSS as the frontend CSS framework
 - Environment configuration via `dotenvy`
 - Structured logging via `tracing`
 - Health and hello endpoints
 - Optional Docker Compose services for later MariaDB and Redis work
+
+Frontend styling policy:
+
+- Tailwind CSS is the only CSS framework used by MiniRust.
+- Bootstrap is not used and must not be introduced.
+- UI components should use Leptos and Tailwind utility classes.
 
 Not implemented yet:
 
@@ -30,7 +37,7 @@ Not implemented yet:
 ## Architecture
 
 ```text
-UI (Leptos SSR)
+UI (Leptos SSR + Tailwind CSS)
  ↓
 Handler (Axum)
  ↓
@@ -45,7 +52,7 @@ Infrastructure adapters (MariaDB/SQLx, Redis, Telegram, AI vendors) are not wire
 MiniRust/
 ├── apps/
 │   ├── api     # Axum REST API
-│   └── web     # Leptos SSR
+│   └── web     # Leptos SSR + Tailwind CSS
 └── crates/
     ├── config  # environment configuration
     ├── core    # shared types and errors
@@ -58,6 +65,7 @@ MariaDB and Redis are planned infrastructure. They are optional and unused by th
 
 - Rust stable (edition 2021)
 - Optional: Docker, only for local MariaDB or Redis
+- Node.js/npm only if required by the Tailwind build tooling introduced for `apps/web`
 
 ## Setup
 
