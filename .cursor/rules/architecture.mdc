@@ -5,22 +5,25 @@ alwaysApply: true
 
 # MiniRust architecture
 
-Stack: Rust, Tokio, Axum, Leptos SSR, tracing, dotenvy. Planned later: MariaDB/SQLx, Redis, JWT, Teloxide. Do not take those dependencies unless the feature needs them.
+Stack: Rust, Tokio, Axum, Leptos SSR, Tailwind CSS, tracing, dotenvy. Planned later: MariaDB/SQLx, Redis, JWT, Teloxide. Do not take those dependencies unless the feature needs them.
 
 Layout:
 
 ```text
 apps/api          Axum REST
-apps/web          Leptos SSR
+apps/web          Leptos SSR + Tailwind CSS UI
 crates/config     env configuration
 crates/core       domain types and AppError (no Axum/Leptos/SQLx/Redis)
 crates/services   business logic shared by apps
 ```
 
-Layering: UI → Handler → Application service → Domain (`core`) → Repository/adapter → Infrastructure.
+Layering: UI (Leptos + Tailwind) → Handler → Application service → Domain (`core`) → Repository/adapter → Infrastructure.
 
 - Handlers stay thin. Put rules in `crates/services`.
-- `core` and `services` must not depend on Axum, Leptos, MariaDB, SQLx, Redis, Teloxide, or vendor SDKs.
+- `core` and `services` must not depend on Axum, Leptos, Tailwind CSS, MariaDB, SQLx, Redis, Teloxide, or vendor SDKs.
+- `apps/web` owns presentation concerns. Tailwind CSS is the only CSS framework for the frontend.
+- Do not add Bootstrap or another CSS/UI framework. Do not maintain Bootstrap compatibility.
+- Prefer Tailwind utility classes and small reusable Leptos components over framework-specific CSS abstractions.
 - Do not create empty speculative crates. Add `apps/bot`, `apps/worker`, or extra `crates/*` only when implementing that feature.
 - MariaDB and Redis stay optional at startup. Redis is never the source of truth. Cache entries need a TTL when cache exists.
 - Do not commit secrets. Do not log passwords or tokens.
