@@ -4,7 +4,7 @@ COPY . .
 RUN cargo build --release -p minirust-api
 
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/release/minirust-api /usr/local/bin/minirust-api
 EXPOSE 3000
 CMD ["/usr/local/bin/minirust-api"]
