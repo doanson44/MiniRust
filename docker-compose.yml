@@ -6,9 +6,8 @@
 # Stop:
 #   docker compose --profile infra down
 #
-# SQL Server requires MSSQL_SA_PASSWORD in the environment or a local `.env`.
+# MariaDB is available at localhost:3306.
 # Redis is available at redis://127.0.0.1:6379/
-# SQL Server is available at localhost:1433
 #
 # The API and web applications do not connect to these services yet.
 
@@ -20,11 +19,13 @@ services:
       - "6379:6379"
     command: ["redis-server", "--save", "", "--appendonly", "no"]
 
-  mssql:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+  mariadb:
+    image: mariadb:11
     profiles: ["infra"]
     ports:
-      - "1433:1433"
+      - "3306:3306"
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-}
+      MARIADB_DATABASE: minirust
+      MARIADB_USER: minirust
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-}
