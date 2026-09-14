@@ -26,6 +26,9 @@ User request
 
 - Handlers call services. Services do not import Axum or Leptos.
 - Persistence goes in a repository/adapter, not in a service.
+- Frontend presentation belongs in `apps/web` and uses Leptos + Tailwind CSS.
+- Tailwind CSS is the only CSS framework. Do not add Bootstrap or another CSS/UI framework.
+- Prefer Tailwind utility classes and reusable Leptos components; avoid unnecessary framework-specific CSS layers.
 - If MariaDB or Redis is needed, keep startup working when the service is unset unless the feature cannot run without it.
 - MariaDB persistence should use SQLx's `mysql` driver.
 - Redis: TTL on every entry; never store permanent business data.
