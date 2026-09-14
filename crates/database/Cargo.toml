@@ -1,0 +1,9 @@
+[package]
+name = "minirust-database"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "MariaDB database adapter for MiniRust"
+
+[dependencies]
+sqlx.workspace = true
