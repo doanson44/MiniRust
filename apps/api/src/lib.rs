@@ -107,22 +107,3 @@ async fn swagger_ui() -> impl IntoResponse {
     let html = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MiniRust API</title><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>window.onload=()=>SwaggerUIBundle({url:'/api/v1/openapi.json',dom_id:'#swagger-ui'});</script></body></html>"#;
     ([ (axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8") ], html)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::body::Body;
-    use axum::http::{header, Request};
-    use tower::ServiceExt;
-
-    async fn body_string(response: Response) -> String {
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        String::from_utf8(bytes.to_vec()).unwrap()
-    }
-
-    fn post_json(uri: &str, body: &str) -> Request<Body> {
-        Request::post(uri).header(header::CONTENT_TYPE, "application/json").body(Body::from(body.to_owned())).unwrap()
-    }
-
-    // Database-dependent routes are covered by integration tests against the Docker MariaDB service.
-}
