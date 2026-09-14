@@ -1,4 +1,4 @@
-﻿---
+---
 name: pull-and-build
 description: >-
   Pulls latest code on the current branch, then builds the workspace and
@@ -55,19 +55,31 @@ git pull --ff-only
 
 ---
 
-## Phase 3 — Smart Build (iterative fix loop)
+## Phase 3 — Format & Check
+
+Ensure the code is formatted and the `Cargo.lock` is up-to-date with any new dependencies.
+
+```powershell
+cargo fmt --all
+cargo check --workspace
+```
+If `cargo check` fails, it might be due to `Cargo.lock` drift. The command will automatically update it if run without `--locked`.
+
+---
+
+## Phase 4 — Smart Build (iterative fix loop)
 
 Run build and fix errors in a loop. **Maximum 3 fix iterations** to avoid infinite loops.
 
-### 3a. Initial build attempt
+### 4a. Initial build attempt
 
 ```powershell
 cargo build --workspace 2>&1
 ```
 
-If this succeeds with zero errors → jump to Phase 4.
+If this succeeds with zero errors → jump to Phase 5.
 
-### 3b. Fix loop (repeat up to 3 times if errors remain)
+### 4b. Fix loop (repeat up to 3 times if errors remain)
 
 For each iteration:
 
@@ -95,9 +107,9 @@ For each iteration:
    cargo build --workspace 2>&1
    ```
 
-5. If build succeeds → break out of loop. If still failing after 3 iterations → go to Phase 3c.
+5. If build succeeds → break out of loop. If still failing after 3 iterations → go to Phase 4c.
 
-### 3c. Escalation (if 3 iterations exhausted)
+### 4c. Escalation (if 3 iterations exhausted)
 
 - Report all remaining errors with full context (file, line, error code, message).
 - List what was tried and why it did not resolve.
@@ -105,7 +117,7 @@ For each iteration:
 
 ---
 
-## Phase 4 — Clippy check
+## Phase 5 — Clippy check
 
 ```powershell
 cargo clippy --workspace --all-targets --all-features -- -D warnings 2>&1
@@ -121,7 +133,7 @@ Common quick fixes:
 
 ---
 
-## Phase 5 — Tests
+## Phase 6 — Tests
 
 ```powershell
 cargo test --workspace --all-targets 2>&1
@@ -135,7 +147,7 @@ If tests fail:
 
 ---
 
-## Phase 6 — Report
+## Phase 7 — Report
 
 Produce a concise summary:
 
@@ -145,6 +157,9 @@ Produce a concise summary:
 Branch:   <branch-name>
 Commits:  <before-hash>..<after-hash>  (<N> new commits)
 Stash:    <none | stash@{0}: pre-pull stash>
+
+### Format & Check
+- [PASS|FAIL] cargo fmt & cargo check
 
 ### Build
 - [PASS|FAIL] cargo build --workspace
