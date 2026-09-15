@@ -9,14 +9,22 @@ alwaysApply: false
 SSR-only Leptos (`features = ["ssr"]`), served by Axum. Do not add hydration, `cargo-leptos`, or WASM unless the user asks.
 
 - Render with `view! { ... }.to_html()` and prefix `<!DOCTYPE html>`.
-- Call `GreetingService` / `HealthService`. Do not duplicate API business rules.
+- Call application services/queries. Do not duplicate API business rules.
 - Default development address is `127.0.0.1:3001`.
-- Baseline routes: `GET /` (HTML), `GET /health`.
-- Do not build CMS, auth UI, dashboards, or resume tools here yet.
+- Baseline routes: `GET /` (SSR landing page), `GET /health`.
 
-```rust
-pub fn render_home_page(message: &str) -> String {
-    let html = view! { <HomePage message=message.to_owned()/> }.to_html();
-    format!("<!DOCTYPE html>{html}")
-}
-```
+## Responsive UI
+
+- Every user-facing page MUST be responsive on mobile, tablet, and desktop.
+- Use mobile-first Tailwind utilities and responsive variants such as `sm:`, `md:`, `lg:`, and `xl:`.
+- Avoid fixed desktop widths and layouts that can create horizontal scrolling.
+- Responsive navigation, typography, grids, spacing, and CTA layouts must be intentional.
+- Include viewport metadata and preserve keyboard focus visibility.
+- Prefer semantic HTML, accessible labels, and adequate contrast.
+- Verify representative narrow, medium, and wide viewport behavior when browser tooling is available.
+
+## Styling
+
+- Tailwind CSS is the only CSS framework.
+- No Bootstrap, DaisyUI, or ad-hoc inline styles.
+- Tailwind Play CDN is development-only until a production CSS build pipeline is introduced.
