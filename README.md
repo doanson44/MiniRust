@@ -1,67 +1,77 @@
 # MiniRust
 
-Rust workspace for a small, extensible web platform.
+Rust workspace for a large, extensible web platform.
 
-The repository provides a runnable API, Leptos SSR web page, MariaDB connectivity, health checks, Swagger UI, and Docker Compose orchestration.
-
-## Current scope
-
-Working today:
-
-- Cargo workspace
-- Shared `core`, `config`, `database`, and `services` crates
-- Axum REST API (`apps/api`)
-- Leptos SSR web app (`apps/web`)
-- Tailwind CSS as the frontend CSS framework
-- MariaDB access through SQLx
-- `/health` with a live MariaDB connectivity check
-- OpenAPI document at `/api/v1/openapi.json`
-- Swagger UI at `/swagger`
-- Docker Compose for MariaDB, API, and web
-
-Frontend styling policy:
-
-- Tailwind CSS is the only CSS framework used by MiniRust.
-- Bootstrap is not used and must not be introduced.
-- UI components should use Leptos and Tailwind utility classes.
+The current baseline provides a runnable Axum API, Leptos SSR web application, MariaDB connectivity, health checks, Swagger UI, and Docker Compose orchestration. The application layer is being structured around CQRS so the repository can scale to many bounded contexts and a large number of independent features.
 
 ## Architecture
 
+MiniRust follows a **CQRS-oriented modular monolith** with domain boundaries designed for future service extraction.
+
 ```text
-UI (Leptos SSR + Tailwind CSS)
- ↓
-Handler (Axum)
- ↓
-Application Service
- ↓
-Domain types (core)
- ↓
-Database adapter
- ↓
-MariaDB
+Leptos SSR / Axum
+       ↓
+Transport handlers
+       ↓
+Commands ─────────────── Queries
+       ↓                      ↓
+Command handlers        Query handlers
+       ↓                      ↓
+Domain / write model   Read models / DTOs
+       ↓                      ↓
+Write repositories      Read repositories
+       └──────────┬───────────┘
+                  ↓
+               MariaDB
 ```
+
+CQRS is applied at the application boundary. The initial implementation intentionally uses one MariaDB database; separate read storage and asynchronous messaging are evolutionary steps, not prerequisites.
+
+See:
+
+- [`docs/architecture/README.md`](docs/architecture/README.md) — architecture blueprint and evolution path
+- [`docs/architecture/cqrs.md`](docs/architecture/cqrs.md) — command/query, repository, transaction, event, and consistency rules
+- [`docs/architecture/team-development.md`](docs/architecture/team-development.md) — team ownership and bounded-context rules
+
+## Current workspace
 
 ```text
 MiniRust/
 ├── apps/
-│   ├── api     # Axum REST API
-│   └── web     # Leptos SSR + Tailwind CSS
+│   ├── api/              # Axum REST transport
+│   └── web/              # Leptos SSR + Tailwind CSS
 └── crates/
-    ├── config    # environment configuration
-    ├── core      # shared types and errors
-    ├── database  # MariaDB/SQLx adapter
-    └── services  # application services
+    ├── config/           # environment configuration
+    ├── core/             # domain primitives and application errors
+    ├── database/         # MariaDB / SQLx infrastructure
+    └── services/         # current application-layer package; CQRS commands/queries
 ```
 
-Business logic remains independent from Axum, Leptos, SQLx, and MariaDB. Database access is isolated in `crates/database`.
+The `services` package name is retained temporarily for Cargo workspace compatibility during the CQRS migration. Its internal structure is no longer a generic service collection: application behavior is organized under `commands/` and `queries/`.
 
-## Endpoints
+## CQRS baseline
+
+The current baseline demonstrates both sides of CQRS:
+
+- `EchoCommand` → `EchoCommandHandler` for a write-side operation.
+- `GreetingQuery` → `GreetingQueryHandler` for a read-side operation.
+- Axum handlers translate HTTP into commands/queries and map results into HTTP responses.
+- Leptos uses the query handler for SSR data.
+- Database health remains infrastructure health logic and is intentionally not forced through CQRS.
+
+## Frontend policy
+
+- Leptos SSR is the web rendering model.
+- Tailwind CSS is the only CSS framework.
+- Bootstrap must not be introduced or preserved as a compatibility layer.
+
+## API endpoints
 
 API (`http://127.0.0.1:3000`):
 
-- `GET /health` — application and MariaDB health. Returns `200` when both are healthy and `503` when MariaDB is unavailable.
-- `GET /api/v1/hello` — greeting endpoint.
-- `POST /api/v1/echo` — validated echo endpoint.
+- `GET /health` — live MariaDB connectivity check. Returns `200` when the database is reachable and `503` otherwise.
+- `GET /api/v1/hello` — greeting query.
+- `POST /api/v1/echo` — echo command.
 - `GET /api/v1/openapi.json` — OpenAPI 3.0 document.
 - `GET /swagger` — Swagger UI.
 
@@ -69,6 +79,12 @@ Web (`http://127.0.0.1:3001`):
 
 - `GET /` — SSR index page.
 - `GET /health` — web process health.
+
+## Database
+
+MariaDB is the selected relational database. SQLx uses its `mysql` driver for MariaDB connectivity.
+
+The API requires `MINIRUST_DATABASE_URL` because its current startup contract establishes a live database connection before serving requests.
 
 ## Environment
 
@@ -84,7 +100,7 @@ Web (`http://127.0.0.1:3001`):
 
 ## Run locally
 
-Start MariaDB, create the database, and set `MINIRUST_DATABASE_URL` in `.env`, then run:
+Start MariaDB, create the database, and set `MINIRUST_DATABASE_URL` in `.env`:
 
 ```bash
 cargo run -p minirust-api
@@ -93,20 +109,18 @@ cargo run -p minirust-web
 
 ## Docker Compose
 
-The complete local stack is MariaDB + API + web:
-
 ```bash
 docker compose up -d --build
 ```
 
-Check service state:
+Check service state and database health:
 
 ```bash
 docker compose ps
 curl http://127.0.0.1:3000/health
 ```
 
-The API waits for MariaDB to become healthy before starting. Its `/health` endpoint then performs `SELECT 1` against MariaDB, so the endpoint represents actual database connectivity rather than process liveness alone.
+The API waits for MariaDB to become healthy before starting. Its `/health` endpoint executes `SELECT 1`, so it verifies actual database connectivity.
 
 Stop the stack:
 
@@ -122,9 +136,14 @@ docker compose down -v
 
 ## Verification
 
+The CI pipeline runs:
+
 ```bash
-cargo test --workspace --all-targets
 cargo fmt --all -- --check
-cargo check --workspace
-cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo check --workspace --locked
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --locked --all-targets
+cargo build --workspace --locked
 ```
+
+Do not claim verification unless the commands were actually executed.
