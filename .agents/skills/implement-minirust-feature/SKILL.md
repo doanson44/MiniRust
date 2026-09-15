@@ -60,10 +60,13 @@ The current application package is `crates/services`; its internal structure is 
 ## Phase 4 — Tests
 
 - Unit-test domain invariants and command/query handlers.
-- API tests use `router().oneshot(...)`.
-- SSR tests validate rendered HTML.
+- **Every HTTP endpoint introduced or modified MUST have an integration test.**
+- Endpoint integration tests MUST exercise the real Axum router with `router().oneshot(...)` rather than calling transport handlers directly.
+- Cover the endpoint's success contract and meaningful validation/error paths.
+- If an endpoint depends on MariaDB, integration-test it against real MariaDB using the Docker-backed test environment.
 - Persistence tests are added when a repository is introduced.
 - Test idempotency and concurrency behavior when the command requires it.
+- Before completion, compare registered HTTP routes with integration tests and resolve every uncovered endpoint or document a justified exception.
 
 ## Phase 5 — Validate
 
