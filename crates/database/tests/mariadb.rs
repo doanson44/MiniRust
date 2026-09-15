@@ -16,7 +16,8 @@ impl MariaDbTestEnvironment {
             return Err(error);
         }
 
-        let output = match run_compose_output(&project_name, ["port", "mariadb", "3306"].as_slice()) {
+        let output = match run_compose_output(&project_name, ["port", "mariadb", "3306"].as_slice())
+        {
             Ok(output) if output.status.success() => output,
             Ok(output) => {
                 let _ = cleanup_compose(&project_name);
@@ -104,7 +105,8 @@ fn cleanup_compose(project_name: &str) -> Result<(), Box<dyn std::error::Error>>
 }
 
 #[tokio::test]
-async fn database_connects_to_mariadb_running_in_docker() -> Result<(), Box<dyn std::error::Error>> {
+async fn database_connects_to_mariadb_running_in_docker() -> Result<(), Box<dyn std::error::Error>>
+{
     let environment = MariaDbTestEnvironment::start()?;
     let database = Database::connect(&environment.database_url()).await?;
 

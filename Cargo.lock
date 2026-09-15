@@ -1301,6 +1301,7 @@ name = "minirust-database"
 version = "0.1.0"
 dependencies = [
  "sqlx",
+ "tokio",
 ]
 
 [[package]]

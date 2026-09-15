@@ -7,3 +7,6 @@ description = "MariaDB database adapter for MiniRust"
 
 [dependencies]
 sqlx.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
