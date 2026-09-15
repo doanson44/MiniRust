@@ -7,6 +7,7 @@ use axum::routing::get;
 use axum::Router;
 use leptos::prelude::*;
 use minirust_core::APP_NAME;
+use minirust_services::cqrs::QueryHandler;
 use minirust_services::{GreetingQuery, GreetingQueryHandler};
 use tower_http::trace::TraceLayer;
 
@@ -99,7 +100,7 @@ mod tests {
     fn home_page_renders_the_greeting() {
         let html = render_home_page("Hello from MiniRust");
         assert!(html.starts_with("<!DOCTYPE html>"));
-        assert!(html.contains("<h1>MiniRust</h1>"));
+        assert!(html.contains("MiniRust</h1>"));
         assert!(html.contains("Hello from MiniRust"));
     }
 

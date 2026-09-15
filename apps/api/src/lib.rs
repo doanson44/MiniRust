@@ -9,6 +9,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use minirust_core::AppError;
 use minirust_database::Database;
+use minirust_services::cqrs::{CommandHandler, QueryHandler};
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
 use response::{ApiResponse, ProblemDetails};
 use serde::{Deserialize, Serialize};
