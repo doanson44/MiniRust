@@ -7,21 +7,19 @@ use axum::routing::get;
 use axum::Router;
 use leptos::prelude::*;
 use minirust_core::APP_NAME;
-use minirust_services::{GreetingService, HealthService};
+use minirust_services::{GreetingQuery, GreetingQueryHandler};
 use tower_http::trace::TraceLayer;
 
 /// Shared web application state.
 #[derive(Clone)]
 pub struct AppState {
-    pub health: HealthService,
-    pub greetings: GreetingService,
+    pub greeting: GreetingQueryHandler,
 }
 
 impl AppState {
     pub fn new() -> Self {
         Self {
-            health: HealthService,
-            greetings: GreetingService,
+            greeting: GreetingQueryHandler,
         }
     }
 }
@@ -42,9 +40,9 @@ fn HomePage(message: String) -> impl IntoView {
                 <title>{APP_NAME}</title>
             </head>
             <body>
-                <main>
-                    <h1>{APP_NAME}</h1>
-                    <p>{message}</p>
+                <main class="mx-auto max-w-3xl p-8">
+                    <h1 class="text-3xl font-bold">{APP_NAME}</h1>
+                    <p class="mt-4">{message}</p>
                 </main>
             </body>
         </html>
@@ -67,7 +65,7 @@ pub fn router(state: AppState) -> Router {
 }
 
 async fn home(State(state): State<AppState>) -> impl IntoResponse {
-    let greeting = state.greetings.hello();
+    let greeting = state.greeting.handle(GreetingQuery);
     let html = render_home_page(&greeting.message);
     (
         StatusCode::OK,
@@ -79,9 +77,8 @@ async fn home(State(state): State<AppState>) -> impl IntoResponse {
     )
 }
 
-async fn health(State(state): State<AppState>) -> impl IntoResponse {
-    let status = state.health.status();
-    (StatusCode::OK, status.status)
+async fn health() -> impl IntoResponse {
+    (StatusCode::OK, "ok")
 }
 
 #[cfg(test)]
