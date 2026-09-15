@@ -1,39 +1,43 @@
 ---
 name: implement-minirust-feature
-description: Implements a MiniRust feature through UI/handler/service/domain/adapter layers without expanding into unrequested product work. Use when adding an endpoint, page, service, repository, or infrastructure adapter.
+description: Implements a MiniRust feature through CQRS, domain, persistence, and transport boundaries.
 ---
 
 # Implement a MiniRust feature
 
 ## Before coding
 
-1. Inspect the real tree. Docs describe intent; code is the source of truth.
-2. Implement only what the user asked. Auth, CMS, bot, workers, AI, market, resume, WebSocket stay out of scope until requested.
-3. Prefer extending `services` + a thin handler over a new crate.
+1. Inspect the real tree. Code is the source of truth.
+2. Identify the owning bounded context.
+3. Classify the operation as a command, query, infrastructure operation, or presentation-only change.
+4. Implement only the requested scope.
 
 ## Placement
 
 ```text
-User request
-  → apps/web handler + Leptos view     if it is a page
-  → apps/api handler                   if it is REST
-  → crates/services                    business rule used by more than one app
-  → crates/core                        shared types / AppError
-  → new adapter crate                  only when talking to MariaDB, Redis, Telegram, etc.
+REST transport              → apps/api
+SSR presentation            → apps/web
+Command                     → crates/services/commands
+Query                       → crates/services/queries
+Domain primitive            → crates/core or owning context
+Write persistence           → repository / database boundary
+Read persistence            → query repository / projection
+Cross-context integration   → explicit contract or integration event
 ```
 
 ## Rules
 
-- Handlers call services. Services do not import Axum or Leptos.
-- Persistence goes in a repository/adapter, not in a service.
-- Frontend presentation belongs in `apps/web` and uses Leptos + Tailwind CSS.
-- Tailwind CSS is the only CSS framework. Do not add Bootstrap or another CSS/UI framework.
-- Prefer Tailwind utility classes and reusable Leptos components; avoid unnecessary framework-specific CSS layers.
-- If MariaDB or Redis is needed, keep startup working when the service is unset unless the feature cannot run without it.
-- MariaDB persistence should use SQLx's `mysql` driver.
-- Redis: TTL on every entry; never store permanent business data.
-- Configuration: env vars + `.env.example` placeholders, no secrets in git or logs.
-- Tests: behavior of the new service and HTTP/HTML path.
+- Commands express business intent and may change state.
+- Queries never change state and return purpose-built read DTOs.
+- Transport handlers contain no business rules.
+- Persistence belongs behind repositories/adapters.
+- Domain code must not depend on Axum, Leptos, SQLx, MariaDB, or vendor SDKs.
+- Do not access another context's tables, repositories, or domain internals directly.
+- MariaDB persistence uses SQLx's `mysql` driver.
+- Tailwind CSS is the only frontend CSS framework.
+- Do not add Bootstrap compatibility.
+- Configuration uses environment variables and `.env.example` placeholders.
+- Never commit secrets or log credentials.
 
 ## After coding
 
