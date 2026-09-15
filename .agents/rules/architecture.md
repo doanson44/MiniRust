@@ -1,5 +1,5 @@
 ﻿---
-description: MiniRust architecture, scope, and technology stack. Loaded always.
+description: MiniRust architecture, CQRS boundaries, scope, and technology stack. Loaded always.
 trigger: always_on
 ---
 
@@ -9,46 +9,79 @@ trigger: always_on
 
 | Layer | Technology |
 |---|---|
-| API | Axum 0.8, Tokio, tower, tower-http (TraceLayer) |
+| API | Axum 0.8, Tokio, tower, tower-http |
 | Web | Leptos 0.8 SSR-only, Axum host, **Tailwind CSS** |
-| Shared logic | `crates/services` (pure Rust, no framework imports) |
-| Domain types | `crates/core` (AppError, domain structs) |
-| Configuration | `crates/config` (dotenvy, env vars) |
-| Database | SQLx 0.8 mysql driver (MariaDB) — **optional at startup** |
-| Logging | `tracing` + `tracing-subscriber` only |
+| Application | CQRS-oriented command/query modules in the current `crates/services` compatibility package |
+| Domain | `crates/core` — pure Rust domain types and `AppError` |
+| Configuration | `crates/config` — dotenvy and environment variables |
+| Database | SQLx 0.8 `mysql` driver for MariaDB |
+| Logging | `tracing` + `tracing-subscriber` |
 
 ## Workspace layout
 
-```
+```text
 apps/
-  api/        Axum REST   (127.0.0.1:3000)
-  web/        Leptos SSR  (127.0.0.1:3001)
+  api/        Axum REST transport
+  web/        Leptos SSR transport
 crates/
-  config/     Config::load(), env, secrets
-  core/       domain types, AppError (no Axum/Leptos/SQLx)
-  database/   SQLx pool, migrations (optional)
-  services/   business logic shared by apps
+  config/     configuration
+  core/       domain primitives and application errors
+  database/   MariaDB / SQLx infrastructure
+  services/   current application-layer package
+              ├── commands/
+              └── queries/
 ```
 
 ## Layering rule
 
-UI (Leptos + Tailwind) => Handler => Service => Domain (core) => Repository/Adapter => Infrastructure
+```text
+Transport
+   ↓
+Command / Query
+   ↓
+Application handler
+   ↓
+Domain or read model
+   ↓
+Repository / adapter
+   ↓
+Infrastructure
+```
 
-- **Handlers** stay thin: extract State, call service, return HTTP/HTML.
-- **`crates/services`**: all business rules. Never import Axum, Leptos, SQLx, Teloxide here.
-- **`crates/core`**: domain types and AppError. Zero framework dependencies.
-- **`apps/web`**: presentation only. **Tailwind CSS** is the only CSS framework. No Bootstrap.
-- Prefer Tailwind utility classes and small reusable Leptos components.
+- Commands represent business intent and may change state.
+- Queries never change state and return read DTOs/projections.
+- Handlers stay thin: translate transport input, invoke a command/query, map the result.
+- Domain code must not depend on Axum, Leptos, SQLx, MariaDB, or vendor SDKs.
+- Read-side code must not call command handlers.
+- Write-side code must not depend on presentation DTOs.
+- Cross-context access must use explicit contracts or integration events.
+- Direct access to another context's tables, aggregates, or repositories is forbidden.
 
-## Scope guard
+## CQRS evolution
 
-Do NOT implement authentication, CMS, MariaDB, Telegram, AI, Redis, WebSocket, or other product features unless the user explicitly asks.
+The first implementation uses one MariaDB database with logically separated read/write models. Separate read stores, transactional outbox processing, asynchronous integration events, and independent service deployment are later optimization steps.
+
+Do not introduce Event Sourcing or a message broker merely because CQRS exists. Add them when a concrete consistency, integration, audit, or scaling requirement justifies the complexity.
+
+## Frontend
+
+- `apps/web` is presentation only.
+- Tailwind CSS is the only CSS framework.
+- Bootstrap must not be introduced or preserved for compatibility.
+
+## Database
+
+MariaDB is the selected database. The API currently requires `MINIRUST_DATABASE_URL` during startup and `/health` performs a live `SELECT 1` connectivity check.
+
+## Scope
+
+Do not implement product features such as authentication, CMS, notifications, AI, market functionality, or other future domains unless explicitly requested. When a feature is requested, place it inside the appropriate bounded context rather than creating a global service collection.
 
 ## Hard rules
 
-- English identifiers, comments, and user-facing strings.
-- Never commit .env or real secrets. Update .env.example with placeholders only.
-- Do not commit, push, or open PRs unless the user explicitly requests it.
-- Do not create empty speculative crates. Add new apps/* or crates/* only when implementing that feature.
-- MariaDB optional: binary must start without a DB connection.
-- Always inspect the actual file tree before making any changes.
+- English identifiers, comments, documentation, and user-facing strings.
+- Never commit `.env` or real secrets.
+- Do not commit, push, or open a PR unless explicitly requested.
+- Do not create speculative empty bounded contexts.
+- Always inspect the actual tree before changing it.
+- Preserve explicit ownership boundaries so multiple teams can work independently.
