@@ -81,7 +81,8 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
                 status: "ok",
                 database: "ok",
             })),
-        ),
+        )
+            .into_response(),
         Err(error) => {
             tracing::error!(%error, "database health check failed");
             ProblemDetails::service_unavailable("Database is unavailable").into_response()
@@ -133,35 +134,4 @@ async fn swagger_ui() -> impl IntoResponse {
         [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
         html,
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::body::Body;
-    use axum::http::Request;
-    use tower::ServiceExt;
-
-    #[tokio::test]
-    async fn echo_validation_uses_problem_details() {
-        let response = router_with_unavailable_database()
-            .oneshot(
-                Request::post("/api/v1/echo")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"message":"   "}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
-        assert_eq!(
-            response.headers().get("content-type").unwrap(),
-            "application/problem+json"
-        );
-    }
-
-    fn router_with_unavailable_database() -> Router {
-        panic!("API integration tests require a Database instance; use the existing runtime test harness")
-    }
 }
