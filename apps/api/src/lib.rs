@@ -5,26 +5,23 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use minirust_core::{AppError, EchoInput};
 use minirust_database::Database;
-use minirust_services::{EchoService, GreetingService, HealthService};
+use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
 use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub health: HealthService,
-    pub greetings: GreetingService,
-    pub echo: EchoService,
+    pub echo: EchoCommandHandler,
+    pub greeting: GreetingQueryHandler,
     pub database: Database,
 }
 
 impl AppState {
     pub fn new(database: Database) -> Self {
         Self {
-            health: HealthService,
-            greetings: GreetingService,
-            echo: EchoService,
+            echo: EchoCommandHandler,
+            greeting: GreetingQueryHandler,
             database,
         }
     }
@@ -56,9 +53,9 @@ pub struct ErrorResponse {
     pub error: String,
 }
 
-fn app_error_response(error: AppError) -> Response {
+fn app_error_response(error: minirust_core::AppError) -> Response {
     match error {
-        AppError::Validation(message) => (
+        minirust_core::AppError::Validation(message) => (
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(ErrorResponse { error: message }),
         )
@@ -110,7 +107,7 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn hello(State(state): State<AppState>) -> impl IntoResponse {
-    let greeting = state.greetings.hello();
+    let greeting = state.greeting.handle(GreetingQuery);
     (
         StatusCode::OK,
         Json(HelloResponse {
@@ -120,14 +117,10 @@ async fn hello(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn echo(State(state): State<AppState>, Json(body): Json<EchoRequest>) -> impl IntoResponse {
-    match EchoInput::parse(body.message) {
-        Ok(input) => (
-            StatusCode::OK,
-            Json(EchoResponse {
-                echo: state.echo.echo(input).echo,
-            }),
-        )
-            .into_response(),
+    match state.echo.handle(EchoCommand {
+        message: body.message,
+    }) {
+        Ok(result) => (StatusCode::OK, Json(EchoResponse { echo: result.echo })).into_response(),
         Err(error) => app_error_response(error),
     }
 }
@@ -140,8 +133,8 @@ async fn openapi() -> impl IntoResponse {
             "info": { "title": "MiniRust API", "version": "0.1.0" },
             "paths": {
                 "/health": { "get": { "summary": "Health and MariaDB connectivity", "responses": { "200": { "description": "Application and database are healthy" }, "503": { "description": "Database is unavailable" } } } },
-                "/api/v1/hello": { "get": { "summary": "Hello", "responses": { "200": { "description": "Greeting" } } } },
-                "/api/v1/echo": { "post": { "summary": "Echo a message", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } } } } }, "responses": { "200": { "description": "Echo response" }, "422": { "description": "Validation error" } } } }
+                "/api/v1/hello": { "get": { "summary": "Hello query", "responses": { "200": { "description": "Greeting" } } } },
+                "/api/v1/echo": { "post": { "summary": "Echo command", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } } } } }, "responses": { "200": { "description": "Echo response" }, "422": { "description": "Validation error" } } } }
             }
         })),
     )
