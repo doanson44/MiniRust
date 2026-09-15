@@ -1,5 +1,5 @@
 ﻿---
-description: Leptos SSR web app conventions for apps/web. Applied when editing apps/web files.
+description: Leptos SSR web app conventions for apps/web.
 trigger: model_decision
 globs: ["apps/web/**"]
 ---
@@ -8,36 +8,33 @@ globs: ["apps/web/**"]
 
 ## Configuration
 
-- SSR-only: `features = ["ssr"]`. Do **not** add hydration, `cargo-leptos`, or WASM unless explicitly asked.
-- Served by an internal Axum server. Bind from `minirust_config` (`ServerKind::Web`). Default: `127.0.0.1:3001`.
+- SSR-only: `features = ["ssr"]`.
+- Do not add hydration, `cargo-leptos`, or WASM unless explicitly requested.
+- Served by an internal Axum server on `ServerKind::Web`, default `127.0.0.1:3001`.
 
-## Baseline routes
+## Data flow
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/` | `<!DOCTYPE html>` full HTML page |
-| GET | `/health` | JSON or plain health status |
-
-## Rendering pattern
-
-```rust
-pub fn render_home_page(message: &str) -> String {
-    let html = view! { <HomePage message=message.to_owned()/> }.to_html();
-    format!("<!DOCTYPE html>{html}")
-}
+```text
+SSR handler → Query → Query handler → read DTO → Leptos view
 ```
 
-- Prefix every rendered page with `<!DOCTYPE html>`.
-- Components go in `src/components/`. Pages go in `src/pages/`.
-- Call `GreetingService` / `HealthService` from `crates/services`. Do not duplicate business logic.
+SSR code must not duplicate business rules or query another context's persistence directly.
+
+## Rendering
+
+- Prefix rendered pages with `<!DOCTYPE html>`.
+- Components belong in presentation modules.
+- Query results are passed into views as presentation data.
 
 ## CSS — Tailwind CSS only
 
-- Tailwind CSS is the **only** CSS framework.
-- Do not add Bootstrap, DaisyUI, or other CSS/UI frameworks.
-- Use Tailwind utility classes directly in `view!` macros.
-- Small reusable Leptos components over large CSS abstractions.
+- Tailwind CSS is the only CSS framework.
+- Do not add Bootstrap, DaisyUI, or another CSS/UI framework.
+- Prefer utility classes and small reusable Leptos components.
 
-## What not to build (yet)
+## Routes
 
-Do not create CMS, auth UI, dashboards, admin panels, or resume tools unless the user explicitly requests them.
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/` | SSR home page |
+| GET | `/health` | Web process health |
