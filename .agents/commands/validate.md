@@ -4,7 +4,7 @@ description: Run full local validation — fmt, check, clippy, test, build — m
 
 Follow the `validate-minirust` skill.
 
-Run each command from the workspace root (`d:\GIT\MiniRust`). Report PASS or FAIL with output for each step.
+Run each command from the workspace root and report PASS or FAIL with actual output.
 
 ```powershell
 cargo fmt --all -- --check
@@ -14,4 +14,4 @@ cargo test --workspace --locked --all-targets
 cargo build --workspace --locked
 ```
 
-Do not skip any step. Do not start MariaDB or Redis. Do not claim PASS unless the command actually ran.
+Do not skip any step. Do not claim PASS unless the command actually ran.
