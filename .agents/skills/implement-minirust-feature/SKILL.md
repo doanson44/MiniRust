@@ -1,71 +1,70 @@
 ﻿---
 name: implement-minirust-feature
-description: >-
-  Implements a MiniRust feature correctly through the UI/handler/service/domain/
-  adapter layers without expanding into unrequested product work. Use when adding
-  an endpoint, page, service, repository, or infrastructure adapter.
+description: Implements a MiniRust feature through the CQRS, domain, persistence, and transport boundaries.
 ---
 
-# Implement a MiniRust Feature
+# Implement a MiniRust feature
 
-## Phase 1 — Understand before coding
+## Phase 1 — Understand
 
-1. **Inspect the real tree** — docs describe intent, the actual code is the source of truth.
-   ```powershell
-   Get-ChildItem -Recurse -Name | Where-Object { $_ -match "\.rs$" }
-   ```
-2. **Clarify scope** — implement only what was asked. Auth, CMS, AI, bot, workers, market, resume, WebSocket are out of scope until requested.
-3. **Decide placement** using the table below.
+1. Inspect the actual repository tree and current implementation.
+2. Identify the owning bounded context or confirm that the feature belongs to the current baseline context.
+3. Classify the operation as a command, query, infrastructure operation, or presentation-only change.
+4. Implement only the requested scope.
 
-## Phase 2 — Decide placement
+## Phase 2 — Placement
 
+```text
+Request type                     → Target
+REST transport                  → apps/api
+SSR presentation                → apps/web
+Command                         → application `commands/`
+Query                           → application `queries/`
+Domain entity/value object     → crates/core or owning context domain
+Write persistence               → database/repository boundary
+Read persistence                → query/read repository boundary
+Cross-context integration       → explicit contract or integration event
 ```
-User request type               → Target location
-─────────────────────────────────────────────────
-New HTML page                   → apps/web (handler + Leptos view)
-New REST endpoint               → apps/api (handler)
-Business rule, reusable logic   → crates/services
-Shared domain type / AppError   → crates/core
-DB / Redis / Telegram adapter   → new adapter crate (only if needed)
-```
 
-- Prefer **extending** `crates/services` + a thin handler over creating a new crate.
-- If a new crate is needed, follow the `add-minirust-crate` skill first.
+The current application package is `crates/services`; its internal structure is CQRS-oriented. Do not add new global service types.
 
-## Phase 3 — Implement
+## Phase 3 — CQRS implementation
 
-### Domain types (`crates/core`)
-- Pure Rust structs/enums. No Axum, no Leptos, no SQLx.
-- `AppError` is the single error type. Add variants as needed.
+### Commands
 
-### Service (`crates/services`)
-- `pub struct <Name>Service { ... }` with `impl <Name>Service { pub fn <action>(&self) -> Result<..., AppError> { ... } }`.
-- No `async` unless genuinely async. No `println!`. Use `tracing::info!` etc.
+- Name commands after business intent.
+- Validate input at the application/domain boundary.
+- Enforce invariants in the domain model.
+- Persist through a write-oriented repository.
+- Define transaction scope explicitly.
 
-### API handler (`apps/api`)
-- Extract `State`, call service, map result to `StatusCode` + `Json`.
-- Register route in `router()`.
-- Add `AppState` field for the new service.
+### Queries
 
-### Web handler (`apps/web`)
-- Call service. Pass data to a Leptos `view!` macro. Return `format!("<!DOCTYPE html>{html}")`.
-- Tailwind CSS only for styling.
+- Queries never mutate state.
+- Return purpose-built DTOs or projections.
+- Do not expose domain aggregates as transport response models.
+- Optimize SQL for the read use case rather than forcing the write model into the query.
 
-### Configuration (`crates/config`)
-- New env var → add to `Config` struct, document in `.env.example`.
-- Never add defaults for production secrets.
+### Transport
 
-### Database (`crates/database`)
-- SQLx `mysql` driver. Pool from `MINIRUST_DATABASE_URL`.
-- Binary must still start when `MINIRUST_DATABASE_URL` is unset.
-- Use SQLx macros (`query!`, `query_as!`) for compile-time checked queries.
+- Axum/Leptos handlers translate transport data into commands or queries.
+- Handlers contain no business rules.
+- Map application/domain errors at the transport boundary.
+
+### Infrastructure
+
+- MariaDB access uses SQLx's `mysql` driver.
+- Infrastructure code must not leak into the domain.
+- If asynchronous integration events are required later, use an outbox-based design rather than publishing directly inside an uncommitted transaction.
 
 ## Phase 4 — Tests
 
-- Service unit test: assert the returned domain value, not stdout.
-- API test: `router().oneshot(request)` — check `status` and deserialized JSON body.
-- Web test: `render_*()` — check that the HTML contains expected strings.
+- Unit-test domain invariants and command/query handlers.
+- API tests use `router().oneshot(...)`.
+- SSR tests validate rendered HTML.
+- Persistence tests are added when a repository is introduced.
+- Test idempotency and concurrency behavior when the command requires it.
 
 ## Phase 5 — Validate
 
-Run the `validate-minirust` skill. All five steps must PASS before calling the work done.
+Run the `validate-minirust` skill. Do not claim completion without actual verification.
