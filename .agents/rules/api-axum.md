@@ -66,4 +66,10 @@ See `docs/architecture/api-response.md` for the complete contract and status map
 
 ## Testing
 
-Use `tower::ServiceExt::oneshot()` against the router. Do not start a live server for handler tests.
+Every HTTP endpoint introduced or modified MUST have an integration test.
+
+- Exercise the endpoint through the real Axum router with `tower::ServiceExt::oneshot()`.
+- Do not call transport handlers directly as a substitute for endpoint integration coverage.
+- Cover the success contract and meaningful validation/error paths.
+- Use real MariaDB infrastructure for database-dependent endpoint integration tests via the Docker-backed integration environment.
+- Unit tests for handlers, commands, queries, or repositories do not replace endpoint integration coverage.
