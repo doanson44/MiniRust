@@ -1,12 +1,16 @@
 //! MiniRust REST API application.
 
+mod response;
+
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use minirust_core::AppError;
 use minirust_database::Database;
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
+use response::{ApiResponse, ProblemDetails};
 use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
 
@@ -48,27 +52,12 @@ struct EchoResponse {
     echo: String,
 }
 
-#[derive(Serialize)]
-pub struct ErrorResponse {
-    pub error: String,
-}
-
-fn app_error_response(error: minirust_core::AppError) -> Response {
+fn app_error_response(error: AppError) -> ProblemDetails {
     match error {
-        minirust_core::AppError::Validation(message) => (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(ErrorResponse { error: message }),
-        )
-            .into_response(),
+        AppError::Validation(message) => ProblemDetails::validation(message),
         other => {
             tracing::error!(%other, "unexpected application error");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "internal server error".to_owned(),
-                }),
-            )
-                .into_response()
+            ProblemDetails::internal()
         }
     }
 }
@@ -88,20 +77,14 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
     match state.database.health().await {
         Ok(()) => (
             StatusCode::OK,
-            Json(HealthResponse {
+            Json(ApiResponse::new(HealthResponse {
                 status: "ok",
                 database: "ok",
-            }),
+            })),
         ),
         Err(error) => {
             tracing::error!(%error, "database health check failed");
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(HealthResponse {
-                    status: "degraded",
-                    database: "unavailable",
-                }),
-            )
+            ProblemDetails::service_unavailable("Database is unavailable").into_response()
         }
     }
 }
@@ -110,9 +93,9 @@ async fn hello(State(state): State<AppState>) -> impl IntoResponse {
     let greeting = state.greeting.handle(GreetingQuery);
     (
         StatusCode::OK,
-        Json(HelloResponse {
+        Json(ApiResponse::new(HelloResponse {
             message: greeting.message,
-        }),
+        })),
     )
 }
 
@@ -120,8 +103,12 @@ async fn echo(State(state): State<AppState>, Json(body): Json<EchoRequest>) -> i
     match state.echo.handle(EchoCommand {
         message: body.message,
     }) {
-        Ok(result) => (StatusCode::OK, Json(EchoResponse { echo: result.echo })).into_response(),
-        Err(error) => app_error_response(error),
+        Ok(result) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(EchoResponse { echo: result.echo })),
+        )
+            .into_response(),
+        Err(error) => app_error_response(error).into_response(),
     }
 }
 
@@ -146,4 +133,35 @@ async fn swagger_ui() -> impl IntoResponse {
         [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
         html,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn echo_validation_uses_problem_details() {
+        let response = router_with_unavailable_database()
+            .oneshot(
+                Request::post("/api/v1/echo")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"message":"   "}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            response.headers().get("content-type").unwrap(),
+            "application/problem+json"
+        );
+    }
+
+    fn router_with_unavailable_database() -> Router {
+        panic!("API integration tests require a Database instance; use the existing runtime test harness")
+    }
 }
