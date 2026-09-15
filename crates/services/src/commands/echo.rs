@@ -1,9 +1,16 @@
 use minirust_core::{AppError, Echo, EchoInput};
 
+use crate::cqrs::{Command, CommandHandler};
+
 /// Intent to execute the echo operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EchoCommand {
     pub message: String,
+}
+
+impl Command for EchoCommand {
+    type Output = Echo;
+    type Error = AppError;
 }
 
 /// Result produced by [`EchoCommandHandler`].
@@ -13,8 +20,8 @@ pub type EchoCommandResult = Echo;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct EchoCommandHandler;
 
-impl EchoCommandHandler {
-    pub fn handle(&self, command: EchoCommand) -> Result<EchoCommandResult, AppError> {
+impl CommandHandler<EchoCommand> for EchoCommandHandler {
+    fn handle(&self, command: EchoCommand) -> Result<EchoCommandResult, AppError> {
         let input = EchoInput::parse(command.message)?;
         Ok(Echo::new(input.message))
     }
