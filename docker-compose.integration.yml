@@ -1,0 +1,19 @@
+services:
+  mariadb:
+    image: mariadb:11
+    environment:
+      MARIADB_DATABASE: minirust_test
+      MARIADB_USER: minirust
+      MARIADB_PASSWORD: minirust
+      MARIADB_ROOT_PASSWORD: root
+    ports:
+      - target: 3306
+        published: "0"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u root -p$$MARIADB_ROOT_PASSWORD --silent"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s

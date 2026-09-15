@@ -86,6 +86,20 @@ MariaDB is the selected relational database. SQLx uses its `mysql` driver for Ma
 
 The API requires `MINIRUST_DATABASE_URL` because its current startup contract establishes a live database connection before serving requests.
 
+## Integration tests
+
+Database integration tests use Docker Compose to start an isolated MariaDB instance for the test run. The test allocates an ephemeral host port, waits for the database healthcheck, connects through the same `minirust-database` abstraction used by the application, and removes the container and its volumes after the test.
+
+Run the integration test together with the workspace tests:
+
+```bash
+cargo test --workspace --all-targets
+```
+
+Docker must be running when the database integration test executes.
+
+The dedicated test environment is defined in [`docker-compose.integration.yml`](docker-compose.integration.yml) and is intentionally separate from the runtime `docker-compose.yml` stack.
+
 ## Environment
 
 | Variable | Default | Purpose |
@@ -119,31 +133,3 @@ Check service state and database health:
 docker compose ps
 curl http://127.0.0.1:3000/health
 ```
-
-The API waits for MariaDB to become healthy before starting. Its `/health` endpoint executes `SELECT 1`, so it verifies actual database connectivity.
-
-Stop the stack:
-
-```bash
-docker compose down
-```
-
-Remove the MariaDB volume as well:
-
-```bash
-docker compose down -v
-```
-
-## Verification
-
-The CI pipeline runs:
-
-```bash
-cargo fmt --all -- --check
-cargo check --workspace --locked
-cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo test --workspace --locked --all-targets
-cargo build --workspace --locked
-```
-
-Do not claim verification unless the commands were actually executed.
