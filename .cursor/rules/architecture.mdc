@@ -1,31 +1,44 @@
 ---
-description: MiniRust architecture, scope, and stack. Apply on every change.
+description: MiniRust CQRS architecture, scope, and stack. Apply on every change.
 alwaysApply: true
 ---
 
 # MiniRust architecture
 
-Stack: Rust, Tokio, Axum, Leptos SSR, Tailwind CSS, tracing, dotenvy. Planned later: MariaDB/SQLx, JWT, Teloxide. Do not take those dependencies unless the feature needs them.
+MiniRust is a CQRS-oriented modular monolith designed around explicit domain boundaries and future bounded-context extraction.
+
+Stack: Rust, Tokio, Axum, Leptos SSR, Tailwind CSS, tracing, dotenvy, SQLx with MariaDB.
 
 Layout:
 
 ```text
-apps/api          Axum REST
+apps/api          Axum REST transport
 apps/web          Leptos SSR + Tailwind CSS UI
-crates/config     env configuration
-crates/core       domain types and AppError (no Axum/Leptos/SQLx)
-crates/services   business logic shared by apps
+crates/config     environment configuration
+crates/core       domain primitives and AppError
+crates/database   MariaDB / SQLx infrastructure
+crates/services   current application-layer compatibility package
+  ├── commands    write-side use cases
+  └── queries     read-side use cases
 ```
 
-Layering: UI (Leptos + Tailwind) → Handler → Application service → Domain (`core`) → Repository/adapter → Infrastructure.
+Layering:
 
-- Handlers stay thin. Put rules in `crates/services`.
-- `core` and `services` must not depend on Axum, Leptos, Tailwind CSS, MariaDB, SQLx, Teloxide, or vendor SDKs.
-- `apps/web` owns presentation concerns. Tailwind CSS is the only CSS framework for the frontend.
-- Do not add Bootstrap or another CSS/UI framework. Do not maintain Bootstrap compatibility.
-- Prefer Tailwind utility classes and small reusable Leptos components over framework-specific CSS abstractions.
-- Do not create empty speculative crates. Add `apps/bot`, `apps/worker`, or extra `crates/*` only when implementing that feature.
-- MariaDB is optional at startup and is not required by the baseline.
-- Do not commit secrets. Do not log passwords or tokens.
-- English identifiers, comments, and user-facing baseline strings.
-- Do not commit, push, or open a PR unless the user asks.
+```text
+Transport → Command/Query → Application handler → Domain/read model → Repository → Infrastructure
+```
+
+Rules:
+
+- Commands express business intent and may change state.
+- Queries never change state and return purpose-built read DTOs/projections.
+- Transport handlers contain no business rules.
+- Domain code must not depend on Axum, Leptos, SQLx, MariaDB, or vendor SDKs.
+- Do not access another bounded context's tables, repositories, or domain internals directly.
+- Cross-context communication uses explicit contracts or integration events.
+- Read and write models may share MariaDB initially; separate stores are an evolutionary optimization.
+- Do not add Event Sourcing, a message broker, or a separate read database without a concrete requirement.
+- Tailwind CSS is the only frontend CSS framework. Do not add Bootstrap compatibility.
+- Do not commit secrets.
+- English identifiers, comments, and documentation.
+- Do not commit, push, or open a PR unless explicitly requested.
