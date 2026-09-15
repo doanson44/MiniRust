@@ -56,7 +56,12 @@ impl ProblemDetails {
 
 impl IntoResponse for ProblemDetails {
     fn into_response(self) -> Response {
-        let status = StatusCode::from_u16(self.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        let status = match self.status {
+            503 => StatusCode::SERVICE_UNAVAILABLE,
+            422 => StatusCode::UNPROCESSABLE_ENTITY,
+            500 => StatusCode::INTERNAL_SERVER_ERROR,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
         let mut response = (status, Json(self)).into_response();
         response.headers_mut().insert(
             header::CONTENT_TYPE,
