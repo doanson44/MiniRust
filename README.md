@@ -133,3 +133,31 @@ Check service state and database health:
 docker compose ps
 curl http://127.0.0.1:3000/health
 ```
+
+The API waits for MariaDB to become healthy before starting. Its `/health` endpoint executes `SELECT 1`, so it verifies actual database connectivity.
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+Remove the MariaDB volume as well:
+
+```bash
+docker compose down -v
+```
+
+## Verification
+
+The CI pipeline runs:
+
+```bash
+cargo fmt --all -- --check
+cargo check --workspace --locked
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --locked --all-targets
+cargo build --workspace --locked
+```
+
+Do not claim verification unless the commands were actually executed.
