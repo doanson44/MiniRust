@@ -4,6 +4,7 @@
 //! structure is CQRS-oriented. Commands change state; queries only read state.
 
 pub mod commands;
+pub mod cqrs;
 pub mod queries;
 
 pub use commands::echo::{EchoCommand, EchoCommandHandler, EchoCommandResult};
