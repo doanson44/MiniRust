@@ -1,5 +1,5 @@
 ﻿---
-description: Axum API handler and routing conventions for apps/api. Applied when editing apps/api files.
+description: Axum API transport conventions for apps/api.
 trigger: model_decision
 globs: ["apps/api/**"]
 ---
@@ -10,44 +10,41 @@ globs: ["apps/api/**"]
 
 From `minirust_config` (`ServerKind::Api`). Default: `127.0.0.1:3000`.
 
-## Baseline routes
+## Handler responsibility
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/health` | JSON `{"status":"ok"}` |
-| GET | `/api/v1/hello` | JSON `{"message":"..."}` |
+Handlers are transport adapters only.
 
-## Handler pattern
-
-```rust
-async fn hello(State(state): State<AppState>) -> impl IntoResponse {
-    let greeting = state.greetings.hello();
-    (StatusCode::OK, Json(HelloResponse { message: greeting.message }))
-}
+```text
+HTTP request
+  ↓
+Axum handler
+  ↓
+Command or Query
+  ↓
+Application handler
+  ↓
+HTTP response
 ```
+
+Do not put business rules, repository calls, or SQL in the Axum handler.
+
+## Routes
+
+| Method | Path | Role |
+|---|---|---|
+| GET | `/health` | Infrastructure health check |
+| GET | `/api/v1/hello` | Query |
+| POST | `/api/v1/echo` | Command |
 
 ## Rules
 
-- Keep all routes registered in `router()`.
-- Handlers extract `State`, call a service method, return HTTP. No business logic in handlers.
-- JSON responses for all `/api/*` routes.
-- Use `TraceLayer` for request/startup logs.
-- Graceful shutdown via `tokio::signal::ctrl_c` is wired — keep it.
-- `AppState` is `Clone + Send + Sync`. Services inside it must be `Clone + Send + Sync`.
+- Register all routes in `router()`.
+- Map transport input into a typed command/query.
+- Map application errors to HTTP status codes at the transport boundary.
+- JSON responses for `/api/*` routes.
+- Use `TraceLayer` for request tracing.
+- Keep graceful shutdown in the binary.
 
 ## Testing
 
-- Use `tower::ServiceExt::oneshot()` against `router(AppState::new(...))`.
-- Do not spin up a live server for unit/integration tests.
-
-```rust
-#[tokio::test]
-async fn health_returns_ok() {
-    let app = router(AppState::new(config));
-    let response = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-}
-```
+Use `tower::ServiceExt::oneshot()` against the router. Do not start a live server for handler tests.
