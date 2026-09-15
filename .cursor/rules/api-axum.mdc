@@ -1,5 +1,5 @@
 ---
-description: Axum API handler and routing conventions
+description: Axum API handler, routing, and response conventions
 globs: apps/api/**
 alwaysApply: false
 ---
@@ -8,16 +8,35 @@ alwaysApply: false
 
 Bind from `minirust_config` (`ServerKind::Api`). Default development address is `127.0.0.1:3000`.
 
-- Keep routes in `router()`. Handlers extract `State`, call a service, return HTTP.
-- Current baseline: `GET /health`, `GET /api/v1/hello`.
-- JSON for API responses. Do not put business rules in handlers.
+- Keep routes in `router()`.
+- Handlers map HTTP input to a command/query and application results back to HTTP.
+- Do not put business rules, repository calls, or SQL in handlers.
+- Successful JSON API responses use `{ "data": ... }`.
+- Errors use RFC 9457 Problem Details with `Content-Type: application/problem+json`.
+- HTTP status codes remain authoritative; do not create endpoint-specific error envelopes.
 - Use `TraceLayer` and `tracing` for request/startup logs.
 - Graceful shutdown via `ctrl_c` is already wired; keep it.
-- Tests: `oneshot` against `router(AppState::new())`, not a live process.
+- Tests: `oneshot` against the router, not a live process.
 
-```rust
-async fn hello(State(state): State<AppState>) -> impl IntoResponse {
-    let greeting = state.greetings.hello();
-    (StatusCode::OK, Json(HelloResponse { message: greeting.message }))
+Example success response:
+
+```json
+{
+  "data": {
+    "message": "Hello from MiniRust"
+  }
 }
 ```
+
+Example error response:
+
+```json
+{
+  "type": "https://minirust.dev/problems/validation-error",
+  "title": "Validation error",
+  "status": 422,
+  "detail": "message must not be empty"
+}
+```
+
+See `docs/architecture/api-response.md` for the complete contract.
