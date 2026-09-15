@@ -1,27 +1,28 @@
 ---
 name: validate-minirust
-description: Runs MiniRust workspace validation (fmt, check, clippy, test) and optional API/SSR smoke checks. Use when validating, linting, checking CI locally, finishing a change, or the user asks to format, clippy, test, or verify the baseline.
+description: Runs MiniRust workspace validation and optional API/SSR smoke checks.
 ---
 
 # Validate MiniRust
 
-Copy this checklist and complete it. Do not claim PASS unless the command actually ran.
+Run the complete CI-equivalent checklist from the repository root. Do not claim PASS unless commands actually ran.
 
 ```text
 - [ ] cargo fmt --all -- --check
-- [ ] cargo check --workspace
-- [ ] cargo clippy --workspace --all-targets --all-features -- -D warnings
-- [ ] cargo test --workspace --all-targets
+- [ ] cargo check --workspace --locked
+- [ ] cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+- [ ] cargo test --workspace --locked --all-targets
+- [ ] cargo build --workspace --locked
 ```
 
-Run from the repository root. Fix failures before continuing.
+## Runtime smoke
 
-## Optional runtime smoke (when the user wants run verification)
+When requested:
 
-1. `cargo run -p minirust-api` → `GET http://127.0.0.1:3000/health` and `/api/v1/hello`
-2. `cargo run -p minirust-web` → `GET http://127.0.0.1:3001/` (HTML) and `/health`
-3. Stop the processes when done. Do not leave servers running unless asked.
+1. `cargo run -p minirust-api` → `/health`, `/api/v1/hello`, `/api/v1/echo`.
+2. `cargo run -p minirust-web` → `/` and `/health`.
+3. Stop all processes when verification is complete.
 
-SQL Server and Redis are not required. Do not start `docker compose --profile infra` for this workflow.
+The API currently requires MariaDB through `MINIRUST_DATABASE_URL` at startup.
 
-CI equivalent: `.github/workflows/rust.yml` (adds `--locked` and `cargo build`).
+CI equivalent: `.github/workflows/rust.yml`.
