@@ -41,7 +41,7 @@ fn HomePage(message: String) -> impl IntoView {
                 <meta name="description" content="MiniRust is a Rust-first full-stack platform foundation built for long-term growth."/>
                 <meta name="theme-color" content="#020617"/>
                 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-                <title>{APP_NAME} — Rust-first platform foundation</title>
+                <title>{APP_NAME} {" - Rust-first platform foundation"}</title>
             </head>
             <body class="min-h-screen overflow-x-hidden bg-slate-950 antialiased">
                 <header class="border-b border-white/10 bg-slate-950/90 backdrop-blur">
@@ -71,7 +71,7 @@ fn HomePage(message: String) -> impl IntoView {
                                 <h1 class="max-w-4xl text-4xl font-black tracking-tight text-white sm:text-6xl lg:text-7xl">Build the platform once. <span class="text-cyan-300">Extend it for years.</span></h1>
                                 <p class="mt-7 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">{message} MiniRust is structured as a reusable foundation for production-minded Rust applications, with SSR, REST APIs, CQRS-oriented services, persistence, testing, and containerized infrastructure.</p>
                                 <div class="mt-9 flex flex-col gap-3 sm:flex-row">
-                                    <a href="#capabilities" class="inline-flex items-center justify-center rounded-xl bg-cyan-300 px-5 py-3.5 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-950/30 transition hover:bg-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-slate-950">Explore the foundation <span class="ml-2">→</span></a>
+                                    <a href="#capabilities" class="inline-flex items-center justify-center rounded-xl bg-cyan-300 px-5 py-3.5 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-950/30 transition hover:bg-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-slate-950">Explore the foundation <span class="ml-2">"->"</span></a>
                                     <a href="#architecture" class="inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/5 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/50">See the architecture</a>
                                 </div>
                                 <div class="mt-10 grid max-w-xl grid-cols-1 gap-4 text-sm text-slate-400 sm:grid-cols-3">
@@ -89,12 +89,12 @@ fn HomePage(message: String) -> impl IntoView {
                                         <span class="font-mono text-xs text-slate-500">minirust::platform</span>
                                     </div>
                                     <div class="space-y-4 pt-6 font-mono text-xs leading-6 sm:text-sm">
-                                        <div class="text-slate-500">// one foundation, many capabilities</div>
-                                        <div><span class="text-cyan-300">web</span> <span class="text-slate-500">→</span> <span class="text-white">SSR presentation</span></div>
-                                        <div><span class="text-cyan-300">api</span> <span class="text-slate-500">→</span> <span class="text-white">REST transport</span></div>
-                                        <div><span class="text-cyan-300">services</span> <span class="text-slate-500">→</span> <span class="text-white">commands + queries</span></div>
-                                        <div><span class="text-cyan-300">database</span> <span class="text-slate-500">→</span> <span class="text-white">persistent state</span></div>
-                                        <div><span class="text-cyan-300">tests</span> <span class="text-slate-500">→</span> <span class="text-white">real endpoint coverage</span></div>
+                                        <div class="text-slate-500">{"// one foundation, many capabilities"}</div>
+                                        <div><span class="text-cyan-300">web</span> <span class="text-slate-500">"->"</span> <span class="text-white">SSR presentation</span></div>
+                                        <div><span class="text-cyan-300">api</span> <span class="text-slate-500">"->"</span> <span class="text-white">REST transport</span></div>
+                                        <div><span class="text-cyan-300">services</span> <span class="text-slate-500">"->"</span> <span class="text-white">commands + queries</span></div>
+                                        <div><span class="text-cyan-300">database</span> <span class="text-slate-500">"->"</span> <span class="text-white">persistent state</span></div>
+                                        <div><span class="text-cyan-300">tests</span> <span class="text-slate-500">"->"</span> <span class="text-white">real endpoint coverage</span></div>
                                         <div class="pt-2 text-emerald-300">status: foundation ready to evolve</div>
                                     </div>
                                 </div>
@@ -149,7 +149,7 @@ fn HomePage(message: String) -> impl IntoView {
 
                 <footer class="border-t border-white/10 bg-slate-950">
                     <div class="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-8 text-sm text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
-                        <div><span class="font-semibold text-slate-300">{APP_NAME}</span> <span class="mx-2">·</span> Rust-first platform foundation</div>
+                        <div><span class="font-semibold text-slate-300">{APP_NAME}</span> <span class="mx-2">"."</span> Rust-first platform foundation</div>
                         <div>Built with Rust, Axum, Leptos, and a CQRS-oriented service layer.</div>
                     </div>
                 </footer>
@@ -208,7 +208,7 @@ mod tests {
     fn home_page_renders_the_landing_page() {
         let html = render_home_page("Hello from MiniRust");
         assert!(html.starts_with("<!DOCTYPE html>"));
-        assert!(html.contains("MiniRust — Rust-first platform foundation"));
+        assert!(html.contains("MiniRust<!> - Rust-first platform foundation"));
         assert!(html.contains("id=\"capabilities\""));
         assert!(html.contains("id=\"architecture\""));
         assert!(html.contains("Hello from MiniRust"));
