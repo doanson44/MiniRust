@@ -123,6 +123,8 @@ cargo run -p minirust-web
 
 ## Docker Compose
 
+The base Compose file is suitable for local development:
+
 ```bash
 docker compose up -d --build
 ```
@@ -135,6 +137,41 @@ curl http://127.0.0.1:3000/health
 ```
 
 The API waits for MariaDB to become healthy before starting. Its `/health` endpoint executes `SELECT 1`, so it verifies actual database connectivity.
+
+### Single-server production deployment
+
+Production is designed for **one server**. Caddy is the only service exposed to the public network; it terminates HTTPS and routes the web and API traffic over the private Compose network.
+
+```text
+Internet
+   |
+ HTTPS :443
+   |
+ Caddy
+  /api/* -> api:3000
+  /*     -> web:3001
+   |
+ MariaDB (private)
+```
+
+Set the public DNS name on the server and provide the domain through `MINIRUST_DOMAIN`:
+
+```bash
+export MINIRUST_DOMAIN=example.com
+docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --build
+```
+
+The production overlay removes host port publishing for MariaDB, API, and Web. Only ports `80` and `443` are published by Caddy.
+
+Caddy automatically provisions and renews the public TLS certificate when the domain points to this server and ports `80` and `443` are reachable from the Internet.
+
+Check the stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml ps
+```
+
+The application remains split into independent API and SSR Web processes inside the same server. This preserves the current architecture without requiring separate hosting.
 
 Stop the stack:
 
