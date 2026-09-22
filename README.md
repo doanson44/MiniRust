@@ -173,16 +173,16 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml ps
 
 The application remains split into independent API and SSR Web processes inside the same server. This preserves the current architecture without requiring separate hosting.
 
-Stop the stack:
+Stop the production stack:
 
 ```bash
-docker compose down
+docker compose -f docker-compose.yml -f docker-compose.production.yml down
 ```
 
 Remove the MariaDB volume as well:
 
 ```bash
-docker compose down -v
+docker compose -f docker-compose.yml -f docker-compose.production.yml down -v
 ```
 
 ## Verification
