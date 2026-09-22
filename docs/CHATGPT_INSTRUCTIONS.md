@@ -9,11 +9,9 @@ Default branch: master
 Work against the real GitHub repository, not an imagined codebase. GitHub is the source of truth for current implementation state; project docs describe intended architecture.
 
 Before repository-specific claims or changes:
-1. Inspect GitHub and relevant files.
-2. Read relevant architecture docs.
-3. Identify the smallest correct change.
-4. Implement only what is required.
-5. Verify the result and review the final state.
+1. Inspect GitHub and relevant docs.
+2. Make the smallest correct change.
+3. Implement, verify, and review it.
 
 Never invent files, modules, APIs, dependencies, tests, CI results, commits, branches, PRs, or deployment behavior.
 
@@ -58,14 +56,14 @@ Transport -> Application -> Domain
 Infrastructure implements application/domain contracts. The domain must not depend directly on Axum, Leptos, SQLx, MariaDB, transport DTOs, vendor SDKs, or external APIs. Handlers are adapters: translate requests into commands/queries and map results into transport responses; they must not contain business rules.
 
 ## 6. CQRS
-Commands own write-side use cases and may load aggregates, apply domain rules, persist changes, and produce events. Queries never change state and return purpose-built DTOs/projections.
+Commands own write-side use cases; queries never change state and return purpose-built DTOs/projections.
 
-Do not expose domain aggregates as API response models. A query must not call a command handler, and a command handler must not call a query handler merely for display data.
+Do not expose domain aggregates as API response models. Queries must not call command handlers; command handlers must not call query handlers merely for display data.
 
-Write repositories are aggregate-oriented; read repositories are query/projection-oriented. Avoid one generic repository abstraction for every operation.
+Write repositories are aggregate-oriented; read repositories are query/projection-oriented. Avoid generic repositories for every operation.
 
 ## 7. Database
-MariaDB is the selected relational database; SQLx uses the MySQL/MariaDB driver. Repositories handle persistence; application handlers/services coordinate use cases. Use transactions where atomicity is required. Apply pagination, audit fields, soft deletion, and explicit concurrency policies where applicable.
+MariaDB is the selected relational database; SQLx uses the MySQL/MariaDB driver. Repositories handle persistence; application handlers coordinate use cases. Use transactions where needed; apply pagination, audit fields, soft deletion, and explicit concurrency policies where applicable.
 
 Do not introduce Redis unless project direction is explicitly changed.
 
@@ -85,40 +83,40 @@ Prefer ownership/borrowing, small focused functions, cohesive modules, explicit 
 
 Avoid unnecessary clone, Arc, Mutex, RwLock, Box, Rc, RefCell, dynamic dispatch, complex generic abstractions, macros, and unsafe code. Optimize for correctness, clarity, maintainability, and testability.
 
-When an important Rust concept first appears, briefly explain the mechanism, ownership/borrowing or lifetime implications, async implications when relevant, alternatives, and common mistakes.
+When important Rust concepts first appear, briefly explain mechanism, ownership/borrowing, relevant async implications, alternatives, and common mistakes.
 
 ## 11. Async, Errors, and Observability
-For Tokio/async tasks, channels, synchronization, networking, pools, workers, or graceful shutdown, briefly explain the relevant mechanism when useful.
+For Tokio/async systems topics, briefly explain the relevant mechanism when useful.
 
 Avoid panic! in normal application code. Prefer Result-based errors with useful context. Separate internal technical errors from safe user-facing errors.
 
 Use tracing for structured logging; do not use println!/dbg! as production logging. Never log passwords, tokens, secrets, or credentials.
 
 ## 12. Security and External Systems
-Never hardcode secrets, store plaintext passwords, trust unvalidated input, expose credentials, or log secrets. Validate external input and keep authentication separate from authorization.
+Never hardcode secrets, store plaintext passwords, trust unvalidated input, expose credentials, or log secrets. Validate input; separate authentication from authorization.
 
 Isolate external providers behind adapters/contracts. Business logic must not depend directly on vendor SDKs; providers should be replaceable.
 
 ## 13. Testing and Verification
-Unit test domain rules and pure functions. Integration test repositories, database boundaries, adapters, and HTTP endpoints where appropriate. Use end-to-end tests for important workflows. Prefer behavior-oriented tests and real infrastructure integration when practical.
+Unit test domain rules/pure functions; integration test repositories, DB boundaries, adapters, and HTTP endpoints; use e2e tests for important workflows.
 
 Every new API endpoint must have appropriate integration-test coverage. Use Docker-based isolated database infrastructure for integration tests when practical.
 
-Use actual repository commands and CI configuration. Typical checks:
+Use repository commands and CI configuration. Typical checks:
 cargo fmt --all -- --check
 cargo check --workspace
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-targets
 
-Never claim tests, lint, builds, commits, pushes, PRs, or CI checks succeeded unless actually verified.
+Never claim unverified tests, lint, builds, commits, pushes, PRs, or CI checks.
 
 ## 14. CLI and Documentation
 Prefer Cargo, Git, Docker, Docker Compose, migration tools, and official generators when appropriate. Present multiple commands in execution order.
 
-Keep documentation synchronized with implementation. Significant architecture changes should document purpose, architecture, data flow, decisions, trade-offs, and operational implications.
+Keep documentation synchronized with implementation. Significant architecture changes should document purpose, data flow, decisions, trade-offs, and operations.
 
 ## 15. Source Discipline
-Use docs/CHATGPT_SOURCES.md as the source map. For changing technical behavior, verify repository versions and consult current official documentation. Do not let stale project instructions override current repository state.
+Use docs/CHATGPT_SOURCES.md as the source map. For changing technical behavior, verify repository versions and current official docs. Do not let stale project instructions override current repository state.
 
 ## 16. Engineering Judgment
 Do not agree automatically. If a design adds unnecessary complexity, coupling, technical debt, security risk, testing difficulty, or non-idiomatic Rust, state the issue and recommend a simpler alternative. The user makes the final decision when multiple valid approaches remain.
@@ -131,7 +129,7 @@ For implementation work report:
 - Steps
 - Verification (exactly what was executed)
 
-Also report actual GitHub state: repository, branch, files changed, tests/formatting/compilation status, commit/push/PR status. Never fabricate hashes, branch names, PR numbers, URLs, CI status, or test results.
+Also report repository, branch, files changed, verification status, and commit/push/PR status. Never fabricate hashes, branch names, PR numbers, URLs, CI status, or test results.
 
 ## 18. Definition of Done
 Complete only to the level actually achieved:
