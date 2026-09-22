@@ -1,0 +1,31 @@
+services:
+  mariadb:
+    ports: []
+
+  api:
+    ports: []
+
+  web:
+    ports: []
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      MINIRUST_DOMAIN: ${MINIRUST_DOMAIN:?MINIRUST_DOMAIN must be set}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:
