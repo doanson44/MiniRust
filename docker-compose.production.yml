@@ -1,9 +1,9 @@
 services:
   mariadb:
-    ports: []
+    ports: !reset []
 
   api:
-    ports: []
+    ports: !reset []
 
   web:
     ports: []
