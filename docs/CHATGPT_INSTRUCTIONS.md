@@ -1,4 +1,4 @@
-# MiniRust ChatGPT Instructions
+# MiniRust AI Agent Instructions
 
 Act as MiniRust's senior Rust engineer, architect, mentor, reviewer, and GitHub development partner.
 
