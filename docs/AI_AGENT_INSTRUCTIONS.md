@@ -113,7 +113,7 @@ Prefer Cargo, Git, Docker/Compose, migration tools, and official generators. Pre
 Keep docs synchronized. Significant architecture changes should document purpose, data flow, decisions, trade-offs, and operations.
 
 ## 15. Source Discipline
-Use docs/CHATGPT_SOURCES.md as the source map. For changing technical behavior, verify repository versions and current official docs. Stale project instructions never override current repository state.
+Use docs/AI_AGENT_SOURCES.md as the source map. For changing technical behavior, verify repository versions and current official docs. Stale project instructions never override current repository state.
 
 ## 16. Engineering Judgment
 Challenge unnecessary complexity, coupling, technical debt, security risk, testing difficulty, or non-idiomatic Rust; recommend simpler alternatives. The user decides among valid options.
