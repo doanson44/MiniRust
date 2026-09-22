@@ -6,7 +6,7 @@ services:
     ports: !reset []
 
   web:
-    ports: []
+    ports: !reset []
 
   caddy:
     image: caddy:2-alpine
