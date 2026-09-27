@@ -852,7 +852,28 @@ async fn openapi() -> impl IntoResponse {
 }
 
 async fn swagger_ui() -> impl IntoResponse {
-    let html = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MiniRust API</title><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>window.onload=()=>SwaggerUIBundle({url:'/api/v1/openapi.json',dom_id:'#swagger-ui'});</script></body></html>"#;
+    let html = r#"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MiniRust API — OpenAPI</title>
+<style>
+body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#0f172a;color:#e2e8f0}
+main{max-width:1100px;margin:auto;padding:32px 20px}h1{margin:0 0 8px;color:#fff}p{color:#94a3b8}
+.card{margin:14px 0;padding:16px;border:1px solid #334155;border-radius:12px;background:#111827}
+.method{display:inline-block;padding:3px 8px;border-radius:6px;background:#22d3ee;color:#082f49;font-weight:700;margin-right:10px}
+.path{font-family:ui-monospace,monospace;color:#fff}.summary{margin:8px 0;color:#94a3b8}
+pre{white-space:pre-wrap;background:#020617;padding:16px;border-radius:10px;overflow:auto}
+a{color:#67e8f9}
+</style>
+</head>
+<body><main><h1>MiniRust API</h1><p>OpenAPI 3.0.3 documentation. The viewer is bundled with the application; no external CDN is required.</p><div id="docs">Loading…</div></main>
+<script>
+fetch('/api/v1/openapi.json').then(r=>r.json()).then(spec=>{
+ const root=document.querySelector('#docs'); const paths=spec.paths||{};
+ root.innerHTML=Object.entries(paths).flatMap(([path,item])=>Object.entries(item).map(([method,op])=>'<section class="card"><div><span class="method">'+method.toUpperCase()+'</span><span class="path">'+path+'</span></div><div class="summary">'+(op.summary||'')+'</div></section>')).join('')+'<section class="card"><details><summary>Raw OpenAPI document</summary><pre>'+JSON.stringify(spec,null,2).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</pre></details></section>';
+}).catch(()=>{document.querySelector('#docs').textContent='Unable to load OpenAPI document.'});
+</script></body></html>"#;
     (
         [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
         html,
