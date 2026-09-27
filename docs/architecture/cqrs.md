@@ -81,3 +81,10 @@ Cross-context access must use one of:
 - a published read contract where the context intentionally provides one.
 
 Direct access to another context's repository, aggregate, or tables is prohibited.
+
+
+## Current application boundary
+
+Authentication and user-management HTTP handlers enter the application layer through explicit asynchronous command/query handlers. Commands model state-changing intent such as requesting a login code, updating a profile, assigning a role, or changing an entitlement. Queries model information requirements such as resolving the current session, listing users, or reading an entitlement.
+
+The existing service types remain the compatibility implementation behind these handlers. The intended next extraction is to move multi-step transaction coordination from persistence methods into the command handlers while keeping SQLx/MariaDB confined to infrastructure.
