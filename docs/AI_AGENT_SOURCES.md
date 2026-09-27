@@ -142,3 +142,20 @@ For deployment tasks, inspect the current runtime topology, routing, Docker conf
 For API changes, inspect existing integration tests before implementing new tests. Every new API endpoint requires integration-test coverage through the public HTTP boundary. Coverage should be minimal and business-rule focused: prove meaningful invariants, authorization, persistence effects, and important response behavior without multiplying tests for trivial permutations or implementation details.
 
 Prefer extending an existing scenario when it can prove the new rule. Use Testcontainers for MariaDB integration infrastructure so `cargo test` owns the test container lifecycle. Do not introduce a manual Compose prerequisite for API integration tests.
+
+
+## 9. CI Verification Source
+
+GitHub Actions workflow results are the preferred remote verification source when local execution is unavailable or unreliable.
+
+For implementation or build claims, use this precedence:
+1. Current GitHub repository state
+2. Verified GitHub Actions results for the exact commit
+3. Repository architecture documentation
+4. User's current task intent
+5. External official documentation
+6. General model knowledge
+
+A commit with no workflow run or no status checks has not been CI-verified. Do not infer build, lint, test, or hydration success from source inspection alone.
+
+When local execution fails because of DNS, network, missing tooling, or another environment limitation, report that limitation and inspect GitHub Actions before concluding that verification is unavailable. Do not claim a check passed unless its actual result is available.
