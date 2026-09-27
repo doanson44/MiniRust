@@ -27,6 +27,8 @@ pub enum UserAdminError {
     NotFound,
     EmailAlreadyExists,
     ProtectedUser,
+    InvalidFullName,
+    InvalidAvatarUrl,
     Persistence,
 }
 
@@ -39,6 +41,8 @@ impl std::fmt::Display for UserAdminError {
             Self::NotFound => f.write_str("user not found"),
             Self::EmailAlreadyExists => f.write_str("email already exists"),
             Self::ProtectedUser => f.write_str("user is protected"),
+            Self::InvalidFullName => f.write_str("full name is invalid"),
+            Self::InvalidAvatarUrl => f.write_str("avatar URL is invalid"),
             Self::Persistence => f.write_str("user persistence failed"),
         }
     }
@@ -81,6 +85,9 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
     ) -> Result<PremiumEntitlement, UserAdminError>;
 
     async fn revoke_premium(&self, email: &str) -> Result<UserAccess, UserAdminError>;
+    async fn update_profile(&self, user_id: EntityId, full_name: Option<&str>, avatar_url: Option<&str>) -> Result<UserAccess, UserAdminError>;
+    async fn lock_user(&self, user_id: EntityId) -> Result<(), UserAdminError>;
+    async fn delete_user_by_id(&self, user_id: EntityId) -> Result<(), UserAdminError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -192,6 +199,34 @@ where
         }
         self.repository.set_premium(&email, active, expires_at).await
     }
+    pub async fn update_profile(&self, user_id: EntityId, full_name: Option<&str>, avatar_url: Option<&str>) -> Result<UserAccess, UserAdminError> {
+        let full_name = normalize_full_name(full_name)?;
+        let avatar_url = normalize_avatar_url(avatar_url)?;
+        self.repository.update_profile(user_id, full_name.as_deref(), avatar_url.as_deref()).await
+    }
+
+    pub async fn lock(&self, user_id: EntityId) -> Result<(), UserAdminError> {
+        self.repository.lock_user(user_id).await
+    }
+
+    pub async fn delete_by_id(&self, user_id: EntityId) -> Result<(), UserAdminError> {
+        self.repository.delete_user_by_id(user_id).await
+    }
+
+}
+
+fn normalize_full_name(value: Option<&str>) -> Result<Option<String>, UserAdminError> {
+    let Some(value) = value else { return Ok(None); };
+    let value = value.trim();
+    if value.is_empty() || value.chars().count() > 200 { return Err(UserAdminError::InvalidFullName); }
+    Ok(Some(value.to_owned()))
+}
+
+fn normalize_avatar_url(value: Option<&str>) -> Result<Option<String>, UserAdminError> {
+    let Some(value) = value else { return Ok(None); };
+    let value = value.trim();
+    if value.is_empty() || value.chars().count() > 2048 || !(value.starts_with("https://") || value.starts_with("http://")) { return Err(UserAdminError::InvalidAvatarUrl); }
+    Ok(Some(value.to_owned()))
 }
 
 fn normalize_email(email: &str) -> Result<String, UserAdminError> {
