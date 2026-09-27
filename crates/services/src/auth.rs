@@ -68,6 +68,7 @@ pub enum AuthError {
     CodeAttemptsExceeded,
     SessionInvalid,
     AccountLocked,
+    Forbidden,
     EmailDeliveryUnavailable,
     Persistence,
     InvalidSecret,
@@ -83,6 +84,7 @@ impl std::fmt::Display for AuthError {
             Self::CodeAttemptsExceeded => f.write_str("verification attempts exceeded"),
             Self::SessionInvalid => f.write_str("invalid session"),
             Self::AccountLocked => f.write_str("account is locked"),
+            Self::Forbidden => f.write_str("admin role required"),
             Self::EmailDeliveryUnavailable => f.write_str("email delivery unavailable"),
             Self::Persistence => f.write_str("authentication persistence failed"),
             Self::InvalidSecret => f.write_str("authentication secret is invalid"),
@@ -233,6 +235,11 @@ where
             .find_session(token_hash, now()?)
             .await?
             .ok_or(AuthError::SessionInvalid)
+    }
+
+    pub async fn require_admin(&self, token: &str) -> Result<UserAccess, AuthError> {
+        let user = self.current_session(token).await?;
+        if user.is_admin { Ok(user) } else { Err(AuthError::Forbidden) }
     }
 
     pub async fn logout(&self, token: &str) -> Result<(), AuthError> {
