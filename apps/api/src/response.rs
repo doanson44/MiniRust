@@ -163,6 +163,15 @@ impl ProblemDetails {
                     Locale::En => "The maximum number of verification attempts was exceeded.".to_owned(),
                 },
             ),
+            AuthError::AccountLocked => (
+                StatusCode::FORBIDDEN,
+                "ACCOUNT_LOCKED",
+                "errors.auth.account_locked",
+                match locale {
+                    Locale::Vi => "Tài khoản đã bị khóa.".to_owned(),
+                    Locale::En => "The account is locked.".to_owned(),
+                },
+            ),
             AuthError::SessionInvalid => (
                 StatusCode::UNAUTHORIZED,
                 "SESSION_INVALID",
@@ -206,6 +215,24 @@ impl ProblemDetails {
                 match locale {
                     Locale::Vi => "Email không hợp lệ.".to_owned(),
                     Locale::En => "The email address is invalid.".to_owned(),
+                },
+            ),
+            UserAdminError::InvalidFullName => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_FULL_NAME",
+                "errors.user.invalid_full_name",
+                match locale {
+                    Locale::Vi => "Họ tên không hợp lệ.".to_owned(),
+                    Locale::En => "The full name is invalid.".to_owned(),
+                },
+            ),
+            UserAdminError::InvalidAvatarUrl => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_AVATAR_URL",
+                "errors.user.invalid_avatar_url",
+                match locale {
+                    Locale::Vi => "Avatar URL không hợp lệ.".to_owned(),
+                    Locale::En => "The avatar URL is invalid.".to_owned(),
                 },
             ),
             UserAdminError::InvalidPremiumExpiry => (
