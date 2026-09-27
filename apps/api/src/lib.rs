@@ -545,7 +545,7 @@ async fn admin_user_update(
     };
 
     match state.user_commands.handle(UserAdminCommand::UpdateUserEmail { current_email: email.clone(), new_email: body.email.clone() }).await {
-        Ok(user) => (
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -566,7 +566,7 @@ async fn admin_user_unlock(
     }
 
     match state.user_commands.handle(UserAdminCommand::UnlockUser { email: email.clone() }).await {
-        Ok(user) => (
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         ).into_response(),
@@ -628,7 +628,7 @@ async fn admin_user_revoke_premium(
     }
 
     match state.user_commands.handle(UserAdminCommand::RevokePremium { email: email.clone() }).await {
-        Ok(user) => (
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -663,7 +663,7 @@ async fn admin_user_set_premium(
         })
         .await
     {
-        Ok(user) => (
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -695,7 +695,7 @@ async fn admin_user_assign_role(
     };
 
     match state.user_commands.handle(UserAdminCommand::AssignRole { email: email.clone(), role }).await {
-        Ok(user) => (
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
