@@ -17,7 +17,7 @@ use minirust_database::Database;
 use minirust_services::cqrs::{AsyncCommandHandler, AsyncQueryHandler, CommandHandler, QueryHandler};
 use minirust_services::{
     AuthCommand, AuthCommandHandler, AuthCommandResult, AuthError, AuthQueryHandler,
-    AuthService, CurrentSessionQuery, UnavailableEmailSender,
+    AuthService, CurrentSessionQuery, RequireAdminQuery, UnavailableEmailSender,
     UserAdminCommand, UserAdminCommandHandler, UserAdminCommandResult, UserAdminQuery,
     UserAdminQueryHandler, UserAdminQueryResult, UserAdminService,
 };
