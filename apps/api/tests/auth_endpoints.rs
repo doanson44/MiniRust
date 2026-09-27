@@ -179,6 +179,18 @@ async fn admin_user_crud_and_role_assignment() {
     let app = test_app().await;
     let cookie = admin_cookie(&app).await;
 
+    let list = app
+        .clone()
+        .oneshot(
+            Request::get("/api/v1/admin/users")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(list.status(), StatusCode::OK);
+
     let create = app
         .clone()
         .oneshot(
@@ -242,6 +254,18 @@ async fn admin_user_crud_and_role_assignment() {
         .await
         .unwrap();
     assert_eq!(remove_role.status(), StatusCode::OK);
+
+    let protected_delete = app
+        .clone()
+        .oneshot(
+            Request::delete("/api/v1/admin/users/admin@minirust.local")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(protected_delete.status(), StatusCode::CONFLICT);
 
     let delete = app
         .clone()
