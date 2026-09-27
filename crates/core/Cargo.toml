@@ -6,3 +6,4 @@ license.workspace = true
 description = "Shared domain types and errors for MiniRust"
 
 [dependencies]
+uuid.workspace = true
