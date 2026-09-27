@@ -1,3 +1,7 @@
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
 //! MiniRust REST API application.
 
 mod response;
@@ -10,10 +14,12 @@ use axum::routing::{delete, get, patch, post, put};
 use axum::{Json, Router};
 use minirust_core::AppError;
 use minirust_database::Database;
-use minirust_services::cqrs::{CommandHandler, QueryHandler};
+use minirust_services::cqrs::{AsyncCommandHandler, AsyncQueryHandler, CommandHandler, QueryHandler};
 use minirust_services::{
-    AdminUserRole, AuthError, AuthService, UnavailableEmailSender, UserAdminError,
-    UserAdminService,
+    AuthCommand, AuthCommandHandler, AuthCommandResult, AuthError, AuthQueryHandler,
+    AuthService, CurrentSessionQuery, RequireAdminQuery, UnavailableEmailSender,
+    UserAdminCommand, UserAdminCommandHandler, UserAdminCommandResult, UserAdminQuery,
+    UserAdminQueryHandler, UserAdminQueryResult, UserAdminService,
 };
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
 use response::{ApiResponse, Locale, ProblemDetails};
@@ -25,20 +31,59 @@ pub struct AppState {
     pub echo: EchoCommandHandler,
     pub greeting: GreetingQueryHandler,
     pub database: Database,
-    pub auth: AuthService<Database, UnavailableEmailSender>,
-    pub users: UserAdminService<Database>,
+    pub auth_commands: AuthCommandHandler<Database, UnavailableEmailSender>,
+    pub auth_queries: AuthQueryHandler<Database, UnavailableEmailSender>,
+    pub user_commands: UserAdminCommandHandler<Database>,
+    pub user_queries: UserAdminQueryHandler<Database>,
+    pub auth_rate_limiter: AuthRateLimiter,
     pub secure_cookies: bool,
+}
+
+#[derive(Clone, Default)]
+pub struct AuthRateLimiter {
+    entries: Arc<Mutex<HashMap<String, VecDeque<Instant>>>>,
+}
+
+impl AuthRateLimiter {
+    pub fn check(&self, key: &str, max_requests: usize, window: Duration) -> bool {
+        let now = Instant::now();
+        let mut entries = match self.entries.lock() { Ok(entries) => entries, Err(poisoned) => poisoned.into_inner(), };
+        if !entries.contains_key(key) && entries.len() >= 10_000 {
+            entries.retain(|_, timestamps| !timestamps.is_empty());
+            if entries.len() >= 10_000 {
+                if let Some(oldest_key) = entries.keys().next().cloned() {
+                    entries.remove(&oldest_key);
+                }
+            }
+        }
+        let timestamps = entries.entry(key.to_owned()).or_default();
+        while timestamps
+            .front()
+            .is_some_and(|timestamp| now.duration_since(*timestamp) >= window)
+        {
+            timestamps.pop_front();
+        }
+        if timestamps.len() >= max_requests {
+            return false;
+        }
+        timestamps.push_back(now);
+        true
+    }
 }
 
 impl AppState {
     pub fn new(database: Database, auth_secret: impl Into<Vec<u8>>, secure_cookies: bool) -> Result<Self, AuthError> {
         let auth = AuthService::new(database.clone(), UnavailableEmailSender, auth_secret)?;
+        let users = UserAdminService::new(database.clone());
         Ok(Self {
             echo: EchoCommandHandler,
             greeting: GreetingQueryHandler,
             database,
-            auth,
-            users: UserAdminService::new(database),
+            auth_commands: AuthCommandHandler::new(auth.clone()),
+            auth_queries: AuthQueryHandler::new(auth),
+            user_commands: UserAdminCommandHandler::new(users.clone()),
+            user_queries: UserAdminQueryHandler::new(users),
+            auth_rate_limiter: AuthRateLimiter::default(),
             secure_cookies,
         })
     }
@@ -254,7 +299,19 @@ async fn auth_register_request_code(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.auth.request_registration_code(&body.email).await {
+    if !state.auth_rate_limiter.check("register:global", 60, Duration::from_secs(15 * 60)) {
+        return response::ProblemDetails::rate_limited(locale).into_response();
+    }
+
+    let rate_key = format!("register:{}", body.email.trim().to_ascii_lowercase());
+    if !state
+        .auth_rate_limiter
+        .check(&rate_key, 3, Duration::from_secs(15 * 60))
+    {
+        return response::ProblemDetails::rate_limited(locale).into_response();
+    }
+
+    match state.auth_commands.handle(AuthCommand::RequestRegistrationCode { email: body.email.clone() }).await {
         Ok(_) => (
             StatusCode::OK,
             Json(ApiResponse::new(CodeRequestResponse { accepted: true })),
@@ -275,7 +332,19 @@ async fn auth_login_request_code(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.auth.request_login_code(&body.email).await {
+    if !state.auth_rate_limiter.check("login:global", 60, Duration::from_secs(15 * 60)) {
+        return response::ProblemDetails::rate_limited(locale).into_response();
+    }
+
+    let rate_key = format!("login:{}", body.email.trim().to_ascii_lowercase());
+    if !state
+        .auth_rate_limiter
+        .check(&rate_key, 3, Duration::from_secs(15 * 60))
+    {
+        return response::ProblemDetails::rate_limited(locale).into_response();
+    }
+
+    match state.auth_commands.handle(AuthCommand::RequestLoginCode { email: body.email.clone() }).await {
         Ok(_) => (
             StatusCode::OK,
             Json(ApiResponse::new(CodeRequestResponse { accepted: true })),
@@ -297,8 +366,8 @@ async fn auth_register_verify_code(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.auth.verify_registration_code(&body.email, &body.code).await {
-        Ok(session) => {
+    match state.auth_commands.handle(AuthCommand::VerifyRegistrationCode { email: body.email.clone(), code: body.code.clone() }).await {
+        Ok(AuthCommandResult::Session(session)) => {
             let response = AuthSessionResponse {
                 user: auth_user_response(session.user),
                 expires_at: session.expires_at,
@@ -326,8 +395,8 @@ async fn auth_login_verify_code(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.auth.verify_login_code(&body.email, &body.code).await {
-        Ok(session) => {
+    match state.auth_commands.handle(AuthCommand::VerifyLoginCode { email: body.email.clone(), code: body.code.clone() }).await {
+        Ok(AuthCommandResult::Session(session)) => {
             let response = AuthSessionResponse {
                 user: auth_user_response(session.user),
                 expires_at: session.expires_at,
@@ -353,7 +422,7 @@ async fn auth_me(
         return auth_error_response(AuthError::SessionInvalid, locale).into_response();
     };
 
-    match state.auth.current_session(cookie.value()).await {
+    match state.auth_queries.handle(CurrentSessionQuery { token: cookie.value().to_owned() }).await {
         Ok(user) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
@@ -396,26 +465,13 @@ struct AdminPremiumResponse {
     expires_at: Option<i64>,
 }
 
-async fn require_admin(
-    state: &AppState,
-    jar: &CookieJar,
-    locale: Locale,
-) -> Result<minirust_services::UserAccess, axum::response::Response> {
+
+
+async fn authorize_admin(state: &AppState, jar: &CookieJar, locale: Locale) -> Result<minirust_services::UserAccess, axum::response::Response> {
     let Some(cookie) = jar.get(SESSION_COOKIE) else {
         return Err(auth_error_response(AuthError::SessionInvalid, locale).into_response());
     };
-
-    let user = state
-        .auth
-        .current_session(cookie.value())
-        .await
-        .map_err(|error| auth_error_response(error, locale).into_response())?;
-
-    if !user.is_admin {
-        return Err(ProblemDetails::forbidden(locale).into_response());
-    }
-
-    Ok(user)
+    state.auth_queries.handle(RequireAdminQuery { token: cookie.value().to_owned() }).await.map_err(|error| auth_error_response(error, locale).into_response())
 }
 
 async fn admin_users_list(
@@ -424,12 +480,12 @@ async fn admin_users_list(
     jar: CookieJar,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
-    match state.users.list().await {
-        Ok(users) => (
+    match state.user_queries.handle(UserAdminQuery::ListUsers).await {
+        Ok(UserAdminQueryResult::Users(users)) => (
             StatusCode::OK,
             Json(ApiResponse::new(AdminUserListResponse {
                 users: users.into_iter().map(auth_user_response).collect(),
@@ -447,7 +503,7 @@ async fn admin_users_create(
     body: Result<Json<AdminCreateUserRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -456,8 +512,8 @@ async fn admin_users_create(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.users.create(&body.email).await {
-        Ok(user) => (
+    match state.user_commands.handle(UserAdminCommand::CreateUser { email: body.email.clone() }).await {
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::CREATED,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -473,12 +529,12 @@ async fn admin_user_get(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
-    match state.users.get(&email).await {
-        Ok(user) => (
+    match state.user_queries.handle(UserAdminQuery::GetUser { email: email.clone() }).await {
+        Ok(UserAdminQueryResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -495,7 +551,7 @@ async fn admin_user_update(
     body: Result<Json<AdminUpdateUserRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -504,8 +560,8 @@ async fn admin_user_update(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.users.update_email(&email, &body.email).await {
-        Ok(user) => (
+    match state.user_commands.handle(UserAdminCommand::UpdateUserEmail { current_email: email.clone(), new_email: body.email.clone() }).await {
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -521,12 +577,12 @@ async fn admin_user_unlock(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
-    match state.users.unlock(&email).await {
-        Ok(user) => (
+    match state.user_commands.handle(UserAdminCommand::UnlockUser { email: email.clone() }).await {
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         ).into_response(),
@@ -541,16 +597,12 @@ async fn admin_user_delete(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
-    match state.users.delete(&email).await {
-        Ok(()) => (
-            StatusCode::OK,
-            Json(ApiResponse::new(serde_json::json!({ "deleted": true }))),
-        )
-            .into_response(),
+    match state.user_commands.handle(UserAdminCommand::DeleteUser { email: email.clone() }).await {
+        Ok(UserAdminCommandResult::Deleted) => StatusCode::NO_CONTENT.into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
     }
 }
@@ -563,12 +615,12 @@ async fn admin_user_get_premium(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
-    match state.users.get_premium(&email).await {
-        Ok(entitlement) => (
+    match state.user_queries.handle(UserAdminQuery::GetPremium { email: email.clone() }).await {
+        Ok(UserAdminQueryResult::Premium(entitlement)) => (
             StatusCode::OK,
             Json(ApiResponse::new(AdminPremiumResponse {
                 active: entitlement.active,
@@ -587,12 +639,12 @@ async fn admin_user_revoke_premium(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
-    match state.users.revoke_premium(&email).await {
-        Ok(user) => (
+    match state.user_commands.handle(UserAdminCommand::RevokePremium { email: email.clone() }).await {
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -609,7 +661,7 @@ async fn admin_user_set_premium(
     body: Result<Json<AdminPremiumRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -619,11 +671,15 @@ async fn admin_user_set_premium(
     };
 
     match state
-        .users
-        .set_premium(&email, body.active, body.expires_at)
+        .user_commands
+        .handle(UserAdminCommand::SetPremium {
+            email: email.clone(),
+            active: body.active,
+            expires_at: body.expires_at,
+        })
         .await
     {
-        Ok(user) => (
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -640,7 +696,7 @@ async fn admin_user_assign_role(
     body: Result<Json<AdminAssignRoleRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -649,14 +705,13 @@ async fn admin_user_assign_role(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    let role = match body.role.trim().to_ascii_lowercase().as_str() {
-        "admin" => AdminUserRole::Admin,
-        "none" => AdminUserRole::None,
-        _ => return ProblemDetails::user_admin(&UserAdminError::InvalidRole, locale).into_response(),
+    let role = match minirust_services::AdminUserRole::parse(&body.role) {
+        Ok(role) => role,
+        Err(error) => return ProblemDetails::user_admin(&error, locale).into_response(),
     };
 
-    match state.users.assign_role(&email, role).await {
-        Ok(user) => (
+    match state.user_commands.handle(UserAdminCommand::AssignRole { email: email.clone(), role }).await {
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -682,12 +737,12 @@ async fn user_profile_update(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.users.update_profile(
-        user.id,
-        body.full_name.as_deref(),
-        body.avatar_url.as_deref(),
-    ).await {
-        Ok(user) => (
+    match state.user_commands.handle(UserAdminCommand::UpdateProfile {
+        user_id: user.id,
+        full_name: body.full_name.clone(),
+        avatar_url: body.avatar_url.clone(),
+    }).await {
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         ).into_response(),
@@ -706,8 +761,8 @@ async fn user_lock(
         Err(response) => return response,
     };
 
-    match state.users.lock(user.id).await {
-        Ok(()) => (
+    match state.user_commands.handle(UserAdminCommand::LockUser { user_id: user.id }).await {
+        Ok(UserAdminCommandResult::Locked) => (
             jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
             StatusCode::OK,
             Json(ApiResponse::new(AccountActionResponse { success: true })),
@@ -727,8 +782,8 @@ async fn user_delete(
         Err(response) => return response,
     };
 
-    match state.users.delete_by_id(user.id).await {
-        Ok(()) => (
+    match state.user_commands.handle(UserAdminCommand::DeleteUserById { user_id: user.id }).await {
+        Ok(UserAdminCommandResult::Deleted) => (
             jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
             StatusCode::OK,
             Json(ApiResponse::new(AccountActionResponse { success: true })),
@@ -746,7 +801,7 @@ async fn current_authenticated_user(
         return Err(auth_error_response(AuthError::SessionInvalid, locale).into_response());
     };
 
-    state.auth.current_session(cookie.value()).await
+    state.auth_queries.handle(CurrentSessionQuery { token: cookie.value().to_owned() }).await
         .map_err(|error| auth_error_response(error, locale).into_response())
 }
 
@@ -758,7 +813,7 @@ async fn auth_logout(
     let locale = Locale::from_accept_language(&headers);
 
     if let Some(cookie) = jar.get(SESSION_COOKIE) {
-        if let Err(error) = state.auth.logout(cookie.value()).await {
+        if let Err(error) = state.auth_commands.handle(AuthCommand::Logout { token: cookie.value().to_owned() }).await {
             return auth_error_response(error, locale).into_response();
         }
     }
@@ -795,7 +850,7 @@ async fn openapi() -> impl IntoResponse {
                 "/api/v1/users/me": { "patch": { "summary": "Update current user profile", "responses": { "200": { "description": "Profile updated" }, "401": { "description": "Authentication required" }, "422": { "description": "Invalid profile data" } } }, "delete": { "summary": "Delete current user account", "responses": { "200": { "description": "Account deleted" }, "401": { "description": "Authentication required" } } } },
                 "/api/v1/users/me/lock": { "post": { "summary": "Lock current user account", "responses": { "200": { "description": "Account locked" }, "401": { "description": "Authentication required" } } } },
                 "/api/v1/admin/users": { "get": { "summary": "List users (admin only)", "responses": { "200": { "description": "Users" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } }, "post": { "summary": "Create user by email (admin only)", "responses": { "201": { "description": "User created" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } } },
-                "/api/v1/admin/users/{email}": { "get": { "summary": "Get user by email (admin only)", "responses": { "200": { "description": "User" }, "404": { "description": "User not found" } } }, "patch": { "summary": "Update user email (admin only)", "responses": { "200": { "description": "User updated" }, "409": { "description": "Email already exists or protected user" } } }, "delete": { "summary": "Delete user by email (admin only)", "responses": { "204": { "description": "User deleted" }, "404": { "description": "User not found" } } } },
+                "/api/v1/admin/users/{email}": { "get": { "summary": "Get user by email (admin only)", "responses": { "200": { "description": "User" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } }, "patch": { "summary": "Update user email (admin only)", "responses": { "200": { "description": "User updated" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "409": { "description": "Email already exists or protected user" } } }, "delete": { "summary": "Delete user by email (admin only)", "responses": { "204": { "description": "User deleted" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
                 "/api/v1/admin/users/{email}/unlock": { "post": { "summary": "Unlock user account (admin only)", "responses": { "200": { "description": "User unlocked" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
                 "/api/v1/admin/users/{email}/role": { "put": { "summary": "Assign or remove admin role (admin only)", "responses": { "200": { "description": "User role updated" }, "403": { "description": "Admin role required" }, "422": { "description": "Invalid role" } } } },
                 "/api/v1/admin/users/{email}/entitlements/premium": { "get": { "summary": "Get premium entitlement (admin only)", "responses": { "200": { "description": "Premium entitlement" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } }, "put": { "summary": "Assign premium entitlement (admin only)", "responses": { "200": { "description": "Premium entitlement updated" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" }, "422": { "description": "Invalid premium expiry" } } }, "delete": { "summary": "Revoke premium entitlement (admin only)", "responses": { "200": { "description": "Premium entitlement revoked" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } }
@@ -805,7 +860,28 @@ async fn openapi() -> impl IntoResponse {
 }
 
 async fn swagger_ui() -> impl IntoResponse {
-    let html = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MiniRust API</title><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>window.onload=()=>SwaggerUIBundle({url:'/api/v1/openapi.json',dom_id:'#swagger-ui'});</script></body></html>"#;
+    let html = r#"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MiniRust API — OpenAPI</title>
+<style>
+body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#0f172a;color:#e2e8f0}
+main{max-width:1100px;margin:auto;padding:32px 20px}h1{margin:0 0 8px;color:#fff}p{color:#94a3b8}
+.card{margin:14px 0;padding:16px;border:1px solid #334155;border-radius:12px;background:#111827}
+.method{display:inline-block;padding:3px 8px;border-radius:6px;background:#22d3ee;color:#082f49;font-weight:700;margin-right:10px}
+.path{font-family:ui-monospace,monospace;color:#fff}.summary{margin:8px 0;color:#94a3b8}
+pre{white-space:pre-wrap;background:#020617;padding:16px;border-radius:10px;overflow:auto}
+a{color:#67e8f9}
+</style>
+</head>
+<body><main><h1>MiniRust API</h1><p>OpenAPI 3.0.3 documentation. The viewer is bundled with the application; no external CDN is required.</p><div id="docs">Loading…</div></main>
+<script>
+fetch('/api/v1/openapi.json').then(r=>r.json()).then(spec=>{
+ const root=document.querySelector('#docs'); const paths=spec.paths||{};
+ root.innerHTML=Object.entries(paths).flatMap(([path,item])=>Object.entries(item).map(([method,op])=>'<section class="card"><div><span class="method">'+method.toUpperCase()+'</span><span class="path">'+path+'</span></div><div class="summary">'+(op.summary||'')+'</div></section>')).join('')+'<section class="card"><details><summary>Raw OpenAPI document</summary><pre>'+JSON.stringify(spec,null,2).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</pre></details></section>';
+}).catch(()=>{document.querySelector('#docs').textContent='Unable to load OpenAPI document.'});
+</script></body></html>"#;
     (
         [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
         html,

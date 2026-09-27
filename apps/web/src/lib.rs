@@ -1,30 +1,63 @@
 //! MiniRust Leptos SSR application.
 
-use axum::extract::State;
-use axum::http::{header, HeaderValue, StatusCode};
+#[cfg(feature = "ssr")]
+use axum::extract::FromRef;
+#[cfg(feature = "ssr")]
+use axum::http::StatusCode;
+#[cfg(feature = "ssr")]
 use axum::response::IntoResponse;
+#[cfg(feature = "ssr")]
 use axum::routing::get;
+#[cfg(feature = "ssr")]
 use axum::Router;
 use leptos::prelude::*;
+#[cfg(feature = "ssr")]
+use leptos::config::LeptosOptions;
+#[cfg(feature = "ssr")]
+use leptos_axum::{generate_route_list, LeptosRoutes};
+use leptos_router::{components::{Route, Router as LeptosRouter, Routes}, path};
 use minirust_core::APP_NAME;
-use minirust_services::cqrs::QueryHandler;
-use minirust_services::{GreetingQuery, GreetingQueryHandler};
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "ssr")]
 use tower_http::trace::TraceLayer;
 
+const CSS: &str = include_str!("generated.css");
+
 /// Shared web application state.
+#[cfg(feature = "ssr")]
 #[derive(Clone)]
 pub struct AppState {
-    pub greeting: GreetingQueryHandler,
+    pub leptos_options: LeptosOptions,
 }
 
+#[cfg(feature = "ssr")]
 impl AppState {
     pub fn new() -> Self {
         Self {
-            greeting: GreetingQueryHandler,
+            leptos_options: LeptosOptions::builder()
+                .output_name("minirust-web")
+                .site_root("target/site")
+                .site_pkg_dir("pkg")
+                .site_addr("127.0.0.1:3001")
+                .build(),
         }
     }
 }
 
+#[cfg(feature = "ssr")]
+impl FromRef<AppState> for LeptosOptions {
+    fn from_ref(state: &AppState) -> Self { state.leptos_options.clone() }
+}
+
+#[cfg(feature = "ssr")]
+impl AppState {
+    pub fn with_leptos_options(mut self, options: LeptosOptions) -> Self {
+        self.leptos_options = options;
+        self
+    }
+}
+
+#[cfg(feature = "ssr")]
 impl Default for AppState {
     fn default() -> Self {
         Self::new()
@@ -34,16 +67,6 @@ impl Default for AppState {
 #[component]
 fn HomePage(message: String) -> impl IntoView {
     view! {
-        <html lang="en" class="scroll-smooth bg-slate-950 text-slate-100">
-            <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <meta name="description" content="MiniRust is a Rust-first full-stack platform foundation built for long-term growth."/>
-                <meta name="theme-color" content="#020617"/>
-                <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-                <title>{APP_NAME} {" - Rust-first platform foundation"}</title>
-            </head>
-            <body class="min-h-screen overflow-x-hidden bg-slate-950 antialiased">
                 <header class="border-b border-white/10 bg-slate-950/90 backdrop-blur">
                     <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10" aria-label="Main navigation">
                         <a href="#top" class="flex items-center gap-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400" aria-label="MiniRust home">
@@ -55,7 +78,7 @@ fn HomePage(message: String) -> impl IntoView {
                             <a href="#architecture" class="transition hover:text-white">Architecture</a>
                             <a href="#principles" class="transition hover:text-white">Principles</a>
                         </div>
-                        <a href="#get-started" class="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-300/20 focus:outline-none focus:ring-2 focus:ring-cyan-400">Explore MiniRust</a>
+                        <div class="flex items-center gap-3"><a href="/login" class="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400">Sign in</a><a href="/register" class="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-300/20 focus:outline-none focus:ring-2 focus:ring-cyan-400">Get started</a></div>
                     </nav>
                 </header>
 
@@ -71,7 +94,7 @@ fn HomePage(message: String) -> impl IntoView {
                                 <h1 class="max-w-4xl text-4xl font-black tracking-tight text-white sm:text-6xl lg:text-7xl">Build the platform once. <span class="text-cyan-300">Extend it for years.</span></h1>
                                 <p class="mt-7 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">{message} MiniRust is structured as a reusable foundation for production-minded Rust applications, with SSR, REST APIs, CQRS-oriented services, persistence, testing, and containerized infrastructure.</p>
                                 <div class="mt-9 flex flex-col gap-3 sm:flex-row">
-                                    <a href="#capabilities" class="inline-flex items-center justify-center rounded-xl bg-cyan-300 px-5 py-3.5 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-950/30 transition hover:bg-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-slate-950">Explore the foundation <span class="ml-2">"->"</span></a>
+                                    <a href="/register" class="inline-flex items-center justify-center rounded-xl bg-cyan-300 px-5 py-3.5 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-950/30 transition hover:bg-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-slate-950">Create an account <span class="ml-2">"->"</span></a>
                                     <a href="#architecture" class="inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/5 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/50">See the architecture</a>
                                 </div>
                                 <div class="mt-10 grid max-w-xl grid-cols-1 gap-4 text-sm text-slate-400 sm:grid-cols-3">
@@ -153,44 +176,305 @@ fn HomePage(message: String) -> impl IntoView {
                         <div>Built with Rust, Axum, Leptos, and a CQRS-oriented service layer.</div>
                     </div>
                 </footer>
-            </body>
-        </html>
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+struct UserResponse {
+    id: String,
+    email: String,
+    is_admin: bool,
+    is_premium: bool,
+    full_name: Option<String>,
+    avatar_url: Option<String>,
+    is_locked: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct ApiEnvelope<T> { data: T }
+
+#[derive(Clone, Debug, Deserialize)]
+struct AdminUsers { users: Vec<UserResponse> }
+
+#[derive(Clone, Debug, Deserialize)]
+struct ApiProblem { detail: String }
+
+#[cfg(feature = "hydrate")]
+async fn api_post_json(path: &str, body: String) -> Result<(), String> {
+    let response = gloo_net::http::Request::post(path)
+        .header("Content-Type", "application/json")
+        .body(body)
+        .map_err(|error| error.to_string())?
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    if response.ok() {
+        Ok(())
+    } else {
+        response.json::<ApiProblem>().await.map(|p| Err(p.detail)).unwrap_or_else(|e| Err(e.to_string()))
+    }
+}
+
+#[component]
+fn LoginPage() -> impl IntoView {
+    let (email, set_email) = signal(String::new());
+    let (code, set_code) = signal(String::new());
+    let (requested, set_requested) = signal(false);
+    let (status, set_status) = signal(String::new());
+
+    let submit = move |event: leptos::ev::SubmitEvent| {
+        event.prevent_default();
+        let email_value = email.get();
+        let code_value = code.get();
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            if requested.get_untracked() {
+                match api_post_json("/api/v1/auth/login/verify-code", serde_json::json!({"email": email_value, "code": code_value}).to_string()).await {
+                    Ok(()) => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
+                    Err(error) => set_status.set(error),
+                }
+            } else {
+                match api_post_json("/api/v1/auth/login/request-code", serde_json::json!({"email": email_value}).to_string()).await {
+                    Ok(()) => { set_requested.set(true); set_status.set("Verification code requested.".to_owned()); }
+                    Err(error) => set_status.set(error),
+                }
+            }
+        });
+    };
+
+    view! {
+        <div class="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-12">
+            <a href="/" class="mb-8 text-sm font-bold text-cyan-300">"<- MiniRust"</a>
+            <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Sign in"</p>
+                <h1 class="mt-3 text-3xl font-black text-white">"Access your account"</h1>
+                <p class="mt-3 text-sm leading-6 text-slate-400">"Passwordless authentication uses a verification code."</p>
+                <form on:submit=submit class="mt-8 space-y-4">
+                    <label class="block text-sm font-semibold text-slate-200">"Email"
+                        <input type="email" required prop:value=email on:input=move |ev| set_email.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                    </label>
+                    <Show when=move || requested.get()>
+                        <label class="block text-sm font-semibold text-slate-200">"Code"
+                            <input type="text" inputmode="numeric" maxlength="6" prop:value=code on:input=move |ev| set_code.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                        </label>
+                    </Show>
+                    <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">{move || if requested.get() { "Verify and continue" } else { "Send code" }}</button>
+                </form>
+                <p class="mt-4 text-sm text-slate-400">{status}</p>
+                <p class="mt-8 text-sm text-slate-500">"New here? " <a href="/register" class="font-semibold text-cyan-300">"Create an account"</a></p>
+            </section>
+        </div>
+    }
+}
+
+#[component]
+fn RegisterPage() -> impl IntoView {
+    let (email, set_email) = signal(String::new());
+    let (code, set_code) = signal(String::new());
+    let (requested, set_requested) = signal(false);
+    let (status, set_status) = signal(String::new());
+
+    let submit = move |event: leptos::ev::SubmitEvent| {
+        event.prevent_default();
+        let email_value = email.get();
+        let code_value = code.get();
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            let verifying = requested.get_untracked();
+            let endpoint = if verifying { "/api/v1/auth/register/verify-code" } else { "/api/v1/auth/register/request-code" };
+            let body = if verifying { serde_json::json!({"email": email_value, "code": code_value}) } else { serde_json::json!({"email": email_value}) };
+            match api_post_json(endpoint, body.to_string()).await {
+                Ok(()) if verifying => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
+                Ok(()) => { set_requested.set(true); set_status.set("Verification code requested.".to_owned()); }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    view! {
+        <div class="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-12">
+            <a href="/" class="mb-8 text-sm font-bold text-cyan-300">"<- MiniRust"</a>
+            <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Create account"</p>
+                <h1 class="mt-3 text-3xl font-black text-white">"Start with your email"</h1>
+                <p class="mt-3 text-sm leading-6 text-slate-400">"We will send a verification code."</p>
+                <form on:submit=submit class="mt-8 space-y-4">
+                    <label class="block text-sm font-semibold text-slate-200">"Email"
+                        <input type="email" required prop:value=email on:input=move |ev| set_email.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                    </label>
+                    <Show when=move || requested.get()>
+                        <label class="block text-sm font-semibold text-slate-200">"Code"
+                            <input type="text" inputmode="numeric" maxlength="6" prop:value=code on:input=move |ev| set_code.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                        </label>
+                    </Show>
+                    <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">{move || if requested.get() { "Verify and continue" } else { "Send code" }}</button>
+                </form>
+                <p class="mt-4 text-sm text-slate-400">{status}</p>
+                <p class="mt-8 text-sm text-slate-500">"Already registered? " <a href="/login" class="font-semibold text-cyan-300">"Sign in"</a></p>
+            </section>
+        </div>
+    }
+}
+
+#[component]
+fn AppPage() -> impl IntoView {
+    let (user, set_user) = signal(None::<UserResponse>);
+    let (status, set_status) = signal(String::new());
+
+    #[cfg(feature = "hydrate")]
+    Effect::new(move |_| {
+        leptos::task::spawn_local(async move {
+            match gloo_net::http::Request::get("/api/v1/auth/me").send().await {
+                Ok(response) if response.status() == 401 => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/login"); } }
+                Ok(response) if response.ok() => match response.json::<ApiEnvelope<UserResponse>>().await {
+                    Ok(envelope) => set_user.set(Some(envelope.data)),
+                    Err(error) => set_status.set(error.to_string()),
+                },
+                Ok(response) => set_status.set(format!("Unable to load account ({}).", response.status())),
+                Err(error) => set_status.set(error.to_string()),
+            }
+        });
+    });
+
+    let logout = move |_| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            let _ = gloo_net::http::Request::post("/api/v1/auth/logout").send().await;
+            if let Some(window) = web_sys::window() { let _ = window.location().set_href("/"); }
+        });
+    };
+
+    view! {
+        <div class="min-h-screen">
+            <header class="border-b border-white/10"><nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
+                <a href="/" class="font-black text-white">"MiniRust"</a>
+                <div class="flex gap-3">
+                    <Show when=move || user.get().map(|u| u.is_admin).unwrap_or(false)><a href="/admin" class="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300">"Admin"</a></Show>
+                    <button on:click=logout class="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white">"Sign out"</button>
+                </div>
+            </nav></header>
+            <main class="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:px-10">
+                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Account"</p>
+                <h1 class="mt-3 text-4xl font-black text-white">"Your workspace"</h1>
+                <p class="mt-3 text-slate-400">{status}</p>
+                <Show when=move || user.get().is_some() fallback=|| view! { <p class="mt-8 text-slate-400">"Loading account..."</p> }>
+                    <p class="mt-8 text-white">{move || user.get().map(|u| u.email).unwrap_or_default()}</p>
+                </Show>
+            </main>
+        </div>
+    }
+}
+
+#[component]
+fn AdminPage() -> impl IntoView {
+    let (users, set_users) = signal(Vec::<UserResponse>::new());
+    let (status, set_status) = signal(String::from("Loading..."));
+
+    #[cfg(feature = "hydrate")]
+    Effect::new(move |_| {
+        leptos::task::spawn_local(async move {
+            let me = gloo_net::http::Request::get("/api/v1/auth/me").send().await;
+            match me {
+                Ok(response) if response.status() == 401 => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/login"); } }
+                Ok(response) if response.ok() => match response.json::<ApiEnvelope<UserResponse>>().await {
+                    Ok(envelope) if envelope.data.is_admin => {
+                        match gloo_net::http::Request::get("/api/v1/admin/users").send().await {
+                            Ok(response) if response.ok() => match response.json::<ApiEnvelope<AdminUsers>>().await {
+                                Ok(envelope) => { let count = envelope.data.users.len(); set_users.set(envelope.data.users); set_status.set(format!("{count} users loaded.")); }
+                                Err(error) => set_status.set(error.to_string()),
+                            },
+                            Ok(response) => set_status.set(format!("Unable to load users ({}).", response.status())),
+                            Err(error) => set_status.set(error.to_string()),
+                        }
+                    }
+                    Ok(_) => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
+                    Err(error) => set_status.set(error.to_string()),
+                },
+                Ok(response) => set_status.set(format!("Unable to load session ({}).", response.status())),
+                Err(error) => set_status.set(error.to_string()),
+            }
+        });
+    });
+
+    view! {
+        <div class="min-h-screen">
+            <header class="border-b border-white/10"><nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
+                <a href="/app" class="font-black text-white">"MiniRust"</a><a href="/app" class="text-sm text-cyan-300">"Back to workspace"</a>
+            </nav></header>
+            <main class="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:px-10">
+                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Administration"</p><h1 class="mt-3 text-4xl font-black text-white">"Users"</h1>
+                <p class="mt-3 text-sm text-slate-400">{status}</p>
+                <div class="mt-8 overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.03]"><table class="w-full min-w-[680px] text-left">
+                    <thead><tr class="text-xs uppercase tracking-widest text-slate-500"><th class="px-3 py-4">"Email"</th><th class="px-3 py-4">"Role"</th><th class="px-3 py-4">"Entitlement"</th><th class="px-3 py-4 text-right">"Status"</th></tr></thead>
+                    <tbody><For each=move || users.get() key=|user| user.id.clone() let:user>
+                        <tr class="border-t border-white/10"><td class="px-3 py-3 text-sm text-white">{user.email.clone()}</td><td class="px-3 py-3 text-sm text-slate-400">{if user.is_admin {"Admin"} else {"User"}}</td><td class="px-3 py-3 text-sm text-slate-400">{if user.is_premium {"Premium"} else {"—"}}</td><td class="px-3 py-3 text-right text-sm text-slate-400">{if user.is_locked {"Locked"} else {"Active"}}</td></tr>
+                    </For></tbody>
+                </table></div>
+            </main>
+        </div>
+    }
+}
+
+#[component]
+fn App() -> impl IntoView {
+    view! {
+        <LeptosRouter>
+            <Routes fallback=|| view! { <main class="min-h-screen bg-slate-950 p-10 text-white"><h1>"Not found"</h1></main> }>
+                <Route path=path!("") view=|| view! { <HomePage message="Hello from MiniRust".to_owned()/> }/>
+                <Route path=path!("/login") view=LoginPage/>
+                <Route path=path!("/register") view=RegisterPage/>
+                <Route path=path!("/app") view=AppPage/>
+                <Route path=path!("/admin") view=AdminPage/>
+            </Routes>
+        </LeptosRouter>
+    }
+}
+
+#[cfg(feature = "ssr")]
+fn shell(options: LeptosOptions) -> impl IntoView {
+    view! {
+        <html lang="en" class="scroll-smooth bg-slate-950 text-slate-100"><head>
+            <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+            <meta name="description" content="MiniRust is a Rust-first full-stack platform foundation built for long-term growth."/>
+            <meta name="theme-color" content="#020617"/><style>{CSS}</style>
+            <leptos::hydration::HydrationScripts options=options.clone()/><title>{APP_NAME} {" - Rust-first platform foundation"}</title>
+        </head><body class="min-h-screen overflow-x-hidden bg-slate-950 antialiased"><App/></body></html>
     }
 }
 
 /// Render the MiniRust landing page to an HTML string.
+#[cfg(feature = "ssr")]
 pub fn render_home_page(message: &str) -> String {
     let html = view! { <HomePage message=message.to_owned()/> }.to_html();
     format!("<!DOCTYPE html>{html}")
 }
 
-/// HTTP router used by the binary and by tests.
+#[cfg(feature = "ssr")]
 pub fn router(state: AppState) -> Router {
+    let routes = generate_route_list(App);
     Router::new()
-        .route("/", get(home))
         .route("/health", get(health))
+        .leptos_routes(&state.leptos_options, routes, {
+            let options = state.leptos_options.clone();
+            move || shell(options.clone())
+        })
+        .fallback(leptos_axum::file_and_error_handler(shell))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
 
-async fn home(State(state): State<AppState>) -> impl IntoResponse {
-    let greeting = state.greeting.handle(GreetingQuery);
-    let html = render_home_page(&greeting.message);
-    (
-        StatusCode::OK,
-        [(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static("text/html; charset=utf-8"),
-        )],
-        html,
-    )
-}
-
+#[cfg(feature = "ssr")]
 async fn health() -> impl IntoResponse {
     (StatusCode::OK, "ok")
 }
 
-#[cfg(test)]
+#[cfg(feature = "hydrate")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn hydrate() {
+    leptos::mount::hydrate_body(App);
+}
+
+#[cfg(all(test, feature = "ssr"))]
 mod tests {
     use super::*;
     use axum::body::Body;
@@ -198,56 +482,27 @@ mod tests {
     use tower::ServiceExt;
 
     async fn body_string(response: axum::response::Response) -> String {
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         String::from_utf8(bytes.to_vec()).unwrap()
     }
 
-    #[test]
-    fn home_page_renders_the_landing_page() {
-        let html = render_home_page("Hello from MiniRust");
-        assert!(html.starts_with("<!DOCTYPE html>"));
-        assert!(html.contains("MiniRust<!> - Rust-first platform foundation"));
-        assert!(html.contains("id=\"capabilities\""));
-        assert!(html.contains("id=\"architecture\""));
-        assert!(html.contains("Hello from MiniRust"));
-        assert!(html.contains("md:flex"));
-        assert!(html.contains("lg:grid-cols"));
-    }
-
+    #[cfg(feature = "ssr")]
     #[tokio::test]
-    async fn get_root_returns_responsive_landing_page_html() {
-        let response = router(AppState::new())
-            .oneshot(Request::get("/").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-        let content_type = response
-            .headers()
-            .get(header::CONTENT_TYPE)
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert!(content_type.starts_with("text/html"));
-
-        let body = body_string(response).await;
-        assert!(body.contains("MiniRust"));
-        assert!(body.contains("viewport"));
-        assert!(body.contains("@tailwindcss/browser@4"));
-        assert!(body.contains("sm:text-6xl"));
-        assert!(body.contains("md:flex"));
-        assert!(body.contains("lg:grid-cols"));
+    async fn account_pages_are_server_rendered() {
+        let app = router(AppState::new());
+        for path in ["/", "/login", "/register", "/app", "/admin"] {
+            let response = app.clone().oneshot(Request::get(path).body(Body::empty()).unwrap()).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let body = body_string(response).await;
+            assert!(body.contains("MiniRust"));
+            assert!(body.contains("pkg"));
+        }
     }
 
+    #[cfg(feature = "ssr")]
     #[tokio::test]
     async fn get_health_returns_ok() {
-        let response = router(AppState::new())
-            .oneshot(Request::get("/health").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-
+        let response = router(AppState::new()).oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(body_string(response).await, "ok");
     }

@@ -102,3 +102,15 @@ Test workflow for API work:
 6. Review the diff and confirm the test covers behavior, not implementation details.
 
 A missing integration test is incomplete API work unless the endpoint is explicitly documented as an exception by architecture or task scope.
+
+
+## Transaction boundary implementation
+
+The application command handler defines the logical transaction boundary: one command is the unit of state change and must not be split across unrelated repository calls without an explicit consistency decision.
+
+The infrastructure repository owns the physical SQL transaction lifecycle for that command operation. This keeps SQLx and MariaDB details out of the application layer while preserving atomicity at the command boundary. If a future command composes multiple persistence operations, its repository contract must expose one atomic command operation rather than having the transport or query layer coordinate transactions.
+
+
+## Web rendering and hydration
+
+The web application uses Leptos full-stack SSR with client-side hydration. The server renders the initial HTML through Axum and `leptos_axum`; the browser loads the WASM bundle produced by `cargo-leptos` and hydrates the same component tree. Interactive UI behavior belongs in Leptos components rather than inline JavaScript. The web and API remain separate processes behind the same Caddy ingress.

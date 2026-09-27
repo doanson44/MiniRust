@@ -50,9 +50,18 @@ impl Database {
             .map_err(|_| AuthError::Persistence)?;
 
         let user_id = match existing_id {
-            Some(row) => row_to_id(&row)?,
+            Some(row) => {
+                let bootstrap_admin = row
+                    .try_get::<i64, _>("bootstrap_admin")
+                    .map_err(|_| AuthError::Persistence)?
+                    != 0;
+                if !bootstrap_admin {
+                    return Err(AuthError::BootstrapAdminConflict);
+                }
+                row_to_id(&row)?
+            }
             None => {
-                sqlx::query("INSERT INTO users (id, email, bootstrap_admin, created_at) VALUES (?, ?, 0, ?)")
+                sqlx::query("INSERT INTO users (id, email, bootstrap_admin, created_at) VALUES (?, ?, 1, ?)")
                     .bind(user_id.as_uuid().as_bytes())
                     .bind(&email)
                     .bind(now)
@@ -96,7 +105,7 @@ impl Database {
         sqlx::query(
             "INSERT INTO auth_challenges
                 (id, email, purpose, code_hash, attempts, max_attempts, expires_at, created_at)
-             VALUES (?, ?, 'login', ?, 0, 255, ?, ?)",
+             VALUES (?, ?, 'login', ?, 0, 5, ?, ?)",
         )
         .bind(challenge_id.as_uuid().as_bytes())
         .bind(&email)
@@ -769,7 +778,15 @@ impl AuthRepository for Database {
         .execute(&mut *tx)
         .await;
 
-        if insert.is_err() {
+        if let Err(error) = insert {
+            if error
+                .as_database_error()
+                .and_then(|database| database.code())
+                .map(|code| code == "1062")
+                .unwrap_or(false)
+            {
+                return Err(AuthError::EmailAlreadyExists);
+            }
             return Err(AuthError::Persistence);
         }
 
@@ -799,7 +816,7 @@ impl AuthRepository for Database {
             return Err(record_failed_attempt(&mut tx, challenge_id, challenge.attempts, challenge.max_attempts).await?);
         }
 
-        let row = sqlx::query("SELECT id, bootstrap_admin FROM users WHERE email = ? FOR UPDATE")
+        let row = sqlx::query("SELECT id, bootstrap_admin, locked_at FROM users WHERE email = ? FOR UPDATE")
             .bind(email)
             .fetch_optional(&mut *tx)
             .await
@@ -870,6 +887,15 @@ impl AuthRepository for Database {
         .await
         .map(|_| ())
         .map_err(|_| AuthError::Persistence)
+    }
+
+    async fn discard_challenge(&self, challenge_id: EntityId) -> Result<(), AuthError> {
+        sqlx::query("DELETE FROM auth_challenges WHERE id = ?")
+            .bind(challenge_id.as_uuid().as_bytes())
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+            .map_err(|_| AuthError::Persistence)
     }
 }
 

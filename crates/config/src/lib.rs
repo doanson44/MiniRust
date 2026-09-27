@@ -24,6 +24,8 @@ pub const ENV_WEB_HOST: &str = "MINIRUST_WEB_HOST";
 pub const ENV_WEB_PORT: &str = "MINIRUST_WEB_PORT";
 pub const ENV_DATABASE_URL: &str = "MINIRUST_DATABASE_URL";
 pub const ENV_AUTH_SECRET: &str = "MINIRUST_AUTH_SECRET";
+pub const ENV_ADMIN_EMAIL: &str = "MINIRUST_ADMIN_EMAIL";
+pub const ENV_ADMIN_OTP: &str = "MINIRUST_ADMIN_OTP";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Environment {
@@ -83,6 +85,8 @@ pub struct Config {
     pub log_filter: String,
     pub database_url: Option<String>,
     pub auth_secret: Option<String>,
+    pub admin_email: String,
+    pub admin_otp: String,
 }
 
 impl Config {
@@ -101,6 +105,14 @@ impl Config {
             log_filter: read_or_default(ENV_LOG, DEFAULT_LOG_FILTER),
             database_url: read_optional(ENV_DATABASE_URL),
             auth_secret: read_optional(ENV_AUTH_SECRET),
+            admin_email: match environment {
+                Environment::Development => read_or_default(ENV_ADMIN_EMAIL, "admin@minirust.local"),
+                Environment::Production => require_var(ENV_ADMIN_EMAIL)?,
+            },
+            admin_otp: match environment {
+                Environment::Development => read_or_default(ENV_ADMIN_OTP, "123456"),
+                Environment::Production => require_var(ENV_ADMIN_OTP)?,
+            },
         })
     }
 
@@ -109,6 +121,10 @@ impl Config {
             .as_deref()
             .ok_or_else(|| ConfigError::MissingRequired(ENV_DATABASE_URL.to_owned()))
     }
+
+    pub fn admin_email(&self) -> &str { &self.admin_email }
+
+    pub fn admin_otp(&self) -> &str { &self.admin_otp }
 
     pub fn auth_secret(&self) -> Result<&str, ConfigError> {
         self.auth_secret

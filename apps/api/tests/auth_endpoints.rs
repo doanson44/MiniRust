@@ -448,7 +448,7 @@ async fn admin_user_crud_and_role_assignment() {
         )
         .await
         .unwrap();
-    assert_eq!(delete.status(), StatusCode::OK);
+    assert_eq!(delete.status(), StatusCode::NO_CONTENT);
 
     let missing = app.router()
         .oneshot(
@@ -497,3 +497,34 @@ async fn admin_user_endpoints_require_authentication() {
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
 }
+
+#[tokio::test]
+async fn auth_code_requests_are_rate_limited() {
+    let app = test_app().await;
+
+    for _ in 0..3 {
+        let response = app.router()
+            .oneshot(
+                Request::post("/api/v1/auth/login/request-code")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"email":"admin@minirust.local"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    let response = app.router()
+        .oneshot(
+            Request::post("/api/v1/auth/login/request-code")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"email":"admin@minirust.local"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+}
+

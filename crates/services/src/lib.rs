@@ -12,6 +12,6 @@ pub mod queries;
 pub use commands::echo::{EchoCommand, EchoCommandHandler, EchoCommandResult};
 pub use queries::greeting::{GreetingQuery, GreetingQueryHandler};
 
-pub use auth::{AuthError, AuthService, ChallengePurpose, CodeRequestAccepted, EmailSender, Session, UnavailableEmailSender, UserAccess};
+pub use auth::{AuthCommand, AuthCommandHandler, AuthCommandResult, AuthError, AuthQueryHandler, AuthService, CurrentSessionQuery, RequireAdminQuery, ChallengePurpose, CodeRequestAccepted, EmailSender, Session, UnavailableEmailSender, UserAccess};
 
-pub use user_admin::{AdminUserRole, PremiumEntitlement, UserAdminError, UserAdminRepository, UserAdminService};
+pub use user_admin::{AdminUserRole, PremiumEntitlement, UserAdminCommand, UserAdminCommandHandler, UserAdminCommandResult, UserAdminError, UserAdminQuery, UserAdminQueryHandler, UserAdminQueryResult, UserAdminRepository, UserAdminService};

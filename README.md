@@ -2,7 +2,7 @@
 
 Rust workspace for a large, extensible web platform.
 
-The current baseline provides a runnable Axum API, Leptos SSR web application, MariaDB connectivity, health checks, Swagger UI, and Docker Compose orchestration. The application layer is being structured around CQRS so the repository can scale to many bounded contexts and a large number of independent features.
+The current baseline provides a runnable Axum API, Leptos SSR + hydration web application, MariaDB connectivity, health checks, Swagger UI, and Docker Compose orchestration. The application layer is being structured around CQRS so the repository can scale to many bounded contexts and a large number of independent features.
 
 ## Architecture
 
@@ -56,12 +56,12 @@ The current baseline demonstrates both sides of CQRS:
 - `EchoCommand` → `EchoCommandHandler` for a write-side operation.
 - `GreetingQuery` → `GreetingQueryHandler` for a read-side operation.
 - Axum handlers translate HTTP into commands/queries and map results into HTTP responses.
-- Leptos uses the query handler for SSR data.
+- Leptos owns presentation and hydration; application commands/queries remain behind explicit application boundaries.
 - Database health remains infrastructure health logic and is intentionally not forced through CQRS.
 
 ## Frontend policy
 
-- Leptos SSR is the web rendering model.
+- Leptos full-stack SSR + client-side hydration is the web rendering model.\n- The server renders the initial HTML; `cargo-leptos` builds the browser WASM/JS bundle used to hydrate the same component tree.\n- Interactive frontend behavior belongs in Leptos components; inline JavaScript is not part of the frontend architecture.
 - Tailwind CSS is the only CSS framework.
 - Bootstrap must not be introduced or preserved as a compatibility layer.
 
@@ -124,7 +124,8 @@ Start MariaDB, create the database, and set `MINIRUST_DATABASE_URL` in `.env`:
 
 ```bash
 cargo run -p minirust-api
-cargo run -p minirust-web
+cd apps/web
+cargo leptos watch
 ```
 
 ## Docker Compose

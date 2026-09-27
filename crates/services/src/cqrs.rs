@@ -20,3 +20,13 @@ pub trait Query {
 pub trait QueryHandler<Q: Query> {
     fn handle(&self, query: Q) -> Q::Output;
 }
+
+/// Handles an asynchronous command at the application boundary.
+pub trait AsyncCommandHandler<C: Command> {
+    async fn handle(&self, command: C) -> Result<C::Output, C::Error>;
+}
+
+/// Handles an asynchronous read-side query at the application boundary.
+pub trait AsyncQueryHandler<Q: Query> {
+    async fn handle(&self, query: Q) -> Q::Output;
+}

@@ -68,7 +68,10 @@ pub enum AuthError {
     CodeAttemptsExceeded,
     SessionInvalid,
     AccountLocked,
+    Forbidden,
     EmailDeliveryUnavailable,
+    EmailAlreadyExists,
+    BootstrapAdminConflict,
     Persistence,
     InvalidSecret,
     Randomness,
@@ -83,7 +86,10 @@ impl std::fmt::Display for AuthError {
             Self::CodeAttemptsExceeded => f.write_str("verification attempts exceeded"),
             Self::SessionInvalid => f.write_str("invalid session"),
             Self::AccountLocked => f.write_str("account is locked"),
+            Self::Forbidden => f.write_str("admin role required"),
             Self::EmailDeliveryUnavailable => f.write_str("email delivery unavailable"),
+            Self::EmailAlreadyExists => f.write_str("email already exists"),
+            Self::BootstrapAdminConflict => f.write_str("bootstrap admin conflicts with an existing account"),
             Self::Persistence => f.write_str("authentication persistence failed"),
             Self::InvalidSecret => f.write_str("authentication secret is invalid"),
             Self::Randomness => f.write_str("secure randomness is unavailable"),
@@ -148,6 +154,7 @@ pub trait AuthRepository: Clone + Send + Sync + 'static {
     ) -> Result<Option<UserAccess>, AuthError>;
 
     async fn revoke_session(&self, session_token_hash: [u8; 32]) -> Result<(), AuthError>;
+    async fn discard_challenge(&self, challenge_id: EntityId) -> Result<(), AuthError>;
 }
 
 pub trait EmailSender: Clone + Send + Sync + 'static {
@@ -235,6 +242,11 @@ where
             .ok_or(AuthError::SessionInvalid)
     }
 
+    pub async fn require_admin(&self, token: &str) -> Result<UserAccess, AuthError> {
+        let user = self.current_session(token).await?;
+        if user.is_admin { Ok(user) } else { Err(AuthError::Forbidden) }
+    }
+
     pub async fn logout(&self, token: &str) -> Result<(), AuthError> {
         self.repository
             .revoke_session(hash_session_token(token))
@@ -291,9 +303,14 @@ where
             )
             .await?;
 
-        self.email_sender
+        if let Err(error) = self
+            .email_sender
             .send_verification_code(&email, purpose, &code)
-            .await?;
+            .await
+        {
+            let _ = self.repository.discard_challenge(challenge.id).await;
+            return Err(error);
+        }
 
         Ok(CodeRequestAccepted)
     }
@@ -460,5 +477,136 @@ mod tests {
             normalize_email("  User@Example.COM ").unwrap(),
             "user@example.com"
         );
+    }
+}
+
+use crate::cqrs::{AsyncCommandHandler, AsyncQueryHandler, Command, Query};
+
+pub enum AuthCommand {
+    RequestRegistrationCode { email: String },
+    RequestLoginCode { email: String },
+    VerifyRegistrationCode { email: String, code: String },
+    VerifyLoginCode { email: String, code: String },
+    Logout { token: String },
+}
+
+pub enum AuthCommandResult {
+    CodeRequested(CodeRequestAccepted),
+    Session(Session),
+    LoggedOut,
+}
+
+impl Command for AuthCommand {
+    type Output = AuthCommandResult;
+    type Error = AuthError;
+}
+
+#[derive(Clone)]
+pub struct AuthCommandHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    service: AuthService<R, E>,
+}
+
+impl<R, E> AuthCommandHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    pub fn new(service: AuthService<R, E>) -> Self {
+        Self { service }
+    }
+}
+
+impl<R, E> AsyncCommandHandler<AuthCommand> for AuthCommandHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    async fn handle(&self, command: AuthCommand) -> Result<AuthCommandResult, AuthError> {
+        match command {
+            AuthCommand::RequestRegistrationCode { email } => self
+                .service
+                .request_registration_code(&email)
+                .await
+                .map(AuthCommandResult::CodeRequested),
+            AuthCommand::RequestLoginCode { email } => self
+                .service
+                .request_login_code(&email)
+                .await
+                .map(AuthCommandResult::CodeRequested),
+            AuthCommand::VerifyRegistrationCode { email, code } => self
+                .service
+                .verify_registration_code(&email, &code)
+                .await
+                .map(AuthCommandResult::Session),
+            AuthCommand::VerifyLoginCode { email, code } => self
+                .service
+                .verify_login_code(&email, &code)
+                .await
+                .map(AuthCommandResult::Session),
+            AuthCommand::Logout { token } => self
+                .service
+                .logout(&token)
+                .await
+                .map(|_| AuthCommandResult::LoggedOut),
+        }
+    }
+}
+
+pub struct CurrentSessionQuery {
+    pub token: String,
+}
+
+pub struct RequireAdminQuery {
+    pub token: String,
+}
+
+impl Query for CurrentSessionQuery {
+    type Output = Result<UserAccess, AuthError>;
+}
+
+impl Query for RequireAdminQuery {
+    type Output = Result<UserAccess, AuthError>;
+}
+
+#[derive(Clone)]
+pub struct AuthQueryHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    service: AuthService<R, E>,
+}
+
+impl<R, E> AuthQueryHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    pub fn new(service: AuthService<R, E>) -> Self {
+        Self { service }
+    }
+}
+
+impl<R, E> AsyncQueryHandler<CurrentSessionQuery> for AuthQueryHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    async fn handle(&self, query: CurrentSessionQuery) -> Result<UserAccess, AuthError> {
+        self.service.current_session(&query.token).await
+    }
+}
+
+impl<R, E> AsyncQueryHandler<RequireAdminQuery> for AuthQueryHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    async fn handle(&self, query: RequireAdminQuery) -> Result<UserAccess, AuthError> {
+        self.service.require_admin(&query.token).await
     }
 }

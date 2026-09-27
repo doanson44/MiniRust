@@ -11,6 +11,14 @@ pub enum AdminUserRole {
 }
 
 impl AdminUserRole {
+    pub fn parse(value: &str) -> Result<Self, UserAdminError> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "admin" => Ok(Self::Admin),
+            "none" => Ok(Self::None),
+            _ => Err(UserAdminError::InvalidRole),
+        }
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Admin => "admin",
@@ -253,4 +261,113 @@ fn now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |duration| duration.as_secs() as i64)
+}
+
+use crate::cqrs::{AsyncCommandHandler, AsyncQueryHandler, Command, Query};
+
+pub enum UserAdminCommand {
+    CreateUser { email: String },
+    UpdateUserEmail { current_email: String, new_email: String },
+    DeleteUser { email: String },
+    AssignRole { email: String, role: AdminUserRole },
+    SetPremium { email: String, active: bool, expires_at: Option<i64> },
+    RevokePremium { email: String },
+    UpdateProfile { user_id: EntityId, full_name: Option<String>, avatar_url: Option<String> },
+    LockUser { user_id: EntityId },
+    DeleteUserById { user_id: EntityId },
+    UnlockUser { email: String },
+}
+
+pub enum UserAdminCommandResult {
+    User(UserAccess),
+    Deleted,
+    Locked,
+}
+
+impl Command for UserAdminCommand {
+    type Output = UserAdminCommandResult;
+    type Error = UserAdminError;
+}
+
+#[derive(Clone)]
+pub struct UserAdminCommandHandler<R>
+where
+    R: UserAdminRepository,
+{
+    service: UserAdminService<R>,
+}
+
+impl<R> UserAdminCommandHandler<R>
+where
+    R: UserAdminRepository,
+{
+    pub fn new(service: UserAdminService<R>) -> Self {
+        Self { service }
+    }
+}
+
+impl<R> AsyncCommandHandler<UserAdminCommand> for UserAdminCommandHandler<R>
+where
+    R: UserAdminRepository,
+{
+    async fn handle(&self, command: UserAdminCommand) -> Result<UserAdminCommandResult, UserAdminError> {
+        match command {
+            UserAdminCommand::CreateUser { email } => self.service.create(&email).await.map(UserAdminCommandResult::User),
+            UserAdminCommand::UpdateUserEmail { current_email, new_email } => self.service.update_email(&current_email, &new_email).await.map(UserAdminCommandResult::User),
+            UserAdminCommand::DeleteUser { email } => self.service.delete(&email).await.map(|_| UserAdminCommandResult::Deleted),
+            UserAdminCommand::AssignRole { email, role } => self.service.assign_role(&email, role).await.map(UserAdminCommandResult::User),
+            UserAdminCommand::SetPremium { email, active, expires_at } => self.service.set_premium(&email, active, expires_at).await.map(UserAdminCommandResult::User),
+            UserAdminCommand::RevokePremium { email } => self.service.revoke_premium(&email).await.map(UserAdminCommandResult::User),
+            UserAdminCommand::UpdateProfile { user_id, full_name, avatar_url } => self.service.update_profile(user_id, full_name.as_deref(), avatar_url.as_deref()).await.map(UserAdminCommandResult::User),
+            UserAdminCommand::LockUser { user_id } => self.service.lock(user_id).await.map(|_| UserAdminCommandResult::Locked),
+            UserAdminCommand::DeleteUserById { user_id } => self.service.delete_by_id(user_id).await.map(|_| UserAdminCommandResult::Deleted),
+            UserAdminCommand::UnlockUser { email } => self.service.unlock(&email).await.map(UserAdminCommandResult::User),
+        }
+    }
+}
+
+pub enum UserAdminQuery {
+    GetUser { email: String },
+    ListUsers,
+    GetPremium { email: String },
+}
+
+pub enum UserAdminQueryResult {
+    User(UserAccess),
+    Users(Vec<UserAccess>),
+    Premium(PremiumEntitlement),
+}
+
+impl Query for UserAdminQuery {
+    type Output = Result<UserAdminQueryResult, UserAdminError>;
+}
+
+#[derive(Clone)]
+pub struct UserAdminQueryHandler<R>
+where
+    R: UserAdminRepository,
+{
+    service: UserAdminService<R>,
+}
+
+impl<R> UserAdminQueryHandler<R>
+where
+    R: UserAdminRepository,
+{
+    pub fn new(service: UserAdminService<R>) -> Self {
+        Self { service }
+    }
+}
+
+impl<R> AsyncQueryHandler<UserAdminQuery> for UserAdminQueryHandler<R>
+where
+    R: UserAdminRepository,
+{
+    async fn handle(&self, query: UserAdminQuery) -> Result<UserAdminQueryResult, UserAdminError> {
+        match query {
+            UserAdminQuery::GetUser { email } => self.service.get(&email).await.map(UserAdminQueryResult::User),
+            UserAdminQuery::ListUsers => self.service.list().await.map(UserAdminQueryResult::Users),
+            UserAdminQuery::GetPremium { email } => self.service.get_premium(&email).await.map(UserAdminQueryResult::Premium),
+        }
+    }
 }

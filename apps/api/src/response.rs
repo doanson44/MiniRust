@@ -163,6 +163,15 @@ impl ProblemDetails {
                     Locale::En => "The maximum number of verification attempts was exceeded.".to_owned(),
                 },
             ),
+            AuthError::Forbidden => (
+                StatusCode::FORBIDDEN,
+                "FORBIDDEN",
+                "errors.authorization.forbidden",
+                match locale {
+                    Locale::Vi => "Bạn không có quyền thực hiện thao tác này.".to_owned(),
+                    Locale::En => "You are not authorized to perform this operation.".to_owned(),
+                },
+            ),
             AuthError::AccountLocked => (
                 StatusCode::FORBIDDEN,
                 "ACCOUNT_LOCKED",
@@ -179,6 +188,24 @@ impl ProblemDetails {
                 match locale {
                     Locale::Vi => "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.".to_owned(),
                     Locale::En => "The session is invalid or has expired.".to_owned(),
+                },
+            ),
+            AuthError::EmailAlreadyExists => (
+                StatusCode::CONFLICT,
+                "EMAIL_ALREADY_EXISTS",
+                "errors.auth.email_already_exists",
+                match locale {
+                    Locale::Vi => "Email đã được sử dụng.".to_owned(),
+                    Locale::En => "The email address is already in use.".to_owned(),
+                },
+            ),
+            AuthError::BootstrapAdminConflict => (
+                StatusCode::CONFLICT,
+                "BOOTSTRAP_ADMIN_CONFLICT",
+                "errors.auth.bootstrap_admin_conflict",
+                match locale {
+                    Locale::Vi => "Email bootstrap admin đang trỏ tới một tài khoản thường.".to_owned(),
+                    Locale::En => "The bootstrap admin email points to an existing non-bootstrap account.".to_owned(),
                 },
             ),
             AuthError::EmailDeliveryUnavailable => (
@@ -305,6 +332,21 @@ impl ProblemDetails {
             detail: match locale {
                 Locale::Vi => "Bạn không có quyền thực hiện thao tác này.".to_owned(),
                 Locale::En => "You are not authorized to perform this operation.".to_owned(),
+            },
+        }
+    }
+
+    pub fn rate_limited(locale: Locale) -> Self {
+        Self {
+            problem_type: "https://minirust.dev/problems/rate-limit",
+            title: "Too many requests",
+            status: StatusCode::TOO_MANY_REQUESTS.as_u16(),
+            code: "RATE_LIMITED",
+            message_key: "errors.rate_limit.exceeded",
+            locale: locale.as_str(),
+            detail: match locale {
+                Locale::Vi => "Quá nhiều yêu cầu. Vui lòng thử lại sau.".to_owned(),
+                Locale::En => "Too many requests. Please try again later.".to_owned(),
             },
         }
     }

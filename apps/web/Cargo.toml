@@ -3,18 +3,54 @@ name = "minirust-web"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "MiniRust Leptos SSR application"
+description = "MiniRust Leptos SSR + hydration application"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-axum.workspace = true
+axum = { workspace = true, optional = true }
 leptos.workspace = true
-minirust-config.workspace = true
+leptos_axum = { workspace = true, optional = true }
+leptos_router.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+minirust-config = { workspace = true, optional = true }
 minirust-core.workspace = true
-minirust-services.workspace = true
-tokio.workspace = true
-tower-http.workspace = true
-tracing.workspace = true
-tracing-subscriber.workspace = true
+tokio = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true }
 
 [dev-dependencies]
 tower.workspace = true
+
+[target."cfg(target_arch = "wasm32")".dependencies]
+gloo-net.workspace = true
+web-sys.workspace = true
+wasm-bindgen.workspace = true
+
+[features]
+default = ["ssr"]
+ssr = ["dep:axum", "dep:leptos_axum", "dep:minirust-config", "dep:tokio", "dep:tower-http", "dep:tracing", "dep:tracing-subscriber", "leptos/ssr", "leptos_axum/default", "leptos_router/ssr"]
+hydrate = ["leptos/hydrate"]
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[package.metadata.leptos]
+output-name = "minirust-web"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+site-addr = "127.0.0.1:3001"
+reload-port = 3002
+env = "PROD"
+bin-features = ["ssr"]
+bin-default-features = false
+lib-features = ["hydrate"]
+lib-default-features = false
+lib-profile-release = "wasm-release"
