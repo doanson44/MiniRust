@@ -516,6 +516,97 @@ impl UserAdminRepository for Database {
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
         Ok(user)
     }
+    async fn update_profile(
+        &self,
+        user_id: EntityId,
+        full_name: Option<&str>,
+        avatar_url: Option<&str>,
+    ) -> Result<UserAccess, UserAdminError> {
+        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let exists = sqlx::query("SELECT id FROM users WHERE id = ? FOR UPDATE")
+            .bind(user_id.as_uuid().as_bytes())
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?
+            .is_some();
+        if !exists {
+            return Err(UserAdminError::NotFound);
+        }
+
+        sqlx::query("UPDATE users SET full_name = ?, avatar_url = ? WHERE id = ?")
+            .bind(full_name)
+            .bind(avatar_url)
+            .bind(user_id.as_uuid().as_bytes())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        let user = self.user_by_id(&mut tx, user_id, current_epoch())
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+        tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
+        Ok(user)
+    }
+
+    async fn lock_user(&self, user_id: EntityId) -> Result<(), UserAdminError> {
+        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let row = sqlx::query("SELECT bootstrap_admin FROM users WHERE id = ? FOR UPDATE")
+            .bind(user_id.as_uuid().as_bytes())
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?
+            .ok_or(UserAdminError::NotFound)?;
+
+        if row.try_get::<i64, _>("bootstrap_admin").map_err(|_| UserAdminError::Persistence)? != 0 {
+            return Err(UserAdminError::ProtectedUser);
+        }
+
+        let now = current_epoch();
+        sqlx::query("UPDATE users SET locked_at = ? WHERE id = ?")
+            .bind(now)
+            .bind(user_id.as_uuid().as_bytes())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        sqlx::query("UPDATE auth_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL")
+            .bind(now)
+            .bind(user_id.as_uuid().as_bytes())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        tx.commit().await.map_err(|_| UserAdminError::Persistence)
+    }
+
+    async fn delete_user_by_id(&self, user_id: EntityId) -> Result<(), UserAdminError> {
+        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let row = sqlx::query("SELECT bootstrap_admin FROM users WHERE id = ? FOR UPDATE")
+            .bind(user_id.as_uuid().as_bytes())
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?
+            .ok_or(UserAdminError::NotFound)?;
+
+        if row.try_get::<i64, _>("bootstrap_admin").map_err(|_| UserAdminError::Persistence)? != 0 {
+            return Err(UserAdminError::ProtectedUser);
+        }
+
+        sqlx::query("DELETE FROM auth_challenges WHERE email = (SELECT email FROM users WHERE id = ?)")
+            .bind(user_id.as_uuid().as_bytes())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        sqlx::query("DELETE FROM users WHERE id = ?")
+            .bind(user_id.as_uuid().as_bytes())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        tx.commit().await.map_err(|_| UserAdminError::Persistence)
+    }
+
 
 }
 
