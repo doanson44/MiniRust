@@ -163,3 +163,19 @@ Changing the meaning of an existing code is a breaking API change.
 Changing localized wording is not a change to the machine-readable contract.
 
 Adding a new locale does not change existing error codes or message keys.
+
+
+## User administration codes
+
+The admin user management API uses these stable codes:
+
+```text
+INVALID_EMAIL
+INVALID_ROLE
+USER_NOT_FOUND
+EMAIL_ALREADY_EXISTS
+PROTECTED_USER
+FORBIDDEN
+```
+
+`FORBIDDEN` is returned when the caller is authenticated but does not have the admin system role.
