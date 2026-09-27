@@ -1,29 +1,37 @@
 //! MiniRust Leptos SSR application.
 
+#[cfg(feature = "ssr")]
 use axum::extract::{FromRef, State};
+#[cfg(feature = "ssr")]
 use axum::http::{header, HeaderValue, StatusCode};
+#[cfg(feature = "ssr")]
 use axum::response::IntoResponse;
+#[cfg(feature = "ssr")]
 use axum::routing::get;
+#[cfg(feature = "ssr")]
 use axum::Router;
-use leptos::config::LeptosOptions;
 use leptos::prelude::*;
+#[cfg(feature = "ssr")]
+use leptos::config::LeptosOptions;
+#[cfg(feature = "ssr")]
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use leptos_router::{components::{Route, Router as LeptosRouter, Routes}, path};
 use minirust_core::APP_NAME;
-use minirust_services::cqrs::QueryHandler;
-use minirust_services::{GreetingQuery, GreetingQueryHandler};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ssr")]
 use tower_http::trace::TraceLayer;
 
 const CSS: &str = include_str!("generated.css");
 
 /// Shared web application state.
+#[cfg(feature = "ssr")]
 #[derive(Clone)]
 pub struct AppState {
     pub greeting: GreetingQueryHandler,
     pub leptos_options: LeptosOptions,
 }
 
+#[cfg(feature = "ssr")]
 impl AppState {
     pub fn new() -> Self {
         Self {
@@ -38,10 +46,12 @@ impl AppState {
     }
 }
 
+#[cfg(feature = "ssr")]
 impl FromRef<AppState> for LeptosOptions {
     fn from_ref(state: &AppState) -> Self { state.leptos_options.clone() }
 }
 
+#[cfg(feature = "ssr")]
 impl AppState {
     pub fn with_leptos_options(mut self, options: LeptosOptions) -> Self {
         self.leptos_options = options;
@@ -49,6 +59,7 @@ impl AppState {
     }
 }
 
+#[cfg(feature = "ssr")]
 impl Default for AppState {
     fn default() -> Self {
         Self::new()
@@ -433,11 +444,13 @@ fn shell(options: LeptosOptions) -> impl IntoView {
 }
 
 /// Render the MiniRust landing page to an HTML string.
+#[cfg(feature = "ssr")]
 pub fn render_home_page(message: &str) -> String {
     let html = view! { <HomePage message=message.to_owned()/> }.to_html();
     format!("<!DOCTYPE html>{html}")
 }
 
+#[cfg(feature = "ssr")]
 pub fn router(state: AppState) -> Router {
     let routes = generate_route_list(App);
     Router::new()
@@ -451,6 +464,7 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
 }
 
+#[cfg(feature = "ssr")]
 async fn health() -> impl IntoResponse {
     (StatusCode::OK, "ok")
 }
@@ -473,6 +487,7 @@ mod tests {
         String::from_utf8(bytes.to_vec()).unwrap()
     }
 
+    #[cfg(feature = "ssr")]
     #[tokio::test]
     async fn account_pages_are_server_rendered() {
         let app = router(AppState::new());
@@ -485,6 +500,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "ssr")]
     #[tokio::test]
     async fn get_health_returns_ok() {
         let response = router(AppState::new()).oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();
