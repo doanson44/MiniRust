@@ -137,3 +137,8 @@ Do not treat those as current MiniRust technology choices unless the current rep
 The target deployment model is one hosting/deployment unit for the web and API.
 This is an architectural direction, not proof that the current repository already implements it.
 For deployment tasks, inspect the current runtime topology, routing, Docker configuration, and process model before making changes.
+## 8. Testing Rules
+
+For API changes, inspect existing integration tests before implementing new tests. Every new API endpoint requires integration-test coverage through the public HTTP boundary. Coverage should be minimal and business-rule focused: prove meaningful invariants, authorization, persistence effects, and important response behavior without multiplying tests for trivial permutations or implementation details.
+
+Prefer extending an existing scenario when it can prove the new rule. Use Testcontainers for MariaDB integration infrastructure so `cargo test` owns the test container lifecycle. Do not introduce a manual Compose prerequisite for API integration tests.
