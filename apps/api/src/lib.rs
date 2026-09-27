@@ -98,6 +98,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/admin/users", get(admin_users_list).post(admin_users_create))
         .route("/api/v1/admin/users/{email}", get(admin_user_get).patch(admin_user_update).delete(admin_user_delete))
         .route("/api/v1/admin/users/{email}/role", put(admin_user_assign_role))
+        .route("/api/v1/admin/users/{email}/entitlements/premium", put(admin_user_set_premium))
         .route("/api/v1/openapi.json", get(openapi))
         .route("/swagger", get(swagger_ui))
         .layer(TraceLayer::new_for_http())
@@ -357,6 +358,12 @@ struct AdminAssignRoleRequest {
     role: String,
 }
 
+#[derive(Deserialize)]
+struct AdminPremiumRequest {
+    active: bool,
+    expires_at: Option<i64>,
+}
+
 #[derive(Serialize)]
 struct AdminUserListResponse {
     users: Vec<AuthUserResponse>,
@@ -501,6 +508,38 @@ async fn admin_user_delete(
     }
 }
 
+
+async fn admin_user_set_premium(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Path(email): Path<String>,
+    body: Result<Json<AdminPremiumRequest>, JsonRejection>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    if let Err(response) = require_admin(&state, &jar, locale).await {
+        return response;
+    }
+
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
+
+    match state
+        .users
+        .set_premium(&email, body.active, body.expires_at)
+        .await
+    {
+        Ok(user) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(auth_user_response(user))),
+        )
+            .into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
 async fn admin_user_assign_role(
     headers: HeaderMap,
     State(state): State<AppState>,
@@ -578,7 +617,8 @@ async fn openapi() -> impl IntoResponse {
                 "/api/v1/auth/me": { "get": { "summary": "Get current authenticated user", "responses": { "200": { "description": "Current user" }, "401": { "description": "Invalid or expired session" } } } },
                 "/api/v1/admin/users": { "get": { "summary": "List users (admin only)", "responses": { "200": { "description": "Users" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } }, "post": { "summary": "Create user by email (admin only)", "responses": { "201": { "description": "User created" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } } },
                 "/api/v1/admin/users/{email}": { "get": { "summary": "Get user by email (admin only)", "responses": { "200": { "description": "User" }, "404": { "description": "User not found" } } }, "patch": { "summary": "Update user email (admin only)", "responses": { "200": { "description": "User updated" }, "409": { "description": "Email already exists or protected user" } } }, "delete": { "summary": "Delete user by email (admin only)", "responses": { "204": { "description": "User deleted" }, "404": { "description": "User not found" } } } },
-                "/api/v1/admin/users/{email}/role": { "put": { "summary": "Assign or remove admin role (admin only)", "responses": { "200": { "description": "User role updated" }, "403": { "description": "Admin role required" }, "422": { "description": "Invalid role" } } } }
+                "/api/v1/admin/users/{email}/role": { "put": { "summary": "Assign or remove admin role (admin only)", "responses": { "200": { "description": "User role updated" }, "403": { "description": "Admin role required" }, "422": { "description": "Invalid role" } } } },
+                "/api/v1/admin/users/{email}/entitlements/premium": { "put": { "summary": "Assign or revoke premium entitlement (admin only)", "responses": { "200": { "description": "Premium entitlement updated" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" }, "422": { "description": "Invalid premium expiry" } } } }
             }
         })),
     )
