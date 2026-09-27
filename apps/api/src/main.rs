@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = config.database_url()?;
     let database = Database::connect(database_url).await?;
     database.migrate().await?;
-    database.seed_admin("admin@minirust.local", "123456", config.auth_secret()?.as_bytes()).await?;
+    database.seed_admin(config.admin_email(), config.admin_otp(), config.auth_secret()?.as_bytes()).await?;
     let bind = config.server_bind(ServerKind::Api)?;
     let addr = bind.socket_addr()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
