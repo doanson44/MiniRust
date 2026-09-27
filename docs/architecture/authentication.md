@@ -74,3 +74,14 @@ The application layer owns the authentication workflow and exposes AuthRepositor
 
 The current API wires UnavailableEmailSender intentionally. Authentication persistence and HTTP contracts are therefore in place, but actual email delivery is not enabled until a concrete provider adapter is added. No OTP is printed to logs as a development shortcut.
 
+
+## Bootstrap admin
+
+On API startup, after migrations complete, the backend idempotently seeds the bootstrap account:
+
+- email: admin@minirust.local
+- system role: admin
+- login OTP: 123456
+- OTP challenge is recreated on each API startup so the bootstrap OTP is available again after restart
+
+This is a development/bootstrap credential and is intentionally unsafe for production. A production deployment must replace the fixed OTP bootstrap with the normal email-delivery flow and remove or disable the bootstrap account.
