@@ -407,7 +407,7 @@ async fn auth_me(
     };
 
     match state.auth_queries.handle(CurrentSessionQuery { token: cookie.value().to_owned() }).await {
-        Ok(UserAdminCommandResult::User(user)) => (
+        Ok(user) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
