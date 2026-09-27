@@ -29,6 +29,7 @@ Use these repository documents for architectural intent:
 - docs/architecture/cqrs.md
 - docs/architecture/team-development.md
 - docs/architecture/api-response.md
+- docs/architecture/api-error-code.md
 
 These documents describe intended architecture; they do not prove that every described feature is implemented.
 If documentation and implementation disagree, report the discrepancy explicitly.
