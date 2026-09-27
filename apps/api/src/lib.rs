@@ -216,9 +216,13 @@ fn session_cookie(value: &str, secure: bool) -> Cookie<'static> {
 async fn auth_register_request_code(
     headers: HeaderMap,
     State(state): State<AppState>,
-    Json(body): Json<AuthEmailRequest>,
+    body: Result<Json<AuthEmailRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
 
     match state.auth.request_registration_code(&body.email).await {
         Ok(_) => (
@@ -233,9 +237,13 @@ async fn auth_register_request_code(
 async fn auth_login_request_code(
     headers: HeaderMap,
     State(state): State<AppState>,
-    Json(body): Json<AuthEmailRequest>,
+    body: Result<Json<AuthEmailRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
 
     match state.auth.request_login_code(&body.email).await {
         Ok(_) => (
@@ -250,10 +258,14 @@ async fn auth_login_request_code(
 async fn auth_register_verify_code(
     headers: HeaderMap,
     State(state): State<AppState>,
-    Json(body): Json<AuthVerifyRequest>,
+    body: Result<Json<AuthVerifyRequest>, JsonRejection>,
     jar: CookieJar,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
 
     match state.auth.verify_registration_code(&body.email, &body.code).await {
         Ok(session) => {
@@ -275,10 +287,14 @@ async fn auth_register_verify_code(
 async fn auth_login_verify_code(
     headers: HeaderMap,
     State(state): State<AppState>,
-    Json(body): Json<AuthVerifyRequest>,
+    body: Result<Json<AuthVerifyRequest>, JsonRejection>,
     jar: CookieJar,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
 
     match state.auth.verify_login_code(&body.email, &body.code).await {
         Ok(session) => {
