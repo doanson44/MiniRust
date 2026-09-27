@@ -2,8 +2,8 @@
 
 mod response;
 
-use axum::extract::State;
-use axum::http::StatusCode;
+use axum::extract::{rejection::JsonRejection, State};
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -11,7 +11,7 @@ use minirust_core::AppError;
 use minirust_database::Database;
 use minirust_services::cqrs::{CommandHandler, QueryHandler};
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
-use response::{ApiResponse, ProblemDetails};
+use response::{ApiResponse, Locale, ProblemDetails};
 use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
 
@@ -53,13 +53,22 @@ struct EchoResponse {
     echo: String,
 }
 
-fn app_error_response(error: AppError) -> ProblemDetails {
+fn app_error_response(error: AppError, locale: Locale) -> ProblemDetails {
     match error {
-        AppError::Validation(message) => ProblemDetails::validation(message),
+        AppError::Validation(error) => ProblemDetails::validation(&error, locale),
         other => {
             tracing::error!(%other, "unexpected application error");
-            ProblemDetails::internal()
+            ProblemDetails::internal(locale)
         }
+    }
+}
+
+fn json_rejection_response(rejection: JsonRejection, locale: Locale) -> ProblemDetails {
+    if rejection.status() == StatusCode::BAD_REQUEST {
+        ProblemDetails::bad_request(locale)
+    } else {
+        tracing::error!(%rejection, "request body extraction failed");
+        ProblemDetails::internal(locale)
     }
 }
 
@@ -74,7 +83,12 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
 }
 
-async fn health(State(state): State<AppState>) -> impl IntoResponse {
+async fn health(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+
     match state.database.health().await {
         Ok(()) => (
             StatusCode::OK,
@@ -86,7 +100,7 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
             .into_response(),
         Err(error) => {
             tracing::error!(%error, "database health check failed");
-            ProblemDetails::service_unavailable("Database is unavailable").into_response()
+            ProblemDetails::service_unavailable(locale).into_response()
         }
     }
 }
@@ -101,7 +115,18 @@ async fn hello(State(state): State<AppState>) -> impl IntoResponse {
     )
 }
 
-async fn echo(State(state): State<AppState>, Json(body): Json<EchoRequest>) -> impl IntoResponse {
+async fn echo(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    body: Result<Json<EchoRequest>, JsonRejection>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
+
     match state.echo.handle(EchoCommand {
         message: body.message,
     }) {
@@ -110,7 +135,7 @@ async fn echo(State(state): State<AppState>, Json(body): Json<EchoRequest>) -> i
             Json(ApiResponse::new(EchoResponse { echo: result.echo })),
         )
             .into_response(),
-        Err(error) => app_error_response(error).into_response(),
+        Err(error) => app_error_response(error, locale).into_response(),
     }
 }
 
@@ -123,7 +148,7 @@ async fn openapi() -> impl IntoResponse {
             "paths": {
                 "/health": { "get": { "summary": "Health and MariaDB connectivity", "responses": { "200": { "description": "Application and database are healthy" }, "503": { "description": "Database is unavailable" } } } },
                 "/api/v1/hello": { "get": { "summary": "Hello query", "responses": { "200": { "description": "Greeting" } } } },
-                "/api/v1/echo": { "post": { "summary": "Echo command", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } } } } }, "responses": { "200": { "description": "Echo response" }, "422": { "description": "Validation error" } } } }
+                "/api/v1/echo": { "post": { "summary": "Echo command", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } } } } }, "responses": { "200": { "description": "Echo response" }, "400": { "description": "Malformed JSON or invalid content type" }, "422": { "description": "Validation error" }, "500": { "description": "Unexpected server failure" } } } }
             }
         })),
     )
