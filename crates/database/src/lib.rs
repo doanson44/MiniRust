@@ -778,7 +778,15 @@ impl AuthRepository for Database {
         .execute(&mut *tx)
         .await;
 
-        if insert.is_err() {
+        if let Err(error) = insert {
+            if error
+                .as_database_error()
+                .and_then(|database| database.code())
+                .map(|code| code == "1062")
+                .unwrap_or(false)
+            {
+                return Err(AuthError::EmailAlreadyExists);
+            }
             return Err(AuthError::Persistence);
         }
 
@@ -879,6 +887,15 @@ impl AuthRepository for Database {
         .await
         .map(|_| ())
         .map_err(|_| AuthError::Persistence)
+    }
+
+    async fn discard_challenge(&self, challenge_id: EntityId) -> Result<(), AuthError> {
+        sqlx::query("DELETE FROM auth_challenges WHERE id = ?")
+            .bind(challenge_id.as_uuid().as_bytes())
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+            .map_err(|_| AuthError::Persistence)
     }
 }
 
