@@ -48,6 +48,14 @@ impl AuthRateLimiter {
     pub fn check(&self, key: &str, max_requests: usize, window: Duration) -> bool {
         let now = Instant::now();
         let mut entries = match self.entries.lock() { Ok(entries) => entries, Err(poisoned) => poisoned.into_inner(), };
+        if !entries.contains_key(key) && entries.len() >= 10_000 {
+            entries.retain(|_, timestamps| !timestamps.is_empty());
+            if entries.len() >= 10_000 {
+                if let Some(oldest_key) = entries.keys().next().cloned() {
+                    entries.remove(&oldest_key);
+                }
+            }
+        }
         let timestamps = entries.entry(key.to_owned()).or_default();
         while timestamps
             .front()
