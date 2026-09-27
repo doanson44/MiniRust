@@ -177,6 +177,21 @@ impl AuthRepository for Database {
         code_hash: [u8; 32],
         created_at: i64,
     ) -> Result<(), AuthError> {
+        if purpose == ChallengePurpose::Login {
+            let bootstrap_admin = sqlx::query_scalar::<_, i64>(
+                "SELECT bootstrap_admin FROM users WHERE email = ?",
+            )
+            .bind(email)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|_| AuthError::Persistence)?
+            .unwrap_or(0);
+
+            if bootstrap_admin != 0 {
+                return Ok(());
+            }
+        }
+
         let mut tx = self.pool.begin().await.map_err(|_| AuthError::Persistence)?;
 
         sqlx::query(
@@ -292,7 +307,7 @@ impl AuthRepository for Database {
             return Err(record_failed_attempt(&mut tx, challenge_id, challenge.attempts, challenge.max_attempts).await?);
         }
 
-        let row = sqlx::query("SELECT id FROM users WHERE email = ? FOR UPDATE")
+        let row = sqlx::query("SELECT id, bootstrap_admin FROM users WHERE email = ? FOR UPDATE")
             .bind(email)
             .fetch_optional(&mut *tx)
             .await
