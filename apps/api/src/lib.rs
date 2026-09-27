@@ -388,7 +388,7 @@ async fn auth_login_verify_code(
     };
 
     match state.auth_commands.handle(AuthCommand::VerifyLoginCode { email: body.email.clone(), code: body.code.clone() }).await {
-        Ok(session) => {
+        Ok(AuthCommandResult::Session(session)) => {
             let response = AuthSessionResponse {
                 user: auth_user_response(session.user),
                 expires_at: session.expires_at,
@@ -720,7 +720,7 @@ async fn user_profile_update(
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     let user = match current_authenticated_user(&state, &jar, locale).await {
-        Ok(UserAdminCommandResult::User(user)) => user,
+        Ok(user) => user,
         Err(response) => return response,
     };
 
