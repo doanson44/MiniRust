@@ -124,7 +124,8 @@ Start MariaDB, create the database, and set `MINIRUST_DATABASE_URL` in `.env`:
 
 ```bash
 cargo run -p minirust-api
-cargo leptos watch --package minirust-web
+cd apps/web
+cargo leptos watch
 ```
 
 ## Docker Compose
