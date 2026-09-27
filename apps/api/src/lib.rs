@@ -14,10 +14,12 @@ use axum::routing::{delete, get, patch, post, put};
 use axum::{Json, Router};
 use minirust_core::AppError;
 use minirust_database::Database;
-use minirust_services::cqrs::{CommandHandler, QueryHandler};
+use minirust_services::cqrs::{AsyncCommandHandler, AsyncQueryHandler, CommandHandler, QueryHandler};
 use minirust_services::{
-    AuthError, AuthService, UnavailableEmailSender,
-    UserAdminService,
+    AuthCommand, AuthCommandHandler, AuthCommandResult, AuthError, AuthQueryHandler,
+    AuthService, CurrentSessionQuery, UnavailableEmailSender,
+    UserAdminCommand, UserAdminCommandHandler, UserAdminCommandResult, UserAdminQuery,
+    UserAdminQueryHandler, UserAdminQueryResult, UserAdminService,
 };
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
 use response::{ApiResponse, Locale, ProblemDetails};
@@ -29,8 +31,10 @@ pub struct AppState {
     pub echo: EchoCommandHandler,
     pub greeting: GreetingQueryHandler,
     pub database: Database,
-    pub auth: AuthService<Database, UnavailableEmailSender>,
-    pub users: UserAdminService<Database>,
+    pub auth_commands: AuthCommandHandler<Database, UnavailableEmailSender>,
+    pub auth_queries: AuthQueryHandler<Database, UnavailableEmailSender>,
+    pub user_commands: UserAdminCommandHandler<Database>,
+    pub user_queries: UserAdminQueryHandler<Database>,
     pub auth_rate_limiter: AuthRateLimiter,
     pub secure_cookies: bool,
 }
@@ -62,12 +66,15 @@ impl AuthRateLimiter {
 impl AppState {
     pub fn new(database: Database, auth_secret: impl Into<Vec<u8>>, secure_cookies: bool) -> Result<Self, AuthError> {
         let auth = AuthService::new(database.clone(), UnavailableEmailSender, auth_secret)?;
+        let users = UserAdminService::new(database.clone());
         Ok(Self {
             echo: EchoCommandHandler,
             greeting: GreetingQueryHandler,
             database,
-            auth,
-            users: UserAdminService::new(database.clone()),
+            auth_commands: AuthCommandHandler::new(auth.clone()),
+            auth_queries: AuthQueryHandler::new(auth),
+            user_commands: UserAdminCommandHandler::new(users.clone()),
+            user_queries: UserAdminQueryHandler::new(users),
             auth_rate_limiter: AuthRateLimiter::default(),
             secure_cookies,
         })
@@ -292,7 +299,7 @@ async fn auth_register_request_code(
         return response::ProblemDetails::rate_limited(locale).into_response();
     }
 
-    match state.auth.request_registration_code(&body.email).await {
+    match state.auth_commands.handle(AuthCommand::RequestRegistrationCode { email: body.email.clone() }).await {
         Ok(_) => (
             StatusCode::OK,
             Json(ApiResponse::new(CodeRequestResponse { accepted: true })),
@@ -321,7 +328,7 @@ async fn auth_login_request_code(
         return response::ProblemDetails::rate_limited(locale).into_response();
     }
 
-    match state.auth.request_login_code(&body.email).await {
+    match state.auth_commands.handle(AuthCommand::RequestLoginCode { email: body.email.clone() }).await {
         Ok(_) => (
             StatusCode::OK,
             Json(ApiResponse::new(CodeRequestResponse { accepted: true })),
@@ -343,7 +350,7 @@ async fn auth_register_verify_code(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.auth.verify_registration_code(&body.email, &body.code).await {
+    match state.auth_commands.handle(AuthCommand::VerifyRegistrationCode { email: body.email.clone(), code: body.code.clone() }).await {
         Ok(session) => {
             let response = AuthSessionResponse {
                 user: auth_user_response(session.user),
@@ -372,7 +379,7 @@ async fn auth_login_verify_code(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.auth.verify_login_code(&body.email, &body.code).await {
+    match state.auth_commands.handle(AuthCommand::VerifyLoginCode { email: body.email.clone(), code: body.code.clone() }).await {
         Ok(session) => {
             let response = AuthSessionResponse {
                 user: auth_user_response(session.user),
@@ -461,7 +468,7 @@ async fn admin_users_list(
         return response;
     }
 
-    match state.users.list().await {
+    match state.user_queries.handle(UserAdminQuery::ListUsers).await {
         Ok(users) => (
             StatusCode::OK,
             Json(ApiResponse::new(AdminUserListResponse {
@@ -489,7 +496,7 @@ async fn admin_users_create(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.users.create(&body.email).await {
+    match state.user_commands.handle(UserAdminCommand::CreateUser { email: body.email.clone() }).await {
         Ok(user) => (
             StatusCode::CREATED,
             Json(ApiResponse::new(auth_user_response(user))),
@@ -510,7 +517,7 @@ async fn admin_user_get(
         return response;
     }
 
-    match state.users.get(&email).await {
+    match state.user_queries.handle(UserAdminQuery::GetUser { email: email.clone() }).await {
         Ok(user) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
@@ -537,7 +544,7 @@ async fn admin_user_update(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.users.update_email(&email, &body.email).await {
+    match state.user_commands.handle(UserAdminCommand::UpdateUserEmail { current_email: email.clone(), new_email: body.email.clone() }).await {
         Ok(user) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
@@ -558,7 +565,7 @@ async fn admin_user_unlock(
         return response;
     }
 
-    match state.users.unlock(&email).await {
+    match state.user_commands.handle(UserAdminCommand::UnlockUser { email: email.clone() }).await {
         Ok(user) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
@@ -578,7 +585,7 @@ async fn admin_user_delete(
         return response;
     }
 
-    match state.users.delete(&email).await {
+    match state.user_commands.handle(UserAdminCommand::DeleteUser { email: email.clone() }).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
     }
@@ -596,7 +603,7 @@ async fn admin_user_get_premium(
         return response;
     }
 
-    match state.users.get_premium(&email).await {
+    match state.user_queries.handle(UserAdminQuery::GetPremium { email: email.clone() }).await {
         Ok(entitlement) => (
             StatusCode::OK,
             Json(ApiResponse::new(AdminPremiumResponse {
@@ -620,7 +627,7 @@ async fn admin_user_revoke_premium(
         return response;
     }
 
-    match state.users.revoke_premium(&email).await {
+    match state.user_commands.handle(UserAdminCommand::RevokePremium { email: email.clone() }).await {
         Ok(user) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
@@ -683,7 +690,7 @@ async fn admin_user_assign_role(
         Err(error) => return ProblemDetails::user_admin(&error, locale).into_response(),
     };
 
-    match state.users.assign_role(&email, role).await {
+    match state.user_commands.handle(UserAdminCommand::AssignRole { email: email.clone(), role }).await {
         Ok(user) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
@@ -734,7 +741,7 @@ async fn user_lock(
         Err(response) => return response,
     };
 
-    match state.users.lock(user.id).await {
+    match state.user_commands.handle(UserAdminCommand::LockUser { user_id: user.id }).await {
         Ok(()) => (
             jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
             StatusCode::OK,
@@ -755,7 +762,7 @@ async fn user_delete(
         Err(response) => return response,
     };
 
-    match state.users.delete_by_id(user.id).await {
+    match state.user_commands.handle(UserAdminCommand::DeleteUserById { user_id: user.id }).await {
         Ok(()) => (
             jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
             StatusCode::OK,
