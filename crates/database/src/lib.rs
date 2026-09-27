@@ -170,7 +170,7 @@ impl AuthRepository for Database {
         validate_challenge(&challenge, email, ChallengePurpose::Registration, now)?;
 
         if challenge.code_hash != code_hash {
-            return record_failed_attempt(&mut tx, challenge_id, challenge.attempts, challenge.max_attempts).await;
+            return Err(record_failed_attempt(&mut tx, challenge_id, challenge.attempts, challenge.max_attempts).await?);
         }
 
         let insert = sqlx::query(
