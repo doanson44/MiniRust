@@ -497,7 +497,7 @@ async fn admin_users_create(
     };
 
     match state.user_commands.handle(UserAdminCommand::CreateUser { email: body.email.clone() }).await {
-        Ok(UserAdminQueryResult::User(user)) => (
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::CREATED,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -518,7 +518,7 @@ async fn admin_user_get(
     }
 
     match state.user_queries.handle(UserAdminQuery::GetUser { email: email.clone() }).await {
-        Ok(user) => (
+        Ok(UserAdminQueryResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -586,7 +586,7 @@ async fn admin_user_delete(
     }
 
     match state.user_commands.handle(UserAdminCommand::DeleteUser { email: email.clone() }).await {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Ok(UserAdminCommandResult::Deleted) => StatusCode::NO_CONTENT.into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
     }
 }
