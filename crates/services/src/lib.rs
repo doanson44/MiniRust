@@ -13,3 +13,5 @@ pub use commands::echo::{EchoCommand, EchoCommandHandler, EchoCommandResult};
 pub use queries::greeting::{GreetingQuery, GreetingQueryHandler};
 
 pub use auth::{AuthError, AuthService, ChallengePurpose, CodeRequestAccepted, EmailSender, Session, UnavailableEmailSender, UserAccess};
+
+pub use user_admin::{AdminUserRole, PremiumEntitlement, UserAdminError, UserAdminRepository, UserAdminService};
