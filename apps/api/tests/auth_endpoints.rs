@@ -208,6 +208,94 @@ async fn admin_cookie(app: &TestApp) -> String {
 }
 
 #[tokio::test]
+async fn authenticated_user_can_update_profile() {
+    let app = test_app().await;
+    let cookie = admin_cookie(&app).await;
+
+    let response = app.router()
+        .oneshot(
+            Request::patch("/api/v1/users/me")
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(r#"{"full_name":"MiniRust Admin","avatar_url":"https://example.com/avatar.png"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let me = app.router()
+        .oneshot(
+            Request::get("/api/v1/auth/me")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(me.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(me.into_body(), 1024 * 1024).await.unwrap();
+    let body = String::from_utf8(body.to_vec()).unwrap();
+    assert!(body.contains("MiniRust Admin"));
+    assert!(body.contains("https://example.com/avatar.png"));
+}
+
+#[tokio::test]
+async fn self_service_account_actions_require_authentication() {
+    let app = test_app().await;
+
+    let lock = app.router()
+        .oneshot(
+            Request::post("/api/v1/users/me/lock")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(lock.status(), StatusCode::UNAUTHORIZED);
+
+    let delete = app.router()
+        .oneshot(
+            Request::delete("/api/v1/users/me")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(delete.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
+    let app = test_app().await;
+    let cookie = admin_cookie(&app).await;
+
+    let lock = app.router()
+        .oneshot(
+            Request::post("/api/v1/users/me/lock")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(lock.status(), StatusCode::CONFLICT);
+
+    let delete = app.router()
+        .oneshot(
+            Request::delete("/api/v1/users/me")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(delete.status(), StatusCode::CONFLICT);
+}
+
+#[tokio::test]
 async fn admin_user_crud_and_role_assignment() {
     let app = test_app().await;
     let cookie = admin_cookie(&app).await;
