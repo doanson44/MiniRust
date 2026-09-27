@@ -74,7 +74,7 @@ async fn test_app() -> TestApp {
 async fn register_request_rejects_invalid_email() {
     let app = test_app().await;
 
-    let response = app
+    let response = app.router()
         .oneshot(
             Request::post("/api/v1/auth/register/request-code")
                 .header("content-type", "application/json")
@@ -91,7 +91,7 @@ async fn register_request_rejects_invalid_email() {
 async fn login_request_rejects_invalid_email() {
     let app = test_app().await;
 
-    let response = app
+    let response = app.router()
         .oneshot(
             Request::post("/api/v1/auth/login/request-code")
                 .header("content-type", "application/json")
@@ -108,7 +108,7 @@ async fn login_request_rejects_invalid_email() {
 async fn register_verify_rejects_unknown_code() {
     let app = test_app().await;
 
-    let response = app
+    let response = app.router()
         .oneshot(
             Request::post("/api/v1/auth/register/verify-code")
                 .header("content-type", "application/json")
@@ -125,7 +125,7 @@ async fn register_verify_rejects_unknown_code() {
 async fn login_verify_rejects_unknown_code() {
     let app = test_app().await;
 
-    let response = app
+    let response = app.router()
         .oneshot(
             Request::post("/api/v1/auth/login/verify-code")
                 .header("content-type", "application/json")
@@ -142,7 +142,7 @@ async fn login_verify_rejects_unknown_code() {
 async fn logout_without_session_is_successful_and_clears_cookie() {
     let app = test_app().await;
 
-    let response = app
+    let response = app.router()
         .oneshot(
             Request::post("/api/v1/auth/logout")
                 .body(Body::empty())
@@ -159,7 +159,7 @@ async fn logout_without_session_is_successful_and_clears_cookie() {
 async fn me_without_session_is_unauthorized() {
     let app = test_app().await;
 
-    let response = app
+    let response = app.router()
         .oneshot(
             Request::get("/api/v1/auth/me")
                 .body(Body::empty())
@@ -173,8 +173,7 @@ async fn me_without_session_is_unauthorized() {
 
 
 async fn admin_cookie(app: &Router) -> String {
-    let request_response = app
-        .clone()
+    let request_response = app.router()
         .oneshot(
             Request::post("/api/v1/auth/login/request-code")
                 .header("content-type", "application/json")
@@ -185,8 +184,7 @@ async fn admin_cookie(app: &Router) -> String {
         .unwrap();
     assert_eq!(request_response.status(), StatusCode::OK);
 
-    let response = app
-        .clone()
+    let response = app.router()
         .oneshot(
             Request::post("/api/v1/auth/login/verify-code")
                 .header("content-type", "application/json")
@@ -214,8 +212,7 @@ async fn admin_user_crud_and_role_assignment() {
     let app = test_app().await;
     let cookie = admin_cookie(&app).await;
 
-    let list = app
-        .clone()
+    let list = app.router()
         .oneshot(
             Request::get("/api/v1/admin/users")
                 .header("cookie", &cookie)
@@ -226,8 +223,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(list.status(), StatusCode::OK);
 
-    let create = app
-        .clone()
+    let create = app.router()
         .oneshot(
             Request::post("/api/v1/admin/users")
                 .header("content-type", "application/json")
@@ -239,8 +235,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(create.status(), StatusCode::CREATED);
 
-    let get = app
-        .clone()
+    let get = app.router()
         .oneshot(
             Request::get("/api/v1/admin/users/crud@example.com")
                 .header("cookie", &cookie)
@@ -251,8 +246,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(get.status(), StatusCode::OK);
 
-    let update = app
-        .clone()
+    let update = app.router()
         .oneshot(
             Request::patch("/api/v1/admin/users/crud@example.com")
                 .header("content-type", "application/json")
@@ -264,8 +258,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(update.status(), StatusCode::OK);
 
-    let assign = app
-        .clone()
+    let assign = app.router()
         .oneshot(
             Request::put("/api/v1/admin/users/updated@example.com/role")
                 .header("content-type", "application/json")
@@ -277,8 +270,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(assign.status(), StatusCode::OK);
 
-    let premium_get = app
-        .clone()
+    let premium_get = app.router()
         .oneshot(
             Request::get("/api/v1/admin/users/updated@example.com/entitlements/premium")
                 .header("cookie", &cookie)
@@ -289,8 +281,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(premium_get.status(), StatusCode::OK);
 
-    let premium = app
-        .clone()
+    let premium = app.router()
         .oneshot(
             Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
                 .header("content-type", "application/json")
@@ -302,8 +293,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(premium.status(), StatusCode::OK);
 
-    let remove_premium = app
-        .clone()
+    let remove_premium = app.router()
         .oneshot(
             Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
                 .header("content-type", "application/json")
@@ -315,8 +305,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(remove_premium.status(), StatusCode::OK);
 
-    let invalid_expiry = app
-        .clone()
+    let invalid_expiry = app.router()
         .oneshot(
             Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
                 .header("content-type", "application/json")
@@ -328,8 +317,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(invalid_expiry.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
-    let premium_delete = app
-        .clone()
+    let premium_delete = app.router()
         .oneshot(
             Request::delete("/api/v1/admin/users/updated@example.com/entitlements/premium")
                 .header("cookie", &cookie)
@@ -340,8 +328,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(premium_delete.status(), StatusCode::OK);
 
-    let remove_role = app
-        .clone()
+    let remove_role = app.router()
         .oneshot(
             Request::put("/api/v1/admin/users/updated@example.com/role")
                 .header("content-type", "application/json")
@@ -353,8 +340,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(remove_role.status(), StatusCode::OK);
 
-    let protected_delete = app
-        .clone()
+    let protected_delete = app.router()
         .oneshot(
             Request::delete("/api/v1/admin/users/admin@minirust.local")
                 .header("cookie", &cookie)
@@ -365,8 +351,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(protected_delete.status(), StatusCode::CONFLICT);
 
-    let delete = app
-        .clone()
+    let delete = app.router()
         .oneshot(
             Request::delete("/api/v1/admin/users/updated@example.com")
                 .header("cookie", &cookie)
@@ -377,7 +362,7 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(delete.status(), StatusCode::OK);
 
-    let missing = app
+    let missing = app.router()
         .oneshot(
             Request::get("/api/v1/admin/users/updated@example.com")
                 .header("cookie", &cookie)
@@ -420,7 +405,7 @@ async fn admin_user_endpoints_require_authentication() {
     ];
 
     for request in requests {
-        let response = app.clone().oneshot(request).await.unwrap();
+        let response = app.router().oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
 }
