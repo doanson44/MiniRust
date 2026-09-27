@@ -2,9 +2,15 @@
 //!
 //! This crate must stay free of web frameworks and infrastructure SDKs.
 
+mod aggregate;
+mod entity;
 mod error;
+mod id;
 
+pub use aggregate::AggregateRoot;
+pub use entity::Entity;
 pub use error::{AppError, ValidationError};
+pub use id::EntityId;
 
 pub const APP_NAME: &str = "MiniRust";
 
