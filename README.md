@@ -72,6 +72,10 @@ API (`http://127.0.0.1:3000`):
 - `GET /health` — live MariaDB connectivity check. Returns `200` when the database is reachable and `503` otherwise.
 - `GET /api/v1/hello` — greeting query.
 - `POST /api/v1/echo` — echo command.
+- `GET /api/v1/auth/me` — current authenticated user and profile
+- `PATCH /api/v1/users/me` — update full name and avatar URL
+- `POST /api/v1/users/me/lock` — lock current account
+- `DELETE /api/v1/users/me` — permanently delete current account
 - `GET /api/v1/openapi.json` — OpenAPI 3.0 document.
 - `GET /swagger` — Swagger UI.
 
