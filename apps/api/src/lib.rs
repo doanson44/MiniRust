@@ -12,7 +12,7 @@ use minirust_core::AppError;
 use minirust_database::Database;
 use minirust_services::cqrs::{CommandHandler, QueryHandler};
 use minirust_services::{
-    AdminUserRole, AuthError, AuthService, UnavailableEmailSender, UserAdminError,
+    AuthError, AuthService, UnavailableEmailSender, UserAdminError,
     UserAdminService,
 };
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
@@ -396,26 +396,13 @@ struct AdminPremiumResponse {
     expires_at: Option<i64>,
 }
 
-async fn require_admin(
-    state: &AppState,
-    jar: &CookieJar,
-    locale: Locale,
-) -> Result<minirust_services::UserAccess, axum::response::Response> {
+
+
+async fn authorize_admin(state: &AppState, jar: &CookieJar, locale: Locale) -> Result<minirust_services::UserAccess, axum::response::Response> {
     let Some(cookie) = jar.get(SESSION_COOKIE) else {
         return Err(auth_error_response(AuthError::SessionInvalid, locale).into_response());
     };
-
-    let user = state
-        .auth
-        .current_session(cookie.value())
-        .await
-        .map_err(|error| auth_error_response(error, locale).into_response())?;
-
-    if !user.is_admin {
-        return Err(ProblemDetails::forbidden(locale).into_response());
-    }
-
-    Ok(user)
+    state.auth.require_admin(cookie.value()).await.map_err(|error| auth_error_response(error, locale).into_response())
 }
 
 async fn admin_users_list(
@@ -424,7 +411,7 @@ async fn admin_users_list(
     jar: CookieJar,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -547,8 +534,8 @@ async fn admin_user_delete(
 
     match state.users.delete(&email).await {
         Ok(()) => (
-            StatusCode::OK,
-            Json(ApiResponse::new(serde_json::json!({ "deleted": true }))),
+            StatusCode::NO_CONTENT,
+            Json(serde_json::json!({})),
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
@@ -649,10 +636,9 @@ async fn admin_user_assign_role(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    let role = match body.role.trim().to_ascii_lowercase().as_str() {
-        "admin" => AdminUserRole::Admin,
-        "none" => AdminUserRole::None,
-        _ => return ProblemDetails::user_admin(&UserAdminError::InvalidRole, locale).into_response(),
+    let role = match minirust_services::AdminUserRole::parse(&body.role) {
+        Ok(role) => role,
+        Err(error) => return ProblemDetails::user_admin(&error, locale).into_response(),
     };
 
     match state.users.assign_role(&email, role).await {
