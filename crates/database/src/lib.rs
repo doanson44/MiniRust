@@ -50,9 +50,18 @@ impl Database {
             .map_err(|_| AuthError::Persistence)?;
 
         let user_id = match existing_id {
-            Some(row) => row_to_id(&row)?,
+            Some(row) => {
+                let bootstrap_admin = row
+                    .try_get::<i64, _>("bootstrap_admin")
+                    .map_err(|_| AuthError::Persistence)?
+                    != 0;
+                if !bootstrap_admin {
+                    return Err(AuthError::BootstrapAdminConflict);
+                }
+                row_to_id(&row)?
+            }
             None => {
-                sqlx::query("INSERT INTO users (id, email, bootstrap_admin, created_at) VALUES (?, ?, 0, ?)")
+                sqlx::query("INSERT INTO users (id, email, bootstrap_admin, created_at) VALUES (?, ?, 1, ?)")
                     .bind(user_id.as_uuid().as_bytes())
                     .bind(&email)
                     .bind(now)
@@ -96,7 +105,7 @@ impl Database {
         sqlx::query(
             "INSERT INTO auth_challenges
                 (id, email, purpose, code_hash, attempts, max_attempts, expires_at, created_at)
-             VALUES (?, ?, 'login', ?, 0, 255, ?, ?)",
+             VALUES (?, ?, 'login', ?, 0, 5, ?, ?)",
         )
         .bind(challenge_id.as_uuid().as_bytes())
         .bind(&email)
