@@ -23,6 +23,7 @@ pub const ENV_API_PORT: &str = "MINIRUST_API_PORT";
 pub const ENV_WEB_HOST: &str = "MINIRUST_WEB_HOST";
 pub const ENV_WEB_PORT: &str = "MINIRUST_WEB_PORT";
 pub const ENV_DATABASE_URL: &str = "MINIRUST_DATABASE_URL";
+pub const ENV_AUTH_SECRET: &str = "MINIRUST_AUTH_SECRET";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Environment {
@@ -81,6 +82,7 @@ pub struct Config {
     pub environment: Environment,
     pub log_filter: String,
     pub database_url: Option<String>,
+    pub auth_secret: Option<String>,
 }
 
 impl Config {
@@ -98,6 +100,7 @@ impl Config {
             environment: Environment::from_env(),
             log_filter: read_or_default(ENV_LOG, DEFAULT_LOG_FILTER),
             database_url: read_optional(ENV_DATABASE_URL),
+            auth_secret: read_optional(ENV_AUTH_SECRET),
         })
     }
 
@@ -105,6 +108,12 @@ impl Config {
         self.database_url
             .as_deref()
             .ok_or_else(|| ConfigError::MissingRequired(ENV_DATABASE_URL.to_owned()))
+    }
+
+    pub fn auth_secret(&self) -> Result<&str, ConfigError> {
+        self.auth_secret
+            .as_deref()
+            .ok_or_else(|| ConfigError::MissingRequired(ENV_AUTH_SECRET.to_owned()))
     }
 
     pub fn server_bind(&self, kind: ServerKind) -> Result<ServerBind, ConfigError> {
