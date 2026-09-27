@@ -23,6 +23,7 @@ impl AdminUserRole {
 pub enum UserAdminError {
     InvalidEmail,
     InvalidRole,
+    InvalidPremiumExpiry,
     NotFound,
     EmailAlreadyExists,
     ProtectedUser,
@@ -34,6 +35,7 @@ impl std::fmt::Display for UserAdminError {
         match self {
             Self::InvalidEmail => f.write_str("invalid email"),
             Self::InvalidRole => f.write_str("invalid role"),
+            Self::InvalidPremiumExpiry => f.write_str("premium expiry must be in the future"),
             Self::NotFound => f.write_str("user not found"),
             Self::EmailAlreadyExists => f.write_str("email already exists"),
             Self::ProtectedUser => f.write_str("user is protected"),
@@ -64,6 +66,13 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
         &self,
         email: &str,
         role: AdminUserRole,
+    ) -> Result<UserAccess, UserAdminError>;
+
+    async fn set_premium(
+        &self,
+        email: &str,
+        active: bool,
+        expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError>;
 }
 
@@ -144,6 +153,21 @@ where
     ) -> Result<UserAccess, UserAdminError> {
         let email = normalize_email(email)?;
         self.repository.set_admin_role(&email, role).await
+    }
+
+    pub async fn set_premium(
+        &self,
+        email: &str,
+        active: bool,
+        expires_at: Option<i64>,
+    ) -> Result<UserAccess, UserAdminError> {
+        let email = normalize_email(email)?;
+        if let Some(expires_at) = expires_at {
+            if expires_at <= now() {
+                return Err(UserAdminError::InvalidPremiumExpiry);
+            }
+        }
+        self.repository.set_premium(&email, active, expires_at).await
     }
 }
 
