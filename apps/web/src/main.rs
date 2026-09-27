@@ -1,5 +1,5 @@
 #[cfg(feature = "ssr")]
-use leptos::prelude::get_configuration;
+use leptos::config::{Env as LeptosEnv, LeptosOptions};
 #[cfg(feature = "ssr")]
 use minirust_config::{Config, ServerKind};
 #[cfg(feature = "ssr")]
@@ -33,9 +33,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bind = config.server_bind(ServerKind::Web)?;
     let addr = bind.socket_addr()?;
 
-    let leptos_config = get_configuration(Some("apps/web/Cargo.toml"))?;
-    let mut leptos_options = leptos_config.leptos_options;
-    leptos_options.site_addr = addr;
+    let leptos_environment = match config.environment {
+        minirust_config::Environment::Production => LeptosEnv::PROD,
+        minirust_config::Environment::Development => LeptosEnv::DEV,
+    };
+    let site_root = std::env::var("LEPTOS_SITE_ROOT").unwrap_or_else(|_| "target/site".to_owned());
+    let site_pkg_dir = std::env::var("LEPTOS_SITE_PKG_DIR").unwrap_or_else(|_| "pkg".to_owned());
+    let leptos_options = LeptosOptions::builder()
+        .output_name("minirust-web")
+        .site_root(site_root)
+        .site_pkg_dir(site_pkg_dir)
+        .site_addr(addr)
+        .reload_port(3002)
+        .env(leptos_environment)
+        .build();
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
