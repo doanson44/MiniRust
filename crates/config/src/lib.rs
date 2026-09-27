@@ -105,8 +105,14 @@ impl Config {
             log_filter: read_or_default(ENV_LOG, DEFAULT_LOG_FILTER),
             database_url: read_optional(ENV_DATABASE_URL),
             auth_secret: read_optional(ENV_AUTH_SECRET),
-            admin_email: read_or_default(ENV_ADMIN_EMAIL, "admin@minirust.local"),
-            admin_otp: read_or_default(ENV_ADMIN_OTP, "123456"),
+            admin_email: match environment {
+                Environment::Development => read_or_default(ENV_ADMIN_EMAIL, "admin@minirust.local"),
+                Environment::Production => require_var(ENV_ADMIN_EMAIL)?,
+            },
+            admin_otp: match environment {
+                Environment::Development => read_or_default(ENV_ADMIN_OTP, "123456"),
+                Environment::Production => require_var(ENV_ADMIN_OTP)?,
+            },
         })
     }
 
