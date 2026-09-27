@@ -72,3 +72,17 @@ Every feature review should answer:
 8. Is retry/idempotency behavior clear for retriable commands?
 9. Are events versioned when they cross a context boundary?
 10. Can the context eventually be extracted without rewriting its domain model?
+
+
+## Integration test execution
+
+API integration tests use an isolated MariaDB instance managed by Docker Compose. The integration test stack is defined in `docker-compose.test.yml` and waits for MariaDB's healthcheck before running Cargo tests. Integration tests are not ignored; the Docker test command is the required execution path when a MariaDB dependency is needed.
+
+Run:
+
+```bash
+docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from api-integration-tests
+docker compose -f docker-compose.test.yml down -v
+```
+
+The test database and Cargo build/cache volumes are isolated from the normal application Compose stack.
