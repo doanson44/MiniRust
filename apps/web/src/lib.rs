@@ -430,6 +430,7 @@ fn App() -> impl IntoView {
     }
 }
 
+#[cfg(feature = "ssr")]
 fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
         <html lang="en" class="scroll-smooth bg-slate-950 text-slate-100"><head>
@@ -473,7 +474,7 @@ pub fn hydrate() {
     leptos::mount::hydrate_body(App);
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ssr"))]
 mod tests {
     use super::*;
     use axum::body::Body;
