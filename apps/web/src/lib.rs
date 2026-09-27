@@ -1,9 +1,9 @@
 //! MiniRust Leptos SSR application.
 
 #[cfg(feature = "ssr")]
-use axum::extract::{FromRef, State};
+use axum::extract::FromRef;
 #[cfg(feature = "ssr")]
-use axum::http::{header, HeaderValue, StatusCode};
+use axum::http::StatusCode;
 #[cfg(feature = "ssr")]
 use axum::response::IntoResponse;
 #[cfg(feature = "ssr")]
@@ -27,7 +27,6 @@ const CSS: &str = include_str!("generated.css");
 #[cfg(feature = "ssr")]
 #[derive(Clone)]
 pub struct AppState {
-    pub greeting: GreetingQueryHandler,
     pub leptos_options: LeptosOptions,
 }
 
@@ -35,7 +34,6 @@ pub struct AppState {
 impl AppState {
     pub fn new() -> Self {
         Self {
-            greeting: GreetingQueryHandler,
             leptos_options: LeptosOptions::builder()
                 .output_name("minirust-web")
                 .site_root("target/site")
