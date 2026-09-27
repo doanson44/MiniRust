@@ -336,6 +336,21 @@ impl ProblemDetails {
         }
     }
 
+    pub fn rate_limited(locale: Locale) -> Self {
+        Self {
+            problem_type: "https://minirust.dev/problems/rate-limit",
+            title: "Too many requests",
+            status: StatusCode::TOO_MANY_REQUESTS.as_u16(),
+            code: "RATE_LIMITED",
+            message_key: "errors.rate_limit.exceeded",
+            locale: locale.as_str(),
+            detail: match locale {
+                Locale::Vi => "Quá nhiều yêu cầu. Vui lòng thử lại sau.".to_owned(),
+                Locale::En => "Too many requests. Please try again later.".to_owned(),
+            },
+        }
+    }
+
     pub fn service_unavailable(locale: Locale) -> Self {
         Self {
             problem_type: "https://minirust.dev/problems/service-unavailable",
