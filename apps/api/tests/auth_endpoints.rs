@@ -448,7 +448,7 @@ async fn admin_user_crud_and_role_assignment() {
         )
         .await
         .unwrap();
-    assert_eq!(delete.status(), StatusCode::OK);
+    assert_eq!(delete.status(), StatusCode::NO_CONTENT);
 
     let missing = app.router()
         .oneshot(
