@@ -15,8 +15,6 @@ use uuid::Uuid;
 const OTP_DIGITS: u32 = 1_000_000;
 const OTP_MAX_ATTEMPTS: u8 = 5;
 const OTP_TTL_SECONDS: i64 = 10 * 60;
-const BOOTSTRAP_OTP_TTL_SECONDS: i64 = 365 * 24 * 60 * 60;
-const BOOTSTRAP_OTP_MAX_ATTEMPTS: u8 = 5;
 const SESSION_TTL_SECONDS: i64 = 30 * 24 * 60 * 60;
 
 type HmacSha256 = Hmac<Sha256>;
