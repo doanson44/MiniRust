@@ -299,6 +299,10 @@ async fn auth_register_request_code(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
+    if !state.auth_rate_limiter.check("register:global", 60, Duration::from_secs(15 * 60)) {
+        return response::ProblemDetails::rate_limited(locale).into_response();
+    }
+
     let rate_key = format!("register:{}", body.email.trim().to_ascii_lowercase());
     if !state
         .auth_rate_limiter
@@ -327,6 +331,10 @@ async fn auth_login_request_code(
         Ok(body) => body,
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
+
+    if !state.auth_rate_limiter.check("login:global", 60, Duration::from_secs(15 * 60)) {
+        return response::ProblemDetails::rate_limited(locale).into_response();
+    }
 
     let rate_key = format!("login:{}", body.email.trim().to_ascii_lowercase());
     if !state
