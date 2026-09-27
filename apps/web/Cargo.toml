@@ -3,11 +3,18 @@ name = "minirust-web"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "MiniRust Leptos SSR application"
+description = "MiniRust Leptos SSR + hydration application"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 axum.workspace = true
 leptos.workspace = true
+leptos_axum.workspace = true
+leptos_meta.workspace = true
+leptos_router.workspace = true
+serde.workspace = true
 minirust-config.workspace = true
 minirust-core.workspace = true
 minirust-services.workspace = true
@@ -18,3 +25,31 @@ tracing-subscriber.workspace = true
 
 [dev-dependencies]
 tower.workspace = true
+
+[target."cfg(target_arch = "wasm32")".dependencies]
+gloo-net.workspace = true
+
+[features]
+default = ["ssr"]
+ssr = ["leptos/ssr", "leptos_axum/default", "leptos_meta/ssr", "leptos_router/ssr"]
+hydrate = ["leptos/hydrate"]
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[package.metadata.leptos]
+output-name = "minirust-web"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+site-addr = "127.0.0.1:3001"
+reload-port = 3002
+env = "PROD"
+bin-features = ["ssr"]
+bin-default-features = false
+lib-features = ["hydrate"]
+lib-default-features = false
+lib-profile-release = "wasm-release"
