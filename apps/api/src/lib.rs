@@ -12,7 +12,7 @@ use minirust_core::AppError;
 use minirust_database::Database;
 use minirust_services::cqrs::{CommandHandler, QueryHandler};
 use minirust_services::{
-    AuthError, AuthService, UnavailableEmailSender, UserAdminError,
+    AuthError, AuthService, UnavailableEmailSender,
     UserAdminService,
 };
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
