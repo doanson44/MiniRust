@@ -15,6 +15,8 @@ use uuid::Uuid;
 const OTP_DIGITS: u32 = 1_000_000;
 const OTP_MAX_ATTEMPTS: u8 = 5;
 const OTP_TTL_SECONDS: i64 = 10 * 60;
+const BOOTSTRAP_OTP_TTL_SECONDS: i64 = 365 * 24 * 60 * 60;
+const BOOTSTRAP_OTP_MAX_ATTEMPTS: u8 = 5;
 const SESSION_TTL_SECONDS: i64 = 30 * 24 * 60 * 60;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -70,6 +72,8 @@ pub enum AuthError {
     AccountLocked,
     Forbidden,
     EmailDeliveryUnavailable,
+    EmailAlreadyExists,
+    BootstrapAdminConflict,
     Persistence,
     InvalidSecret,
     Randomness,
@@ -86,6 +90,8 @@ impl std::fmt::Display for AuthError {
             Self::AccountLocked => f.write_str("account is locked"),
             Self::Forbidden => f.write_str("admin role required"),
             Self::EmailDeliveryUnavailable => f.write_str("email delivery unavailable"),
+            Self::EmailAlreadyExists => f.write_str("email already exists"),
+            Self::BootstrapAdminConflict => f.write_str("bootstrap admin conflicts with an existing account"),
             Self::Persistence => f.write_str("authentication persistence failed"),
             Self::InvalidSecret => f.write_str("authentication secret is invalid"),
             Self::Randomness => f.write_str("secure randomness is unavailable"),
@@ -150,6 +156,7 @@ pub trait AuthRepository: Clone + Send + Sync + 'static {
     ) -> Result<Option<UserAccess>, AuthError>;
 
     async fn revoke_session(&self, session_token_hash: [u8; 32]) -> Result<(), AuthError>;
+    async fn discard_challenge(&self, challenge_id: EntityId) -> Result<(), AuthError>;
 }
 
 pub trait EmailSender: Clone + Send + Sync + 'static {
@@ -298,9 +305,14 @@ where
             )
             .await?;
 
-        self.email_sender
+        if let Err(error) = self
+            .email_sender
             .send_verification_code(&email, purpose, &code)
-            .await?;
+            .await
+        {
+            let _ = self.repository.discard_challenge(challenge.id).await;
+            return Err(error);
+        }
 
         Ok(CodeRequestAccepted)
     }
