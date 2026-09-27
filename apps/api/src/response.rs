@@ -1,9 +1,52 @@
-use axum::http::{header, HeaderValue, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
+use minirust_core::ValidationError;
 use serde::Serialize;
 
-/// Standard success envelope for JSON API responses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Locale {
+    Vi,
+    En,
+}
+
+impl Locale {
+    pub const DEFAULT: Self = Self::Vi;
+
+    pub fn from_accept_language(headers: &HeaderMap) -> Self {
+        let value = headers
+            .get(header::ACCEPT_LANGUAGE)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default();
+
+        for language in value.split(',').map(str::trim) {
+            let language = language
+                .split(';')
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_ascii_lowercase();
+
+            if language == "vi" || language.starts_with("vi-") {
+                return Self::Vi;
+            }
+
+            if language == "en" || language.starts_with("en-") {
+                return Self::En;
+            }
+        }
+
+        Self::DEFAULT
+    }
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Vi => "vi",
+            Self::En => "en",
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct ApiResponse<T> {
     pub data: T,
@@ -15,58 +58,132 @@ impl<T> ApiResponse<T> {
     }
 }
 
-/// RFC 9457 problem details returned by the API for failures.
 #[derive(Debug, Serialize)]
 pub struct ProblemDetails {
     #[serde(rename = "type")]
     pub problem_type: &'static str,
     pub title: &'static str,
     pub status: u16,
+    pub code: &'static str,
+    pub message_key: &'static str,
+    pub locale: &'static str,
     pub detail: String,
 }
 
 impl ProblemDetails {
-    pub fn validation(detail: impl Into<String>) -> Self {
+    pub fn validation(error: &ValidationError, locale: Locale) -> Self {
+        let detail = match (error, locale) {
+            (ValidationError::MessageRequired, Locale::Vi) => "Message không được để trống.".to_owned(),
+            (ValidationError::MessageRequired, Locale::En) => "Message must not be empty.".to_owned(),
+            (ValidationError::MessageTooLong { max }, Locale::Vi) => {
+                format!("Message không được vượt quá {max} ký tự.")
+            }
+            (ValidationError::MessageTooLong { max }, Locale::En) => {
+                format!("Message must not exceed {max} characters.")
+            }
+        };
+
         Self {
             problem_type: "https://minirust.dev/problems/validation-error",
             title: "Validation error",
             status: StatusCode::UNPROCESSABLE_ENTITY.as_u16(),
-            detail: detail.into(),
+            code: error.code(),
+            message_key: error.message_key(),
+            locale: locale.as_str(),
+            detail,
         }
     }
 
-    pub fn internal() -> Self {
+    pub fn bad_request(locale: Locale) -> Self {
         Self {
-            problem_type: "about:blank",
-            title: "Internal Server Error",
+            problem_type: "https://minirust.dev/problems/bad-request",
+            title: "Bad request",
+            status: StatusCode::BAD_REQUEST.as_u16(),
+            code: "BAD_REQUEST",
+            message_key: "errors.request.bad_request",
+            locale: locale.as_str(),
+            detail: match locale {
+                Locale::Vi => "Yêu cầu không hợp lệ.".to_owned(),
+                Locale::En => "The request is invalid.".to_owned(),
+            },
+        }
+    }
+
+    pub fn internal(locale: Locale) -> Self {
+        Self {
+            problem_type: "https://minirust.dev/problems/internal-error",
+            title: "Internal server error",
             status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-            detail: "An unexpected error occurred".to_owned(),
+            code: "INTERNAL_ERROR",
+            message_key: "errors.internal.unexpected",
+            locale: locale.as_str(),
+            detail: match locale {
+                Locale::Vi => "Đã xảy ra lỗi không mong muốn.".to_owned(),
+                Locale::En => "An unexpected error occurred.".to_owned(),
+            },
         }
     }
 
-    pub fn service_unavailable(detail: impl Into<String>) -> Self {
+    pub fn service_unavailable(locale: Locale) -> Self {
         Self {
-            problem_type: "about:blank",
-            title: "Service Unavailable",
+            problem_type: "https://minirust.dev/problems/service-unavailable",
+            title: "Service unavailable",
             status: StatusCode::SERVICE_UNAVAILABLE.as_u16(),
-            detail: detail.into(),
+            code: "DEPENDENCY_UNAVAILABLE",
+            message_key: "errors.dependency.unavailable",
+            locale: locale.as_str(),
+            detail: match locale {
+                Locale::Vi => "Một dịch vụ phụ thuộc hiện không khả dụng.".to_owned(),
+                Locale::En => "A required dependency is currently unavailable.".to_owned(),
+            },
         }
     }
 }
 
 impl IntoResponse for ProblemDetails {
     fn into_response(self) -> Response {
-        let status = match self.status {
-            503 => StatusCode::SERVICE_UNAVAILABLE,
-            422 => StatusCode::UNPROCESSABLE_ENTITY,
-            500 => StatusCode::INTERNAL_SERVER_ERROR,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
+        let status = StatusCode::from_u16(self.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         let mut response = (status, Json(self)).into_response();
         response.headers_mut().insert(
             header::CONTENT_TYPE,
             HeaderValue::from_static("application/problem+json"),
         );
         response
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn locale_prefers_supported_language() {
+        let headers = HeaderMap::from_iter([(
+            header::ACCEPT_LANGUAGE,
+            HeaderValue::from_static("en-US,en;q=0.9,vi;q=0.8"),
+        )]);
+
+        assert_eq!(Locale::from_accept_language(&headers), Locale::En);
+    }
+
+    #[test]
+    fn locale_falls_back_to_vietnamese() {
+        let headers = HeaderMap::from_iter([(
+            header::ACCEPT_LANGUAGE,
+            HeaderValue::from_static("fr-FR"),
+        )]);
+
+        assert_eq!(Locale::from_accept_language(&headers), Locale::Vi);
+    }
+
+    #[test]
+    fn validation_message_is_localized() {
+        let error = ValidationError::MessageRequired;
+        let problem = ProblemDetails::validation(&error, Locale::Vi);
+
+        assert_eq!(problem.code, "MESSAGE_REQUIRED");
+        assert_eq!(problem.message_key, "errors.validation.message_required");
+        assert_eq!(problem.locale, "vi");
+        assert_eq!(problem.detail, "Message không được để trống.");
     }
 }
