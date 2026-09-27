@@ -493,7 +493,7 @@ async fn admin_user_delete(
 
     match state.users.delete(&email).await {
         Ok(()) => (
-            StatusCode::NO_CONTENT,
+            StatusCode::OK,
             Json(ApiResponse::new(serde_json::json!({ "deleted": true }))),
         )
             .into_response(),
