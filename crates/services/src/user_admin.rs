@@ -162,6 +162,5 @@ fn normalize_email(email: &str) -> Result<String, UserAdminError> {
 fn now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .expect("system clock must be after Unix epoch")
-        .as_secs() as i64
+        .map_or(0, |duration| duration.as_secs() as i64)
 }
