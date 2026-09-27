@@ -95,6 +95,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/auth/login/verify-code", post(auth_login_verify_code))
         .route("/api/v1/auth/logout", post(auth_logout))
         .route("/api/v1/auth/me", get(auth_me))
+        .route("/api/v1/users/me", patch(user_profile_update))
+        .route("/api/v1/users/me/lock", post(user_lock))
+        .route("/api/v1/users/me", delete(user_delete))
         .route("/api/v1/admin/users", get(admin_users_list).post(admin_users_create))
         .route("/api/v1/admin/users/{email}", get(admin_user_get).patch(admin_user_update).delete(admin_user_delete))
         .route("/api/v1/admin/users/{email}/role", put(admin_user_assign_role))
@@ -186,6 +189,9 @@ struct AuthUserResponse {
     email: String,
     is_admin: bool,
     is_premium: bool,
+    full_name: Option<String>,
+    avatar_url: Option<String>,
+    is_locked: bool,
 }
 
 #[derive(Serialize)]
@@ -199,12 +205,26 @@ struct LogoutResponse {
     success: bool,
 }
 
+#[derive(Deserialize)]
+struct UserProfileUpdateRequest {
+    full_name: Option<String>,
+    avatar_url: Option<String>,
+}
+
+#[derive(Serialize)]
+struct AccountActionResponse {
+    success: bool,
+}
+
 fn auth_user_response(user: minirust_services::UserAccess) -> AuthUserResponse {
     AuthUserResponse {
         id: user.id.as_uuid().to_string(),
         email: user.email,
         is_admin: user.is_admin,
         is_premium: user.is_premium,
+        full_name: user.full_name,
+        avatar_url: user.avatar_url,
+        is_locked: user.is_locked,
     }
 }
 
@@ -622,6 +642,91 @@ async fn admin_user_assign_role(
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
     }
+}
+
+async fn user_profile_update(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    body: Result<Json<UserProfileUpdateRequest>, JsonRejection>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    let user = match current_authenticated_user(&state, &jar, locale).await {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
+
+    match state.users.update_profile(
+        user.id,
+        body.full_name.as_deref(),
+        body.avatar_url.as_deref(),
+    ).await {
+        Ok(user) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(auth_user_response(user))),
+        ).into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
+async fn user_lock(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    let user = match current_authenticated_user(&state, &jar, locale).await {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+
+    match state.users.lock(user.id).await {
+        Ok(()) => (
+            jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
+            StatusCode::OK,
+            Json(ApiResponse::new(AccountActionResponse { success: true })),
+        ).into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
+async fn user_delete(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    let user = match current_authenticated_user(&state, &jar, locale).await {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+
+    match state.users.delete_by_id(user.id).await {
+        Ok(()) => (
+            jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
+            StatusCode::OK,
+            Json(ApiResponse::new(AccountActionResponse { success: true })),
+        ).into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
+async fn current_authenticated_user(
+    state: &AppState,
+    jar: &CookieJar,
+    locale: Locale,
+) -> Result<minirust_services::UserAccess, axum::response::Response> {
+    let Some(cookie) = jar.get(SESSION_COOKIE) else {
+        return Err(auth_error_response(AuthError::SessionInvalid, locale).into_response());
+    };
+
+    state.auth.current_session(cookie.value()).await
+        .map_err(|error| auth_error_response(error, locale).into_response())
 }
 
 async fn auth_logout(
