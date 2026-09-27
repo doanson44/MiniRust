@@ -28,6 +28,7 @@ services:
       MINIRUST_API_HOST: 0.0.0.0
       MINIRUST_API_PORT: 3000
       MINIRUST_DATABASE_URL: mysql://${MARIADB_USER:-minirust}:${MARIADB_PASSWORD:-minirust}@mariadb:3306/${MARIADB_DATABASE:-minirust}
+      MINIRUST_AUTH_SECRET: ${MINIRUST_AUTH_SECRET:?MINIRUST_AUTH_SECRET must be set}
     ports:
       - "3000:3000"
     depends_on:
