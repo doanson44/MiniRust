@@ -560,7 +560,15 @@ pub struct CurrentSessionQuery {
     pub token: String,
 }
 
+pub struct RequireAdminQuery {
+    pub token: String,
+}
+
 impl Query for CurrentSessionQuery {
+    type Output = Result<UserAccess, AuthError>;
+}
+
+impl Query for RequireAdminQuery {
     type Output = Result<UserAccess, AuthError>;
 }
 
@@ -590,5 +598,15 @@ where
 {
     async fn handle(&self, query: CurrentSessionQuery) -> Result<UserAccess, AuthError> {
         self.service.current_session(&query.token).await
+    }
+}
+
+impl<R, E> AsyncQueryHandler<RequireAdminQuery> for AuthQueryHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    async fn handle(&self, query: RequireAdminQuery) -> Result<UserAccess, AuthError> {
+        self.service.require_admin(&query.token).await
     }
 }
