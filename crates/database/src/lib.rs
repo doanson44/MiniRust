@@ -481,53 +481,6 @@ impl UserAdminRepository for Database {
 }
 
 
-impl UserAdminRepository for Database {
-    async fn set_premium(
-        &self,
-        email: &str,
-        active: bool,
-        expires_at: Option<i64>,
-    ) -> Result<UserAccess, UserAdminError> {
-        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
-
-        let row = sqlx::query(
-            "SELECT id
-             FROM users
-             WHERE email = ?
-             FOR UPDATE",
-        )
-        .bind(email)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?
-        .ok_or(UserAdminError::NotFound)?;
-
-        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
-
-        sqlx::query(
-            "INSERT INTO user_entitlements (user_id, entitlement, active, expires_at)
-             VALUES (?, 'premium', ?, ?)
-             ON DUPLICATE KEY UPDATE
-                 active = VALUES(active),
-                 expires_at = VALUES(expires_at)",
-        )
-        .bind(user_id.as_uuid().as_bytes())
-        .bind(if active { 1_i64 } else { 0_i64 })
-        .bind(expires_at)
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?;
-
-        let user = self
-            .user_by_id(&mut tx, user_id, current_epoch())
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-
-        tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
-        Ok(user)
-    }
-}
-
 impl AuthRepository for Database {
     async fn user_exists(&self, email: &str) -> Result<bool, AuthError> {
         let exists = sqlx::query_scalar::<_, i64>(
