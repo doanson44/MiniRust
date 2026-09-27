@@ -163,6 +163,15 @@ impl ProblemDetails {
                     Locale::En => "The maximum number of verification attempts was exceeded.".to_owned(),
                 },
             ),
+            AuthError::Forbidden => (
+                StatusCode::FORBIDDEN,
+                "FORBIDDEN",
+                "errors.authorization.forbidden",
+                match locale {
+                    Locale::Vi => "Bạn không có quyền thực hiện thao tác này.".to_owned(),
+                    Locale::En => "You are not authorized to perform this operation.".to_owned(),
+                },
+            ),
             AuthError::AccountLocked => (
                 StatusCode::FORBIDDEN,
                 "ACCOUNT_LOCKED",
