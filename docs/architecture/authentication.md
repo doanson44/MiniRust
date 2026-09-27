@@ -108,3 +108,10 @@ The role endpoint accepts:
 Premium is deliberately not represented as a role. It remains a user entitlement and will eventually be managed by the billing/payment bounded context.
 
 The bootstrap admin account is protected from email changes, deletion, and removal of its admin role.
+
+Premium entitlement administration:
+
+- PUT /api/v1/admin/users/{email}/entitlements/premium — assign or revoke Premium
+- `active: true` assigns Premium; `active: false` revokes it
+- `expires_at` is an optional Unix timestamp; when present it must be in the future
+- Premium remains an entitlement in `user_entitlements`, not a system role
