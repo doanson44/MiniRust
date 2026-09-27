@@ -10,6 +10,8 @@ minirust-core.workspace = true
 minirust-services.workspace = true
 sqlx.workspace = true
 uuid.workspace = true
+hmac.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
