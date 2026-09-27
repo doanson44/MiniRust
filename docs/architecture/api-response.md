@@ -8,9 +8,7 @@ Successful JSON responses use the following envelope:
 
 ```json
 {
-  "data": {
-    "message": "Hello from MiniRust"
-  }
+  "data": {}
 }
 ```
 
@@ -23,29 +21,56 @@ Rules:
 
 ## Errors
 
-Errors use RFC 9457 Problem Details with media type `application/problem+json`. RFC 9457 standardizes machine-readable HTTP problem responses and defines `type`, `title`, `status`, and `detail` as the core members.
+Errors use RFC 9457 Problem Details with media type `application/problem+json`.
 
-Reference: https://www.rfc-editor.org/rfc/rfc9457.html
-
-Example:
+MiniRust extends the standard Problem Details members with stable application error metadata:
 
 ```json
 {
-  "type": "https://minirust.dev/problems/validation-error",
-  "title": "Validation error",
-  "status": 422,
-  "detail": "message must not be empty"
+  "type": "https://minirust.dev/problems/user-already-exists",
+  "title": "User already exists",
+  "status": 409,
+  "code": "USER_ALREADY_EXISTS",
+  "message_key": "errors.user.already_exists",
+  "locale": "vi",
+  "detail": "Người dùng với email này đã tồn tại."
 }
 ```
 
 Rules:
 
 - `type` identifies the problem type.
-- `title` is stable for a problem type.
+- `title` is stable for a problem type and is not used for client-side business logic.
 - `status` mirrors the HTTP response status.
-- `detail` describes this occurrence and must help the client correct the request when applicable.
+- `code` is the stable machine-readable application error code.
+- `message_key` is the stable localization key.
+- `locale` identifies the locale used for the localized `detail`.
+- `detail` is user-facing text for this occurrence and must not be used as a machine-readable discriminator.
+- Problem-specific extension members are allowed only when clients need structured information that cannot be represented by the standard members.
 - Internal implementation details, SQL errors, connection strings, stack traces, and secrets must never be exposed.
-- Add problem-specific extension members only when clients need structured information that cannot be represented by the standard members.
+
+See [api-error-code.md](api-error-code.md) for the complete error-code and i18n standard.
+
+## Localization
+
+The API currently supports:
+
+- `vi` — Vietnamese
+- `en` — English
+
+The default locale is `vi`.
+
+Clients request a locale using the standard `Accept-Language` header. Regional variants such as `vi-VN` and `en-US` are normalized to their supported base locale.
+
+Example:
+
+```http
+Accept-Language: en-US,en;q=0.9,vi;q=0.8
+```
+
+The API selects the first supported language from the header and falls back to `vi` when no supported language is requested.
+
+Domain and application code must return semantic errors, not localized user-facing strings. Localization belongs at the transport boundary.
 
 ## Status mapping
 
@@ -70,3 +95,5 @@ Rules:
 API response DTOs are transport contracts. Query handlers return read DTOs/projections and command handlers return command results; neither should return Axum-specific response types.
 
 The API layer maps those application results into this HTTP contract.
+
+Reference: https://www.rfc-editor.org/rfc/rfc9457.html
