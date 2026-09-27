@@ -242,6 +242,18 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(assign.status(), StatusCode::OK);
 
+    let premium_get = app
+        .clone()
+        .oneshot(
+            Request::get("/api/v1/admin/users/updated@example.com/entitlements/premium")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(premium_get.status(), StatusCode::OK);
+
     let premium = app
         .clone()
         .oneshot(
@@ -280,6 +292,18 @@ async fn admin_user_crud_and_role_assignment() {
         .await
         .unwrap();
     assert_eq!(invalid_expiry.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let premium_delete = app
+        .clone()
+        .oneshot(
+            Request::delete("/api/v1/admin/users/updated@example.com/entitlements/premium")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(premium_delete.status(), StatusCode::OK);
 
     let remove_role = app
         .clone()
