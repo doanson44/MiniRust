@@ -57,16 +57,6 @@ impl Default for AppState {
 #[component]
 fn HomePage(message: String) -> impl IntoView {
     view! {
-        <html lang="en" class="scroll-smooth bg-slate-950 text-slate-100">
-            <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <meta name="description" content="MiniRust is a Rust-first full-stack platform foundation built for long-term growth."/>
-                <meta name="theme-color" content="#020617"/>
-                <style>{CSS}</style>
-                <title>{APP_NAME} {" - Rust-first platform foundation"}</title>
-            </head>
-            <body class="min-h-screen overflow-x-hidden bg-slate-950 antialiased">
                 <header class="border-b border-white/10 bg-slate-950/90 backdrop-blur">
                     <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10" aria-label="Main navigation">
                         <a href="#top" class="flex items-center gap-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400" aria-label="MiniRust home">
@@ -176,8 +166,6 @@ fn HomePage(message: String) -> impl IntoView {
                         <div>Built with Rust, Axum, Leptos, and a CQRS-oriented service layer.</div>
                     </div>
                 </footer>
-            </body>
-        </html>
     }
 }
 
