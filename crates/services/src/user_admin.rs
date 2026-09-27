@@ -11,6 +11,14 @@ pub enum AdminUserRole {
 }
 
 impl AdminUserRole {
+    pub fn parse(value: &str) -> Result<Self, UserAdminError> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "admin" => Ok(Self::Admin),
+            "none" => Ok(Self::None),
+            _ => Err(UserAdminError::InvalidRole),
+        }
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Admin => "admin",
