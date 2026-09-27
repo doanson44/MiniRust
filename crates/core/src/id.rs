@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn from_uuid_rejects_non_v7_uuid() {
-        let uuid = Uuid::new_v4();
+        let uuid = Uuid::nil();
 
         assert!(EntityId::from_uuid(uuid).is_none());
     }
