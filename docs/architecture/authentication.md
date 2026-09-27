@@ -115,3 +115,16 @@ Premium entitlement administration:
 - `active: true` assigns Premium; `active: false` revokes it
 - `expires_at` is an optional Unix timestamp; when present it must be in the future
 - Premium remains an entitlement in `user_entitlements`, not a system role
+
+
+## Self-service profile and account lifecycle
+
+An authenticated user may manage their own profile and account lifecycle:
+
+- PATCH /api/v1/users/me — update full name and avatar URL
+- POST /api/v1/users/me/lock — lock the current account and revoke all active sessions
+- DELETE /api/v1/users/me — permanently delete the current account and revoke its persisted identity through database cascade
+
+Profile fields are intentionally metadata references at this stage: avatar is represented by an HTTPS URL because the repository does not yet define an object/file storage port. Binary image upload is therefore not part of this API contract.
+
+A locked account cannot authenticate. Administrative unlock is available through POST /api/v1/admin/users/{email}/unlock. The bootstrap admin account remains protected from self-lock and self-delete.
