@@ -190,6 +190,24 @@ impl ProblemDetails {
                     Locale::En => "The session is invalid or has expired.".to_owned(),
                 },
             ),
+            AuthError::EmailAlreadyExists => (
+                StatusCode::CONFLICT,
+                "EMAIL_ALREADY_EXISTS",
+                "errors.auth.email_already_exists",
+                match locale {
+                    Locale::Vi => "Email đã được sử dụng.".to_owned(),
+                    Locale::En => "The email address is already in use.".to_owned(),
+                },
+            ),
+            AuthError::BootstrapAdminConflict => (
+                StatusCode::CONFLICT,
+                "BOOTSTRAP_ADMIN_CONFLICT",
+                "errors.auth.bootstrap_admin_conflict",
+                match locale {
+                    Locale::Vi => "Email bootstrap admin đang trỏ tới một tài khoản thường.".to_owned(),
+                    Locale::En => "The bootstrap admin email points to an existing non-bootstrap account.".to_owned(),
+                },
+            ),
             AuthError::EmailDeliveryUnavailable => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "EMAIL_DELIVERY_UNAVAILABLE",
