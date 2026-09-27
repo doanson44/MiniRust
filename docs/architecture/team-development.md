@@ -114,3 +114,20 @@ The infrastructure repository owns the physical SQL transaction lifecycle for th
 ## Web rendering and hydration
 
 The web application uses Leptos full-stack SSR with client-side hydration. The server renders the initial HTML through Axum and `leptos_axum`; the browser loads the WASM bundle produced by `cargo-leptos` and hydrates the same component tree. Interactive UI behavior belongs in Leptos components rather than inline JavaScript. The web and API remain separate processes behind the same Caddy ingress.
+
+
+## CI verification and local-environment fallback
+
+GitHub Actions is the authoritative remote verification path when local execution cannot provide a trustworthy result. The repository CI workflow must verify, at minimum:
+
+1. `cargo fmt --all -- --check`.
+2. `cargo check --workspace --all-targets`.
+3. `cargo clippy --workspace --all-targets --all-features -- -D warnings`.
+4. `cargo test --workspace --all-targets`.
+5. `cargo leptos build --release` with the `wasm32-unknown-unknown` target for the SSR + hydration web application.
+
+API integration tests may start their own MariaDB Testcontainers; CI runners must provide Docker for those tests.
+
+When local DNS/network restrictions prevent dependency resolution or repository checkout, do not report local build/test verification as passed. Inspect the corresponding GitHub Actions workflow run for the commit instead. A GitHub Actions result is authoritative evidence only for the exact commit it ran against.
+
+If no CI workflow exists, repository verification is incomplete for changes that require compilation, tests, linting, or frontend build validation; add the CI workflow before treating remote verification as available.
