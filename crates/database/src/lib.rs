@@ -209,7 +209,7 @@ impl AuthRepository for Database {
         validate_challenge(&challenge, email, ChallengePurpose::Login, now)?;
 
         if challenge.code_hash != code_hash {
-            return record_failed_attempt(&mut tx, challenge_id, challenge.attempts, challenge.max_attempts).await;
+            return Err(record_failed_attempt(&mut tx, challenge_id, challenge.attempts, challenge.max_attempts).await?);
         }
 
         let row = sqlx::query("SELECT id FROM users WHERE email = ? FOR UPDATE")
