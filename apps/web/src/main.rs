@@ -27,19 +27,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = bind.socket_addr()?;
 
     let leptos_config = get_configuration(Some("apps/web/Cargo.toml"))?;
-    let leptos_options = leptos_config.leptos_options;
-    let leptos_options = leptos_options
-        .site_addr
-        .eq(&addr)
-        .then_some(leptos_options.clone())
-        .unwrap_or_else(|| {
-            leptos::config::LeptosOptions::builder()
-                .output_name(leptos_options.output_name.to_string())
-                .site_root(leptos_options.site_root.to_string())
-                .site_pkg_dir(leptos_options.site_pkg_dir.to_string())
-                .site_addr(addr)
-                .build()
-        });
+    let mut leptos_options = leptos_config.leptos_options;
+    leptos_options.site_addr = addr;
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
