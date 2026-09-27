@@ -479,3 +479,116 @@ mod tests {
         );
     }
 }
+
+use crate::cqrs::{AsyncCommandHandler, AsyncQueryHandler, Command, Query};
+
+pub enum AuthCommand {
+    RequestRegistrationCode { email: String },
+    RequestLoginCode { email: String },
+    VerifyRegistrationCode { email: String, code: String },
+    VerifyLoginCode { email: String, code: String },
+    Logout { token: String },
+}
+
+pub enum AuthCommandResult {
+    CodeRequested(CodeRequestAccepted),
+    Session(Session),
+    LoggedOut,
+}
+
+impl Command for AuthCommand {
+    type Output = AuthCommandResult;
+    type Error = AuthError;
+}
+
+#[derive(Clone)]
+pub struct AuthCommandHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    service: AuthService<R, E>,
+}
+
+impl<R, E> AuthCommandHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    pub fn new(service: AuthService<R, E>) -> Self {
+        Self { service }
+    }
+}
+
+impl<R, E> AsyncCommandHandler<AuthCommand> for AuthCommandHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    async fn handle(&self, command: AuthCommand) -> Result<AuthCommandResult, AuthError> {
+        match command {
+            AuthCommand::RequestRegistrationCode { email } => self
+                .service
+                .request_registration_code(&email)
+                .await
+                .map(AuthCommandResult::CodeRequested),
+            AuthCommand::RequestLoginCode { email } => self
+                .service
+                .request_login_code(&email)
+                .await
+                .map(AuthCommandResult::CodeRequested),
+            AuthCommand::VerifyRegistrationCode { email, code } => self
+                .service
+                .verify_registration_code(&email, &code)
+                .await
+                .map(AuthCommandResult::Session),
+            AuthCommand::VerifyLoginCode { email, code } => self
+                .service
+                .verify_login_code(&email, &code)
+                .await
+                .map(AuthCommandResult::Session),
+            AuthCommand::Logout { token } => self
+                .service
+                .logout(&token)
+                .await
+                .map(|_| AuthCommandResult::LoggedOut),
+        }
+    }
+}
+
+pub struct CurrentSessionQuery {
+    pub token: String,
+}
+
+impl Query for CurrentSessionQuery {
+    type Output = Result<UserAccess, AuthError>;
+}
+
+#[derive(Clone)]
+pub struct AuthQueryHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    service: AuthService<R, E>,
+}
+
+impl<R, E> AuthQueryHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    pub fn new(service: AuthService<R, E>) -> Self {
+        Self { service }
+    }
+}
+
+impl<R, E> AsyncQueryHandler<CurrentSessionQuery> for AuthQueryHandler<R, E>
+where
+    R: AuthRepository,
+    E: EmailSender,
+{
+    async fn handle(&self, query: CurrentSessionQuery) -> Result<UserAccess, AuthError> {
+        self.service.current_session(&query.token).await
+    }
+}
