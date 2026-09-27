@@ -26,7 +26,7 @@ pub enum ChallengePurpose {
 }
 
 impl ChallengePurpose {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Registration => "registration",
             Self::Login => "login",
@@ -353,7 +353,7 @@ fn normalize_email(email: &str) -> Result<String, AuthError> {
 
     if email.is_empty()
         || email.len() > 320
-        || email.contains(char::is_whitespace)
+        || email.chars().any(char::is_whitespace)
         || email.matches('@').count() != 1
     {
         return Err(AuthError::InvalidEmail);
