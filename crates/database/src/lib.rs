@@ -816,7 +816,7 @@ impl AuthRepository for Database {
             return Err(record_failed_attempt(&mut tx, challenge_id, challenge.attempts, challenge.max_attempts).await?);
         }
 
-        let row = sqlx::query("SELECT id, bootstrap_admin FROM users WHERE email = ? FOR UPDATE")
+        let row = sqlx::query("SELECT id, bootstrap_admin, locked_at FROM users WHERE email = ? FOR UPDATE")
             .bind(email)
             .fetch_optional(&mut *tx)
             .await
