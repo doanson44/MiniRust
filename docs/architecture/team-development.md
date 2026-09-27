@@ -76,13 +76,14 @@ Every feature review should answer:
 
 ## Integration test execution
 
-API integration tests use an isolated MariaDB instance managed by Docker Compose. The integration test stack is defined in `docker-compose.test.yml` and waits for MariaDB's healthcheck before running Cargo tests. Integration tests are not ignored; the Docker test command is the required execution path when a MariaDB dependency is needed.
+API integration tests that require MariaDB use Testcontainers. Each integration-test fixture starts an isolated MariaDB container, waits until it is ready, runs migrations and seeds test data, then the container is removed when the fixture is dropped.
 
-Run:
+Integration tests are not ignored and do not require a separate test Compose command.
+
+Run the normal workspace test command:
 
 ```bash
-docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from api-integration-tests
-docker compose -f docker-compose.test.yml down -v
+cargo test --workspace --all-targets
 ```
 
-The test database and Cargo build/cache volumes are isolated from the normal application Compose stack.
+Docker is the infrastructure prerequisite for database integration tests; the test process owns the container lifecycle. This keeps the developer workflow equivalent to other Cargo tests while preserving a real MariaDB boundary.
