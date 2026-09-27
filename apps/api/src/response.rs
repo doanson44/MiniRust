@@ -208,6 +208,15 @@ impl ProblemDetails {
                     Locale::En => "The email address is invalid.".to_owned(),
                 },
             ),
+            UserAdminError::InvalidPremiumExpiry => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_PREMIUM_EXPIRY",
+                "errors.user.invalid_premium_expiry",
+                match locale {
+                    Locale::Vi => "Thời hạn Premium phải nằm trong tương lai.".to_owned(),
+                    Locale::En => "The Premium expiry must be in the future.".to_owned(),
+                },
+            ),
             UserAdminError::InvalidRole => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_ROLE",
