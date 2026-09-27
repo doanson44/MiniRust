@@ -1,8 +1,13 @@
+#[cfg(feature = "ssr")]
 use leptos::prelude::get_configuration;
+#[cfg(feature = "ssr")]
 use minirust_config::{Config, ServerKind};
+#[cfg(feature = "ssr")]
 use minirust_web::{router, AppState};
+#[cfg(feature = "ssr")]
 use tracing_subscriber::EnvFilter;
 
+#[cfg(feature = "ssr")]
 fn init_tracing(log_filter: &str) {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_filter));
     tracing_subscriber::fmt()
@@ -12,12 +17,14 @@ fn init_tracing(log_filter: &str) {
         .init();
 }
 
+#[cfg(feature = "ssr")]
 async fn shutdown_signal() {
     if let Err(error) = tokio::signal::ctrl_c().await {
         tracing::error!(%error, "failed to listen for shutdown signal");
     }
 }
 
+#[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::load()?;
@@ -49,3 +56,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("MiniRust web stopped");
     Ok(())
 }
+
+#[cfg(not(feature = "ssr"))]
+fn main() {}
