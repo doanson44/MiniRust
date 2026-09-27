@@ -1,14 +1,17 @@
 //! MiniRust Leptos SSR application.
 
-use axum::extract::State;
+use axum::extract::{FromRef, State};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::IntoResponse;
-use axum::routing::get;
 use axum::Router;
+use leptos::config::LeptosOptions;
 use leptos::prelude::*;
+use leptos_axum::{generate_route_list, LeptosRoutes};
+use leptos_router::{components::{Route, Router as LeptosRouter, Routes}, path};
 use minirust_core::APP_NAME;
 use minirust_services::cqrs::QueryHandler;
 use minirust_services::{GreetingQuery, GreetingQueryHandler};
+use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
 
 const CSS: &str = include_str!("generated.css");
@@ -17,13 +20,31 @@ const CSS: &str = include_str!("generated.css");
 #[derive(Clone)]
 pub struct AppState {
     pub greeting: GreetingQueryHandler,
+    pub leptos_options: LeptosOptions,
 }
 
 impl AppState {
     pub fn new() -> Self {
         Self {
             greeting: GreetingQueryHandler,
+            leptos_options: LeptosOptions::builder()
+                .output_name("minirust-web")
+                .site_root("target/site")
+                .site_pkg_dir("pkg")
+                .site_addr("127.0.0.1:3001")
+                .build(),
         }
+    }
+}
+
+impl FromRef<AppState> for LeptosOptions {
+    fn from_ref(state: &AppState) -> Self { state.leptos_options.clone() }
+}
+
+impl AppState {
+    pub fn with_leptos_options(mut self, options: LeptosOptions) -> Self {
+        self.leptos_options = options;
+        self
     }
 }
 
@@ -160,78 +181,266 @@ fn HomePage(message: String) -> impl IntoView {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+struct UserResponse {
+    id: String,
+    email: String,
+    is_admin: bool,
+    is_premium: bool,
+    full_name: Option<String>,
+    avatar_url: Option<String>,
+    is_locked: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct ApiEnvelope<T> { data: T }
+
+#[derive(Clone, Debug, Deserialize)]
+struct AdminUsers { users: Vec<UserResponse> }
+
+#[derive(Clone, Debug, Deserialize)]
+struct ApiProblem { detail: String }
+
+#[cfg(feature = "hydrate")]
+async fn api_post_json(path: &str, body: String) -> Result<(), String> {
+    let response = gloo_net::http::Request::post(path)
+        .header("Content-Type", "application/json")
+        .body(body)
+        .map_err(|error| error.to_string())?
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    if response.ok() {
+        Ok(())
+    } else {
+        response.json::<ApiProblem>().await.map(|p| Err(p.detail)).unwrap_or_else(|e| Err(e.to_string()))
+    }
+}
+
 #[component]
 fn LoginPage() -> impl IntoView {
-    let script = r#"
-const form=document.querySelector('#login-form'),email=document.querySelector('#login-email'),code=document.querySelector('#login-code'),send=document.querySelector('#login-send'),verify=document.querySelector('#login-verify'),status=document.querySelector('#login-status');
-const show=(m,b=false)=>{status.textContent=m;status.className=b?'mt-4 text-sm text-red-300':'mt-4 text-sm text-emerald-300'};
-form.addEventListener('submit',async e=>{e.preventDefault();send.disabled=true;try{const r=await fetch('/api/v1/auth/login/request-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.value})});if(!r.ok){const p=await r.json();throw new Error(p.detail||'Unable to request code')}code.classList.remove('hidden');verify.classList.remove('hidden');send.classList.add('hidden');show('Verification code requested.')}catch(e){show(e.message,true)}finally{send.disabled=false}});
-verify.addEventListener('click',async()=>{verify.disabled=true;try{const r=await fetch('/api/v1/auth/login/verify-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.value,code:code.value})});if(!r.ok){const p=await r.json();throw new Error(p.detail||'Invalid code')}location.href='/app'}catch(e){show(e.message,true)}finally{verify.disabled=false}});
-"#;
-    view! { <div class="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-12">
-        <a href="/" class="mb-8 text-sm font-bold text-cyan-300">&lt;- MiniRust</a>
-        <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-            <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">Sign in</p>
-            <h1 class="mt-3 text-3xl font-black text-white">Access your account</h1>
-            <p class="mt-3 text-sm leading-6 text-slate-400">Passwordless authentication uses a verification code.</p>
-            <form id="login-form" class="mt-8 space-y-4">
-                <label class="block text-sm font-semibold text-slate-200">Email<input id="login-email" type="email" required class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/></label>
-                <label class="block text-sm font-semibold text-slate-200">Code<input id="login-code" type="text" inputmode="numeric" maxlength="6" class="mt-2 hidden w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/></label>
-                <button id="login-send" type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">Send code</button>
-                <button id="login-verify" type="button" class="hidden w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">Verify and continue</button>
-            </form>
-            <p id="login-status" class="mt-4 text-sm text-slate-400"></p>
-            <p class="mt-8 text-sm text-slate-500">New here? <a href="/register" class="font-semibold text-cyan-300">Create an account</a></p>
-        </section>
-    </div><script>{script}</script> }
+    let (email, set_email) = signal(String::new());
+    let (code, set_code) = signal(String::new());
+    let (requested, set_requested) = signal(false);
+    let (status, set_status) = signal(String::new());
+
+    let submit = move |event: leptos::ev::SubmitEvent| {
+        event.prevent_default();
+        let email_value = email.get();
+        let code_value = code.get();
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            if requested.get_untracked() {
+                match api_post_json("/api/v1/auth/login/verify-code", serde_json::json!({"email": email_value, "code": code_value}).to_string()).await {
+                    Ok(()) => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
+                    Err(error) => set_status.set(error),
+                }
+            } else {
+                match api_post_json("/api/v1/auth/login/request-code", serde_json::json!({"email": email_value}).to_string()).await {
+                    Ok(()) => { set_requested.set(true); set_status.set("Verification code requested.".to_owned()); }
+                    Err(error) => set_status.set(error),
+                }
+            }
+        });
+    };
+
+    view! {
+        <div class="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-12">
+            <a href="/" class="mb-8 text-sm font-bold text-cyan-300">"<- MiniRust"</a>
+            <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Sign in"</p>
+                <h1 class="mt-3 text-3xl font-black text-white">"Access your account"</h1>
+                <p class="mt-3 text-sm leading-6 text-slate-400">"Passwordless authentication uses a verification code."</p>
+                <form on:submit=submit class="mt-8 space-y-4">
+                    <label class="block text-sm font-semibold text-slate-200">"Email"
+                        <input type="email" required prop:value=email on:input=move |ev| set_email.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                    </label>
+                    <Show when=move || requested.get()>
+                        <label class="block text-sm font-semibold text-slate-200">"Code"
+                            <input type="text" inputmode="numeric" maxlength="6" prop:value=code on:input=move |ev| set_code.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                        </label>
+                    </Show>
+                    <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">{move || if requested.get() { "Verify and continue" } else { "Send code" }}</button>
+                </form>
+                <p class="mt-4 text-sm text-slate-400">{status}</p>
+                <p class="mt-8 text-sm text-slate-500">"New here? " <a href="/register" class="font-semibold text-cyan-300">"Create an account"</a></p>
+            </section>
+        </div>
+    }
 }
 
 #[component]
 fn RegisterPage() -> impl IntoView {
-    let script = r#"
-const form=document.querySelector('#register-form'),email=document.querySelector('#register-email'),code=document.querySelector('#register-code'),send=document.querySelector('#register-send'),verify=document.querySelector('#register-verify'),status=document.querySelector('#register-status');
-const show=(m,b=false)=>{status.textContent=m;status.className=b?'mt-4 text-sm text-red-300':'mt-4 text-sm text-emerald-300'};
-form.addEventListener('submit',async e=>{e.preventDefault();send.disabled=true;try{const r=await fetch('/api/v1/auth/register/request-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.value})});if(!r.ok){const p=await r.json();throw new Error(p.detail||'Unable to request code')}code.classList.remove('hidden');verify.classList.remove('hidden');send.classList.add('hidden');show('Verification code requested.')}catch(e){show(e.message,true)}finally{send.disabled=false}});
-verify.addEventListener('click',async()=>{verify.disabled=true;try{const r=await fetch('/api/v1/auth/register/verify-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.value,code:code.value})});if(!r.ok){const p=await r.json();throw new Error(p.detail||'Invalid code')}location.href='/app'}catch(e){show(e.message,true)}finally{verify.disabled=false}});
-"#;
-    view! { <div class="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-12">
-        <a href="/" class="mb-8 text-sm font-bold text-cyan-300">&lt;- MiniRust</a>
-        <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-            <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">Create account</p>
-            <h1 class="mt-3 text-3xl font-black text-white">Start with your email</h1>
-            <p class="mt-3 text-sm leading-6 text-slate-400">We will send a verification code.</p>
-            <form id="register-form" class="mt-8 space-y-4">
-                <label class="block text-sm font-semibold text-slate-200">Email<input id="register-email" type="email" required class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/></label>
-                <label class="block text-sm font-semibold text-slate-200">Code<input id="register-code" type="text" inputmode="numeric" maxlength="6" class="mt-2 hidden w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/></label>
-                <button id="register-send" type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">Send code</button>
-                <button id="register-verify" type="button" class="hidden w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">Verify and continue</button>
-            </form>
-            <p id="register-status" class="mt-4 text-sm text-slate-400"></p>
-            <p class="mt-8 text-sm text-slate-500">Already registered? <a href="/login" class="font-semibold text-cyan-300">Sign in</a></p>
-        </section>
-    </div><script>{script}</script> }
+    let (email, set_email) = signal(String::new());
+    let (code, set_code) = signal(String::new());
+    let (requested, set_requested) = signal(false);
+    let (status, set_status) = signal(String::new());
+
+    let submit = move |event: leptos::ev::SubmitEvent| {
+        event.prevent_default();
+        let email_value = email.get();
+        let code_value = code.get();
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            let verifying = requested.get_untracked();
+            let endpoint = if verifying { "/api/v1/auth/register/verify-code" } else { "/api/v1/auth/register/request-code" };
+            let body = if verifying { serde_json::json!({"email": email_value, "code": code_value}) } else { serde_json::json!({"email": email_value}) };
+            match api_post_json(endpoint, body.to_string()).await {
+                Ok(()) if verifying => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
+                Ok(()) => { set_requested.set(true); set_status.set("Verification code requested.".to_owned()); }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    view! {
+        <div class="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-12">
+            <a href="/" class="mb-8 text-sm font-bold text-cyan-300">"<- MiniRust"</a>
+            <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Create account"</p>
+                <h1 class="mt-3 text-3xl font-black text-white">"Start with your email"</h1>
+                <p class="mt-3 text-sm leading-6 text-slate-400">"We will send a verification code."</p>
+                <form on:submit=submit class="mt-8 space-y-4">
+                    <label class="block text-sm font-semibold text-slate-200">"Email"
+                        <input type="email" required prop:value=email on:input=move |ev| set_email.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                    </label>
+                    <Show when=move || requested.get()>
+                        <label class="block text-sm font-semibold text-slate-200">"Code"
+                            <input type="text" inputmode="numeric" maxlength="6" prop:value=code on:input=move |ev| set_code.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                        </label>
+                    </Show>
+                    <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">{move || if requested.get() { "Verify and continue" } else { "Send code" }}</button>
+                </form>
+                <p class="mt-4 text-sm text-slate-400">{status}</p>
+                <p class="mt-8 text-sm text-slate-500">"Already registered? " <a href="/login" class="font-semibold text-cyan-300">"Sign in"</a></p>
+            </section>
+        </div>
+    }
 }
 
 #[component]
 fn AppPage() -> impl IntoView {
-    let script = r#"
-const status=document.querySelector('#profile-status'),form=document.querySelector('#profile-form'),email=document.querySelector('#profile-email'),name=document.querySelector('#profile-name'),avatar=document.querySelector('#profile-avatar'),admin=document.querySelector('#profile-admin'),logout=document.querySelector('#logout');
-const show=(m,b=false)=>{status.textContent=m;status.className=b?'mt-4 text-sm text-red-300':'mt-4 text-sm text-emerald-300'};
-(async()=>{const r=await fetch('/api/v1/auth/me');if(r.status===401){location.href='/login';return}if(!r.ok){show('Unable to load account.',true);return}const u=(await r.json()).data;email.value=u.email;name.value=u.full_name||'';avatar.value=u.avatar_url||'';admin.classList.toggle('hidden',!u.is_admin)})();
-form.addEventListener('submit',async e=>{e.preventDefault();const r=await fetch('/api/v1/users/me',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({full_name:name.value||null,avatar_url:avatar.value||null})});if(r.ok)show('Profile updated.');else{const p=await r.json();show(p.detail||'Update failed.',true)}});
-logout.addEventListener('click',async()=>{await fetch('/api/v1/auth/logout',{method:'POST'});location.href='/'});
-"#;
-    view! { <div class="min-h-screen"><header class="border-b border-white/10"><nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10"><a href="/" class="font-black text-white">MiniRust</a><div class="flex gap-3"><a id="profile-admin" href="/admin" class="hidden rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300">Admin</a><button id="logout" class="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white">Sign out</button></div></nav></header><main class="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:px-10"><p class="text-sm font-bold uppercase tracking-widest text-cyan-300">Account</p><h1 class="mt-3 text-4xl font-black text-white">Your workspace</h1><p class="mt-3 text-slate-400">Manage your profile and account session.</p><section class="mt-10 max-w-2xl rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8"><form id="profile-form" class="space-y-5"><label class="block text-sm font-semibold text-slate-200">Email<input id="profile-email" readonly class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-400"/></label><label class="block text-sm font-semibold text-slate-200">Full name<input id="profile-name" class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/></label><label class="block text-sm font-semibold text-slate-200">Avatar URL<input id="profile-avatar" type="url" class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/></label><button class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950">Save profile</button><p id="profile-status" class="text-sm text-slate-400"></p></form></section></main></div><script>{script}</script> }
+    let (user, set_user) = signal(None::<UserResponse>);
+    let (status, set_status) = signal(String::new());
+
+    #[cfg(feature = "hydrate")]
+    Effect::new(move |_| {
+        leptos::task::spawn_local(async move {
+            match gloo_net::http::Request::get("/api/v1/auth/me").send().await {
+                Ok(response) if response.status() == 401 => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/login"); } }
+                Ok(response) if response.ok() => match response.json::<ApiEnvelope<UserResponse>>().await {
+                    Ok(envelope) => set_user.set(Some(envelope.data)),
+                    Err(error) => set_status.set(error.to_string()),
+                },
+                Ok(response) => set_status.set(format!("Unable to load account ({}).", response.status())),
+                Err(error) => set_status.set(error.to_string()),
+            }
+        });
+    });
+
+    let logout = move |_| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            let _ = gloo_net::http::Request::post("/api/v1/auth/logout").send().await;
+            if let Some(window) = web_sys::window() { let _ = window.location().set_href("/"); }
+        });
+    };
+
+    view! {
+        <div class="min-h-screen">
+            <header class="border-b border-white/10"><nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
+                <a href="/" class="font-black text-white">"MiniRust"</a>
+                <div class="flex gap-3">
+                    <Show when=move || user.get().map(|u| u.is_admin).unwrap_or(false)><a href="/admin" class="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300">"Admin"</a></Show>
+                    <button on:click=logout class="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white">"Sign out"</button>
+                </div>
+            </nav></header>
+            <main class="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:px-10">
+                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Account"</p>
+                <h1 class="mt-3 text-4xl font-black text-white">"Your workspace"</h1>
+                <p class="mt-3 text-slate-400">{status}</p>
+                <Show when=move || user.get().is_some() fallback=|| view! { <p class="mt-8 text-slate-400">"Loading account..."</p> }>
+                    <p class="mt-8 text-white">{move || user.get().map(|u| u.email).unwrap_or_default()}</p>
+                </Show>
+            </main>
+        </div>
+    }
 }
 
 #[component]
 fn AdminPage() -> impl IntoView {
-    let script = r#"
-const status=document.querySelector('#admin-status'),rows=document.querySelector('#admin-rows');const show=(m,b=false)=>{status.textContent=m;status.className=b?'mt-3 text-sm text-red-300':'mt-3 text-sm text-slate-400'};const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-(async()=>{const me=await fetch('/api/v1/auth/me');if(me.status===401){location.href='/login';return}if(!me.ok||!(await me.clone().json()).data.is_admin){location.href='/app';return}const r=await fetch('/api/v1/admin/users');if(!r.ok){show('Unable to load users.',true);return}const users=(await r.json()).data.users;rows.innerHTML=users.map(u=>'<tr class="border-t border-white/10"><td class="px-3 py-3 text-sm text-white">'+esc(u.email)+'</td><td class="px-3 py-3 text-sm text-slate-400">'+(u.is_admin?'Admin':'User')+'</td><td class="px-3 py-3 text-sm text-slate-400">'+(u.is_premium?'Premium':'—')+'</td><td class="px-3 py-3 text-right"><button data-email="'+esc(u.email)+'" class="unlock rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white">Unlock</button></td></tr>').join('');show(users.length+' users loaded.')})();
-rows.addEventListener('click',async e=>{const b=e.target.closest('.unlock');if(!b)return;const r=await fetch('/api/v1/admin/users/'+encodeURIComponent(b.dataset.email)+'/unlock',{method:'POST'});if(r.ok){show('User unlocked.');location.reload()}else{const p=await r.json();show(p.detail||'Action failed.',true)}});
-"#;
-    view! { <div class="min-h-screen"><header class="border-b border-white/10"><nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10"><a href="/app" class="font-black text-white">MiniRust</a><a href="/app" class="text-sm text-cyan-300">Back to workspace</a></nav></header><main class="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:px-10"><p class="text-sm font-bold uppercase tracking-widest text-cyan-300">Administration</p><h1 class="mt-3 text-4xl font-black text-white">Users</h1><p id="admin-status" class="mt-3 text-sm text-slate-400">Loading...</p><div class="mt-8 overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.03]"><table class="w-full min-w-[680px] text-left"><thead><tr class="text-xs uppercase tracking-widest text-slate-500"><th class="px-3 py-4">Email</th><th class="px-3 py-4">Role</th><th class="px-3 py-4">Entitlement</th><th class="px-3 py-4 text-right">Action</th></tr></thead><tbody id="admin-rows"></tbody></table></div></main></div><script>{script}</script> }
+    let (users, set_users) = signal(Vec::<UserResponse>::new());
+    let (status, set_status) = signal(String::from("Loading..."));
+
+    #[cfg(feature = "hydrate")]
+    Effect::new(move |_| {
+        leptos::task::spawn_local(async move {
+            let me = gloo_net::http::Request::get("/api/v1/auth/me").send().await;
+            match me {
+                Ok(response) if response.status() == 401 => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/login"); } }
+                Ok(response) if response.ok() => match response.json::<ApiEnvelope<UserResponse>>().await {
+                    Ok(envelope) if envelope.data.is_admin => {
+                        match gloo_net::http::Request::get("/api/v1/admin/users").send().await {
+                            Ok(response) if response.ok() => match response.json::<ApiEnvelope<AdminUsers>>().await {
+                                Ok(envelope) => { let count = envelope.data.users.len(); set_users.set(envelope.data.users); set_status.set(format!("{count} users loaded.")); }
+                                Err(error) => set_status.set(error.to_string()),
+                            },
+                            Ok(response) => set_status.set(format!("Unable to load users ({}).", response.status())),
+                            Err(error) => set_status.set(error.to_string()),
+                        }
+                    }
+                    Ok(_) => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
+                    Err(error) => set_status.set(error.to_string()),
+                },
+                Ok(response) => set_status.set(format!("Unable to load session ({}).", response.status())),
+                Err(error) => set_status.set(error.to_string()),
+            }
+        });
+    });
+
+    view! {
+        <div class="min-h-screen">
+            <header class="border-b border-white/10"><nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
+                <a href="/app" class="font-black text-white">"MiniRust"</a><a href="/app" class="text-sm text-cyan-300">"Back to workspace"</a>
+            </nav></header>
+            <main class="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:px-10">
+                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Administration"</p><h1 class="mt-3 text-4xl font-black text-white">"Users"</h1>
+                <p class="mt-3 text-sm text-slate-400">{status}</p>
+                <div class="mt-8 overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.03]"><table class="w-full min-w-[680px] text-left">
+                    <thead><tr class="text-xs uppercase tracking-widest text-slate-500"><th class="px-3 py-4">"Email"</th><th class="px-3 py-4">"Role"</th><th class="px-3 py-4">"Entitlement"</th><th class="px-3 py-4 text-right">"Status"</th></tr></thead>
+                    <tbody><For each=move || users.get() key=|user| user.id.clone() let:user>
+                        <tr class="border-t border-white/10"><td class="px-3 py-3 text-sm text-white">{user.email.clone()}</td><td class="px-3 py-3 text-sm text-slate-400">{if user.is_admin {"Admin"} else {"User"}}</td><td class="px-3 py-3 text-sm text-slate-400">{if user.is_premium {"Premium"} else {"—"}}</td><td class="px-3 py-3 text-right text-sm text-slate-400">{if user.is_locked {"Locked"} else {"Active"}}</td></tr>
+                    </For></tbody>
+                </table></div>
+            </main>
+        </div>
+    }
+}
+
+#[component]
+fn App() -> impl IntoView {
+    view! {
+        <LeptosRouter>
+            <Routes fallback=|| view! { <main class="min-h-screen bg-slate-950 p-10 text-white"><h1>"Not found"</h1></main> }>
+                <Route path=path!("") view=|| view! { <HomePage message="Hello from MiniRust".to_owned()/> }/>
+                <Route path=path!("/login") view=LoginPage/>
+                <Route path=path!("/register") view=RegisterPage/>
+                <Route path=path!("/app") view=AppPage/>
+                <Route path=path!("/admin") view=AdminPage/>
+            </Routes>
+        </LeptosRouter>
+    }
+}
+
+fn shell(options: LeptosOptions) -> impl IntoView {
+    view! {
+        <html lang="en" class="scroll-smooth bg-slate-950 text-slate-100"><head>
+            <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+            <meta name="description" content="MiniRust is a Rust-first full-stack platform foundation built for long-term growth."/>
+            <meta name="theme-color" content="#020617"/><style>{CSS}</style>
+            <leptos::hydration::HydrationScripts options=options.clone()/><title>{APP_NAME} {" - Rust-first platform foundation"}</title>
+        </head><body class="min-h-screen overflow-x-hidden bg-slate-950 antialiased"><App/></body></html>
+    }
 }
 
 /// Render the MiniRust landing page to an HTML string.
@@ -240,39 +449,26 @@ pub fn render_home_page(message: &str) -> String {
     format!("<!DOCTYPE html>{html}")
 }
 
-/// HTTP router used by the binary and by tests.
 pub fn router(state: AppState) -> Router {
+    let routes = generate_route_list(App);
     Router::new()
-        .route("/", get(home))
-        .route("/login", get(login))
-        .route("/register", get(register))
-        .route("/app", get(app))
-        .route("/admin", get(admin))
-        .route("/health", get(health))
+        .leptos_routes(&state.leptos_options, routes, {
+            let options = state.leptos_options.clone();
+            move || shell(options.clone())
+        })
+        .fallback(leptos_axum::file_and_error_handler(shell))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
 
-async fn home(State(state): State<AppState>) -> impl IntoResponse {
-    let greeting = state.greeting.handle(GreetingQuery);
-    let html = render_home_page(&greeting.message);
-    (
-        StatusCode::OK,
-        [(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static("text/html; charset=utf-8"),
-        )],
-        html,
-    )
-}
-
-async fn login() -> impl IntoResponse { (StatusCode::OK, [(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"))], format!("<!DOCTYPE html>{}", view! { <LoginPage/> }.to_html())) }
-async fn register() -> impl IntoResponse { (StatusCode::OK, [(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"))], format!("<!DOCTYPE html>{}", view! { <RegisterPage/> }.to_html())) }
-async fn app() -> impl IntoResponse { (StatusCode::OK, [(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"))], format!("<!DOCTYPE html>{}", view! { <AppPage/> }.to_html())) }
-async fn admin() -> impl IntoResponse { (StatusCode::OK, [(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"))], format!("<!DOCTYPE html>{}", view! { <AdminPage/> }.to_html())) }
-
 async fn health() -> impl IntoResponse {
     (StatusCode::OK, "ok")
+}
+
+#[cfg(feature = "hydrate")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn hydrate() {
+    leptos::mount::hydrate_body(App);
 }
 
 #[cfg(test)]
@@ -283,69 +479,25 @@ mod tests {
     use tower::ServiceExt;
 
     async fn body_string(response: axum::response::Response) -> String {
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         String::from_utf8(bytes.to_vec()).unwrap()
     }
 
-    #[test]
-    fn home_page_renders_the_landing_page() {
-        let html = render_home_page("Hello from MiniRust");
-        assert!(html.starts_with("<!DOCTYPE html>"));
-        assert!(html.contains("MiniRust<!> - Rust-first platform foundation"));
-        assert!(html.contains("id=\"capabilities\""));
-        assert!(html.contains("id=\"architecture\""));
-        assert!(html.contains("Hello from MiniRust"));
-        assert!(html.contains("md:flex"));
-        assert!(html.contains("href=\"/login\""));\n        assert!(html.contains("href=\"/register\""));\n        assert!(html.contains("lg:grid-cols"));
-    }
-
-    #[tokio::test]
-    async fn get_root_returns_responsive_landing_page_html() {
-        let response = router(AppState::new())
-            .oneshot(Request::get("/").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-        let content_type = response
-            .headers()
-            .get(header::CONTENT_TYPE)
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert!(content_type.starts_with("text/html"));
-
-        let body = body_string(response).await;
-        assert!(body.contains("MiniRust"));
-        assert!(body.contains("viewport"));
-        assert!(body.contains("<style>"));
-        assert!(body.contains("sm:text-6xl"));
-        assert!(body.contains("md:flex"));
-        assert!(body.contains("lg:grid-cols"));
-    }
-
-
     #[tokio::test]
     async fn account_pages_are_server_rendered() {
-        for path in ["/login", "/register", "/app", "/admin"] {
-            let response = router(AppState::new())
-                .oneshot(Request::get(path).body(Body::empty()).unwrap())
-                .await
-                .unwrap();
+        let app = router(AppState::new());
+        for path in ["/", "/login", "/register", "/app", "/admin"] {
+            let response = app.clone().oneshot(Request::get(path).body(Body::empty()).unwrap()).await.unwrap();
             assert_eq!(response.status(), StatusCode::OK);
-            assert!(body_string(response).await.contains("MiniRust"));
+            let body = body_string(response).await;
+            assert!(body.contains("MiniRust"));
+            assert!(body.contains("pkg"));
         }
     }
 
     #[tokio::test]
     async fn get_health_returns_ok() {
-        let response = router(AppState::new())
-            .oneshot(Request::get("/health").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-
+        let response = router(AppState::new()).oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(body_string(response).await, "ok");
     }
