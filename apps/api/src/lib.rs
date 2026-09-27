@@ -2,16 +2,19 @@
 
 mod response;
 
-use axum::extract::{rejection::JsonRejection, State};
+use axum::extract::{rejection::JsonRejection, Path, State};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
-use axum::routing::{get, post};
+use axum::routing::{delete, get, patch, post, put};
 use axum::{Json, Router};
 use minirust_core::AppError;
 use minirust_database::Database;
 use minirust_services::cqrs::{CommandHandler, QueryHandler};
-use minirust_services::{AuthError, AuthService, UnavailableEmailSender};
+use minirust_services::{
+    AdminUserRole, AuthError, AuthService, UnavailableEmailSender, UserAdminError,
+    UserAdminService,
+};
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
 use response::{ApiResponse, Locale, ProblemDetails};
 use serde::{Deserialize, Serialize};
@@ -23,6 +26,7 @@ pub struct AppState {
     pub greeting: GreetingQueryHandler,
     pub database: Database,
     pub auth: AuthService<Database, UnavailableEmailSender>,
+    pub users: UserAdminService<Database>,
     pub secure_cookies: bool,
 }
 
@@ -34,6 +38,7 @@ impl AppState {
             greeting: GreetingQueryHandler,
             database,
             auth,
+            users: UserAdminService::new(database),
             secure_cookies,
         })
     }
@@ -90,6 +95,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/auth/login/verify-code", post(auth_login_verify_code))
         .route("/api/v1/auth/logout", post(auth_logout))
         .route("/api/v1/auth/me", get(auth_me))
+        .route("/api/v1/admin/users", get(admin_users_list).post(admin_users_create))
+        .route("/api/v1/admin/users/{email}", get(admin_user_get).patch(admin_user_update).delete(admin_user_delete))
+        .route("/api/v1/admin/users/{email}/role", put(admin_user_assign_role))
         .route("/api/v1/openapi.json", get(openapi))
         .route("/swagger", get(swagger_ui))
         .layer(TraceLayer::new_for_http())
@@ -333,6 +341,199 @@ async fn auth_me(
     }
 }
 
+
+#[derive(Deserialize)]
+struct AdminCreateUserRequest {
+    email: String,
+}
+
+#[derive(Deserialize)]
+struct AdminUpdateUserRequest {
+    email: String,
+}
+
+#[derive(Deserialize)]
+struct AdminAssignRoleRequest {
+    role: String,
+}
+
+#[derive(Serialize)]
+struct AdminUserListResponse {
+    users: Vec<AuthUserResponse>,
+}
+
+async fn require_admin(
+    state: &AppState,
+    jar: &CookieJar,
+    locale: Locale,
+) -> Result<minirust_services::UserAccess, axum::response::Response> {
+    let Some(cookie) = jar.get(SESSION_COOKIE) else {
+        return Err(auth_error_response(AuthError::SessionInvalid, locale).into_response());
+    };
+
+    let user = state
+        .auth
+        .current_session(cookie.value())
+        .await
+        .map_err(|error| auth_error_response(error, locale).into_response())?;
+
+    if !user.is_admin {
+        return Err(ProblemDetails::forbidden(locale).into_response());
+    }
+
+    Ok(user)
+}
+
+async fn admin_users_list(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    if let Err(response) = require_admin(&state, &jar, locale).await {
+        return response;
+    }
+
+    match state.users.list().await {
+        Ok(users) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(AdminUserListResponse {
+                users: users.into_iter().map(auth_user_response).collect(),
+            })),
+        )
+            .into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
+async fn admin_users_create(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    body: Result<Json<AdminCreateUserRequest>, JsonRejection>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    if let Err(response) = require_admin(&state, &jar, locale).await {
+        return response;
+    }
+
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
+
+    match state.users.create(&body.email).await {
+        Ok(user) => (
+            StatusCode::CREATED,
+            Json(ApiResponse::new(auth_user_response(user))),
+        )
+            .into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
+async fn admin_user_get(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Path(email): Path<String>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    if let Err(response) = require_admin(&state, &jar, locale).await {
+        return response;
+    }
+
+    match state.users.get(&email).await {
+        Ok(user) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(auth_user_response(user))),
+        )
+            .into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
+async fn admin_user_update(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Path(email): Path<String>,
+    body: Result<Json<AdminUpdateUserRequest>, JsonRejection>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    if let Err(response) = require_admin(&state, &jar, locale).await {
+        return response;
+    }
+
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
+
+    match state.users.update_email(&email, &body.email).await {
+        Ok(user) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(auth_user_response(user))),
+        )
+            .into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
+async fn admin_user_delete(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Path(email): Path<String>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    if let Err(response) = require_admin(&state, &jar, locale).await {
+        return response;
+    }
+
+    match state.users.delete(&email).await {
+        Ok(()) => (
+            StatusCode::NO_CONTENT,
+            Json(ApiResponse::new(serde_json::json!({ "deleted": true }))),
+        )
+            .into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
+async fn admin_user_assign_role(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Path(email): Path<String>,
+    body: Result<Json<AdminAssignRoleRequest>, JsonRejection>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    if let Err(response) = require_admin(&state, &jar, locale).await {
+        return response;
+    }
+
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
+
+    let role = match body.role.trim().to_ascii_lowercase().as_str() {
+        "admin" => AdminUserRole::Admin,
+        "none" => AdminUserRole::None,
+        _ => return ProblemDetails::user_admin(&UserAdminError::InvalidRole, locale).into_response(),
+    };
+
+    match state.users.assign_role(&email, role).await {
+        Ok(user) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(auth_user_response(user))),
+        )
+            .into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
 async fn auth_logout(
     headers: HeaderMap,
     State(state): State<AppState>,
@@ -374,7 +575,10 @@ async fn openapi() -> impl IntoResponse {
                 "/api/v1/auth/login/request-code": { "post": { "summary": "Request login verification code", "responses": { "200": { "description": "Request accepted" } } } },
                 "/api/v1/auth/login/verify-code": { "post": { "summary": "Verify login code and create session", "responses": { "200": { "description": "Authenticated session" } } } },
                 "/api/v1/auth/logout": { "post": { "summary": "Revoke current session", "responses": { "200": { "description": "Session revoked" } } } },
-                "/api/v1/auth/me": { "get": { "summary": "Get current authenticated user", "responses": { "200": { "description": "Current user" }, "401": { "description": "Invalid or expired session" } } } }
+                "/api/v1/auth/me": { "get": { "summary": "Get current authenticated user", "responses": { "200": { "description": "Current user" }, "401": { "description": "Invalid or expired session" } } } },
+                "/api/v1/admin/users": { "get": { "summary": "List users (admin only)", "responses": { "200": { "description": "Users" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } }, "post": { "summary": "Create user by email (admin only)", "responses": { "201": { "description": "User created" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } } },
+                "/api/v1/admin/users/{email}": { "get": { "summary": "Get user by email (admin only)", "responses": { "200": { "description": "User" }, "404": { "description": "User not found" } } }, "patch": { "summary": "Update user email (admin only)", "responses": { "200": { "description": "User updated" }, "409": { "description": "Email already exists or protected user" } } }, "delete": { "summary": "Delete user by email (admin only)", "responses": { "204": { "description": "User deleted" }, "404": { "description": "User not found" } } } },
+                "/api/v1/admin/users/{email}/role": { "put": { "summary": "Assign or remove admin role (admin only)", "responses": { "200": { "description": "User role updated" }, "403": { "description": "Admin role required" }, "422": { "description": "Invalid role" } } } }
             }
         })),
     )
