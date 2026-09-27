@@ -368,7 +368,13 @@ async fn openapi() -> impl IntoResponse {
             "paths": {
                 "/health": { "get": { "summary": "Health and MariaDB connectivity", "responses": { "200": { "description": "Application and database are healthy" }, "503": { "description": "Database is unavailable" } } } },
                 "/api/v1/hello": { "get": { "summary": "Hello query", "responses": { "200": { "description": "Greeting" } } } },
-                "/api/v1/echo": { "post": { "summary": "Echo command", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } } } } }, "responses": { "200": { "description": "Echo response" }, "400": { "description": "Malformed JSON or invalid content type" }, "422": { "description": "Validation error" }, "500": { "description": "Unexpected server failure" } } } }
+                "/api/v1/echo": { "post": { "summary": "Echo command", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } } } } }, "responses": { "200": { "description": "Echo response" }, "400": { "description": "Malformed JSON or invalid content type" }, "422": { "description": "Validation error" }, "500": { "description": "Unexpected server failure" } } } },
+                "/api/v1/auth/register/request-code": { "post": { "summary": "Request registration verification code", "responses": { "200": { "description": "Request accepted" } } } },
+                "/api/v1/auth/register/verify-code": { "post": { "summary": "Verify registration code and create session", "responses": { "200": { "description": "Authenticated session" } } } },
+                "/api/v1/auth/login/request-code": { "post": { "summary": "Request login verification code", "responses": { "200": { "description": "Request accepted" } } } },
+                "/api/v1/auth/login/verify-code": { "post": { "summary": "Verify login code and create session", "responses": { "200": { "description": "Authenticated session" } } } },
+                "/api/v1/auth/logout": { "post": { "summary": "Revoke current session", "responses": { "200": { "description": "Session revoked" } } } },
+                "/api/v1/auth/me": { "get": { "summary": "Get current authenticated user", "responses": { "200": { "description": "Current user" }, "401": { "description": "Invalid or expired session" } } } }
             }
         })),
     )
