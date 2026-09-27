@@ -6,7 +6,7 @@
 use minirust_core::EntityId;
 use minirust_services::{
     AdminUserRole, AuthError, AuthRepository, Challenge, ChallengePurpose, ChallengeRef,
-    UserAccess, UserAdminError, UserAdminRepository,
+    PremiumEntitlement, UserAccess, UserAdminError, UserAdminRepository,
 };
 use sqlx::mysql::{MySqlPool, MySqlPoolOptions};
 use sqlx::{MySql, Row, Transaction};
@@ -433,6 +433,36 @@ impl UserAdminRepository for Database {
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
         Ok(user)
     }
+    async fn get_premium(
+        &self,
+        email: &str,
+    ) -> Result<PremiumEntitlement, UserAdminError> {
+        let row = sqlx::query(
+            "SELECT ue.active, ue.expires_at
+             FROM users u
+             LEFT JOIN user_entitlements ue
+               ON ue.user_id = u.id AND ue.entitlement = 'premium'
+             WHERE u.email = ?
+             LIMIT 1",
+        )
+        .bind(email)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?
+        .ok_or(UserAdminError::NotFound)?;
+
+        Ok(PremiumEntitlement {
+            active: row.try_get::<Option<i64>, _>("active")
+                .map_err(|_| UserAdminError::Persistence)?
+                .unwrap_or(0) != 0,
+            expires_at: row.try_get("expires_at").map_err(|_| UserAdminError::Persistence)?,
+        })
+    }
+
+    async fn revoke_premium(&self, email: &str) -> Result<UserAccess, UserAdminError> {
+        self.set_premium(email, false, None).await
+    }
+
     async fn set_premium(
         &self,
         email: &str,
