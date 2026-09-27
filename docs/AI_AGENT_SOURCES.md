@@ -30,6 +30,7 @@ Use these repository documents for architectural intent:
 - docs/architecture/team-development.md
 - docs/architecture/api-response.md
 - docs/architecture/api-error-code.md
+- docs/architecture/entity.md
 
 These documents describe intended architecture; they do not prove that every described feature is implemented.
 If documentation and implementation disagree, report the discrepancy explicitly.
