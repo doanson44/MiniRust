@@ -22,6 +22,7 @@ impl AdminUserRole {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UserAdminError {
     InvalidEmail,
+    InvalidRole,
     NotFound,
     EmailAlreadyExists,
     ProtectedUser,
@@ -32,6 +33,7 @@ impl std::fmt::Display for UserAdminError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidEmail => f.write_str("invalid email"),
+            Self::InvalidRole => f.write_str("invalid role"),
             Self::NotFound => f.write_str("user not found"),
             Self::EmailAlreadyExists => f.write_str("email already exists"),
             Self::ProtectedUser => f.write_str("user is protected"),
