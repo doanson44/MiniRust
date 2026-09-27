@@ -1,7 +1,5 @@
 use std::hash::Hash;
 
-use crate::EntityId;
-
 /// Base contract for domain entities.
 ///
 /// Entity identity is separate from persistence concerns. Concrete bounded
