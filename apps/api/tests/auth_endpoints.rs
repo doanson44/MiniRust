@@ -8,7 +8,7 @@ use axum::{
 };
 use minirust_api::{router, AppState};
 use minirust_database::Database;
-use testcontainers::{core::{IntoContainerPort, WaitFor}, runners::AsyncRunner, GenericImage};
+use testcontainers::{core::{IntoContainerPort, WaitFor}, runners::AsyncRunner, GenericImage, ImageExt};
 use tokio::time::sleep;
 use tower::ServiceExt;
 
@@ -172,7 +172,7 @@ async fn me_without_session_is_unauthorized() {
 }
 
 
-async fn admin_cookie(app: &Router) -> String {
+async fn admin_cookie(app: &TestApp) -> String {
     let request_response = app.router()
         .oneshot(
             Request::post("/api/v1/auth/login/request-code")
