@@ -1,3 +1,7 @@
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
 //! MiniRust REST API application.
 
 mod response;
@@ -27,7 +31,32 @@ pub struct AppState {
     pub database: Database,
     pub auth: AuthService<Database, UnavailableEmailSender>,
     pub users: UserAdminService<Database>,
+    pub auth_rate_limiter: AuthRateLimiter,
     pub secure_cookies: bool,
+}
+
+#[derive(Clone, Default)]
+pub struct AuthRateLimiter {
+    entries: Arc<Mutex<HashMap<String, VecDeque<Instant>>>>,
+}
+
+impl AuthRateLimiter {
+    pub fn check(&self, key: &str, max_requests: usize, window: Duration) -> bool {
+        let now = Instant::now();
+        let mut entries = self.entries.lock().expect("auth rate limiter mutex poisoned");
+        let timestamps = entries.entry(key.to_owned()).or_default();
+        while timestamps
+            .front()
+            .is_some_and(|timestamp| now.duration_since(*timestamp) >= window)
+        {
+            timestamps.pop_front();
+        }
+        if timestamps.len() >= max_requests {
+            return false;
+        }
+        timestamps.push_back(now);
+        true
+    }
 }
 
 impl AppState {
@@ -38,7 +67,8 @@ impl AppState {
             greeting: GreetingQueryHandler,
             database,
             auth,
-            users: UserAdminService::new(database),
+            users: UserAdminService::new(database.clone()),
+            auth_rate_limiter: AuthRateLimiter::default(),
             secure_cookies,
         })
     }
@@ -254,6 +284,14 @@ async fn auth_register_request_code(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
+    let rate_key = format!("register:{}", body.email.trim().to_ascii_lowercase());
+    if !state
+        .auth_rate_limiter
+        .check(&rate_key, 3, Duration::from_secs(15 * 60))
+    {
+        return response::ProblemDetails::rate_limited(locale).into_response();
+    }
+
     match state.auth.request_registration_code(&body.email).await {
         Ok(_) => (
             StatusCode::OK,
@@ -274,6 +312,14 @@ async fn auth_login_request_code(
         Ok(body) => body,
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
+
+    let rate_key = format!("login:{}", body.email.trim().to_ascii_lowercase());
+    if !state
+        .auth_rate_limiter
+        .check(&rate_key, 3, Duration::from_secs(15 * 60))
+    {
+        return response::ProblemDetails::rate_limited(locale).into_response();
+    }
 
     match state.auth.request_login_code(&body.email).await {
         Ok(_) => (
