@@ -406,7 +406,7 @@ async fn auth_me(
         return auth_error_response(AuthError::SessionInvalid, locale).into_response();
     };
 
-    match state.auth.current_session(cookie.value()).await {
+    match state.auth_queries.handle(CurrentSessionQuery { token: cookie.value().to_owned() }).await {
         Ok(user) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
@@ -455,7 +455,7 @@ async fn authorize_admin(state: &AppState, jar: &CookieJar, locale: Locale) -> R
     let Some(cookie) = jar.get(SESSION_COOKIE) else {
         return Err(auth_error_response(AuthError::SessionInvalid, locale).into_response());
     };
-    state.auth.require_admin(cookie.value()).await.map_err(|error| auth_error_response(error, locale).into_response())
+    state.auth_queries.handle(RequireAdminQuery { token: cookie.value().to_owned() }).await.map_err(|error| auth_error_response(error, locale).into_response())
 }
 
 async fn admin_users_list(
