@@ -122,6 +122,9 @@ impl Database {
             SELECT
                 u.id,
                 u.email,
+                u.full_name,
+                u.avatar_url,
+                u.locked_at,
                 EXISTS(
                     SELECT 1
                     FROM user_roles ur
@@ -216,6 +219,9 @@ impl UserAdminRepository for Database {
                 SELECT
                     u.id,
                     u.email,
+                    u.full_name,
+                    u.avatar_url,
+                    u.locked_at,
                     EXISTS(
                         SELECT 1 FROM user_roles ur
                         WHERE ur.user_id = u.id AND ur.role = 'admin'
@@ -247,6 +253,9 @@ impl UserAdminRepository for Database {
                 SELECT
                     u.id,
                     u.email,
+                    u.full_name,
+                    u.avatar_url,
+                    u.locked_at,
                     EXISTS(
                         SELECT 1 FROM user_roles ur
                         WHERE ur.user_id = u.id AND ur.role = 'admin'
@@ -292,6 +301,11 @@ impl UserAdminRepository for Database {
         .ok_or(UserAdminError::NotFound)?;
 
         let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
+        let locked = row.try_get::<Option<i64>, _>("locked_at").map_err(|_| AuthError::Persistence)?.is_some();
+        if locked {
+            return Err(AuthError::AccountLocked);
+        }
+
         let bootstrap_admin = row
             .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
@@ -879,6 +893,9 @@ fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, AuthError> {
     Ok(UserAccess {
         id,
         email: row.try_get("email").map_err(|_| AuthError::Persistence)?,
+        full_name: row.try_get("full_name").map_err(|_| AuthError::Persistence)?,
+        avatar_url: row.try_get("avatar_url").map_err(|_| AuthError::Persistence)?,
+        is_locked: row.try_get::<Option<i64>, _>("locked_at").map_err(|_| AuthError::Persistence)?.is_some(),
         is_admin: row.try_get::<i64, _>("is_admin").map_err(|_| AuthError::Persistence)? != 0,
         is_premium: row.try_get::<i64, _>("is_premium").map_err(|_| AuthError::Persistence)? != 0,
     })
