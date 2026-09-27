@@ -9,19 +9,20 @@ description = "MiniRust Leptos SSR + hydration application"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-axum.workspace = true
+axum = { workspace = true, optional = true }
 leptos.workspace = true
-leptos_axum.workspace = true
-leptos_meta.workspace = true
+leptos_axum = { workspace = true, optional = true }
+leptos_meta = { workspace = true, optional = true }
 leptos_router.workspace = true
 serde.workspace = true
-minirust-config.workspace = true
+serde_json.workspace = true
+minirust-config = { workspace = true, optional = true }
 minirust-core.workspace = true
-minirust-services.workspace = true
-tokio.workspace = true
-tower-http.workspace = true
-tracing.workspace = true
-tracing-subscriber.workspace = true
+minirust-services = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true }
 
 [dev-dependencies]
 tower.workspace = true
@@ -33,7 +34,7 @@ wasm-bindgen.workspace = true
 
 [features]
 default = ["ssr"]
-ssr = ["leptos/ssr", "leptos_axum/default", "leptos_meta/ssr", "leptos_router/ssr"]
+ssr = ["dep:axum", "dep:leptos_axum", "dep:leptos_meta", "dep:minirust-config", "dep:minirust-services", "dep:tokio", "dep:tower-http", "dep:tracing", "dep:tracing-subscriber", "leptos/ssr", "leptos_axum/default", "leptos_meta/ssr", "leptos_router/ssr"]
 hydrate = ["leptos/hydrate"]
 
 [profile.wasm-release]
