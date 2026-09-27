@@ -43,7 +43,7 @@ impl Database {
 
         let mut tx = self.pool.begin().await.map_err(|_| AuthError::Persistence)?;
 
-        let existing_id = sqlx::query("SELECT id, bootstrap_admin FROM users WHERE email = ? FOR UPDATE")
+        let existing_id = sqlx::query("SELECT id, bootstrap_admin, locked_at FROM users WHERE email = ? FOR UPDATE")
             .bind(&email)
             .fetch_optional(&mut *tx)
             .await
@@ -301,11 +301,6 @@ impl UserAdminRepository for Database {
         .ok_or(UserAdminError::NotFound)?;
 
         let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
-        let locked = row.try_get::<Option<i64>, _>("locked_at").map_err(|_| AuthError::Persistence)?.is_some();
-        if locked {
-            return Err(AuthError::AccountLocked);
-        }
-
         let bootstrap_admin = row
             .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
@@ -697,6 +692,11 @@ impl AuthRepository for Database {
             .ok_or(AuthError::Persistence)?;
 
         let user_id = row_to_id(&row)?;
+        let locked = row.try_get::<Option<i64>, _>("locked_at").map_err(|_| AuthError::Persistence)?.is_some();
+        if locked {
+            return Err(AuthError::AccountLocked);
+        }
+
         let bootstrap_admin = row
             .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| AuthError::Persistence)?
