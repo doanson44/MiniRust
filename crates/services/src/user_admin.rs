@@ -74,6 +74,19 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
         active: bool,
         expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError>;
+
+    async fn get_premium(
+        &self,
+        email: &str,
+    ) -> Result<PremiumEntitlement, UserAdminError>;
+
+    async fn revoke_premium(&self, email: &str) -> Result<UserAccess, UserAdminError>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PremiumEntitlement {
+    pub active: bool,
+    pub expires_at: Option<i64>,
 }
 
 #[derive(Clone)]
@@ -153,6 +166,16 @@ where
     ) -> Result<UserAccess, UserAdminError> {
         let email = normalize_email(email)?;
         self.repository.set_admin_role(&email, role).await
+    }
+
+    pub async fn get_premium(&self, email: &str) -> Result<PremiumEntitlement, UserAdminError> {
+        let email = normalize_email(email)?;
+        self.repository.get_premium(&email).await
+    }
+
+    pub async fn revoke_premium(&self, email: &str) -> Result<UserAccess, UserAdminError> {
+        let email = normalize_email(email)?;
+        self.repository.revoke_premium(&email).await
     }
 
     pub async fn set_premium(
