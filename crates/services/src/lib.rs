@@ -4,6 +4,7 @@
 //! structure is CQRS-oriented. Commands change state; queries only read state.
 
 pub mod auth;
+pub mod user_admin;
 pub mod commands;
 pub mod cqrs;
 pub mod queries;
