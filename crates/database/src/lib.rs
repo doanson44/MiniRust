@@ -5,7 +5,8 @@
 
 use minirust_core::EntityId;
 use minirust_services::{
-    AuthError, AuthRepository, Challenge, ChallengePurpose, ChallengeRef, UserAccess,
+    AdminUserRole, AuthError, AuthRepository, Challenge, ChallengePurpose, ChallengeRef,
+    UserAccess, UserAdminError, UserAdminRepository,
 };
 use sqlx::mysql::{MySqlPool, MySqlPoolOptions};
 use sqlx::{MySql, Row, Transaction};
@@ -153,6 +154,284 @@ impl Database {
             .map_err(|_| AuthError::Persistence)?;
 
         row_to_user(&row)
+    }
+}
+
+
+impl UserAdminRepository for Database {
+    async fn create_user(
+        &self,
+        id: EntityId,
+        email: &str,
+        now: i64,
+    ) -> Result<UserAccess, UserAdminError> {
+        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+
+        let result = sqlx::query(
+            "INSERT INTO users (id, email, bootstrap_admin, created_at)
+             VALUES (?, ?, 0, ?)",
+        )
+        .bind(id.as_uuid().as_bytes())
+        .bind(email)
+        .bind(now)
+        .execute(&mut *tx)
+        .await;
+
+        if let Err(error) = result {
+            if error.as_database_error().and_then(|database| database.code().map(|code| code == "1062")).unwrap_or(false) {
+                return Err(UserAdminError::EmailAlreadyExists);
+            }
+            return Err(UserAdminError::Persistence);
+        }
+
+        let user = self
+            .user_by_id(&mut tx, id, now)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
+        Ok(user)
+    }
+
+    async fn find_user(&self, email: &str) -> Result<Option<UserAccess>, UserAdminError> {
+        let row = sqlx::query(
+            "SELECT id
+             FROM users
+             WHERE email = ?
+             LIMIT 1",
+        )
+        .bind(email)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
+        let now = current_epoch();
+        let row = sqlx::query(
+            r#"
+                SELECT
+                    u.id,
+                    u.email,
+                    EXISTS(
+                        SELECT 1 FROM user_roles ur
+                        WHERE ur.user_id = u.id AND ur.role = 'admin'
+                    ) AS is_admin,
+                    EXISTS(
+                        SELECT 1 FROM user_entitlements ue
+                        WHERE ue.user_id = u.id
+                          AND ue.entitlement = 'premium'
+                          AND ue.active = 1
+                          AND (ue.expires_at IS NULL OR ue.expires_at > ?)
+                    ) AS is_premium
+                FROM users u
+                WHERE u.id = ?
+            "#,
+        )
+        .bind(now)
+        .bind(user_id.as_uuid().as_bytes())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?;
+
+        row.map(|row| row_to_user(&row).map_err(|_| UserAdminError::Persistence))
+            .transpose()
+    }
+
+    async fn list_users(&self, now: i64) -> Result<Vec<UserAccess>, UserAdminError> {
+        let rows = sqlx::query(
+            r#"
+                SELECT
+                    u.id,
+                    u.email,
+                    EXISTS(
+                        SELECT 1 FROM user_roles ur
+                        WHERE ur.user_id = u.id AND ur.role = 'admin'
+                    ) AS is_admin,
+                    EXISTS(
+                        SELECT 1 FROM user_entitlements ue
+                        WHERE ue.user_id = u.id
+                          AND ue.entitlement = 'premium'
+                          AND ue.active = 1
+                          AND (ue.expires_at IS NULL OR ue.expires_at > ?)
+                    ) AS is_premium
+                FROM users u
+                ORDER BY u.email
+            "#,
+        )
+        .bind(now)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?;
+
+        rows.into_iter()
+            .map(|row| row_to_user(&row).map_err(|_| UserAdminError::Persistence))
+            .collect()
+    }
+
+    async fn update_user_email(
+        &self,
+        current_email: &str,
+        new_email: &str,
+    ) -> Result<UserAccess, UserAdminError> {
+        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+
+        let row = sqlx::query(
+            "SELECT id, bootstrap_admin
+             FROM users
+             WHERE email = ?
+             FOR UPDATE",
+        )
+        .bind(current_email)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?
+        .ok_or(UserAdminError::NotFound)?;
+
+        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
+        let bootstrap_admin = row
+            .try_get::<i64, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?
+            != 0;
+
+        if bootstrap_admin {
+            return Err(UserAdminError::ProtectedUser);
+        }
+
+        let result = sqlx::query("UPDATE users SET email = ? WHERE id = ?")
+            .bind(new_email)
+            .bind(user_id.as_uuid().as_bytes())
+            .execute(&mut *tx)
+            .await;
+
+        if let Err(error) = result {
+            if error.as_database_error().and_then(|database| database.code().map(|code| code == "1062")).unwrap_or(false) {
+                return Err(UserAdminError::EmailAlreadyExists);
+            }
+            return Err(UserAdminError::Persistence);
+        }
+
+        sqlx::query(
+            "DELETE FROM auth_challenges
+             WHERE email = ?",
+        )
+        .bind(current_email)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?;
+
+        let user = self
+            .user_by_id(&mut tx, user_id, current_epoch())
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
+        Ok(user)
+    }
+
+    async fn delete_user(&self, email: &str) -> Result<(), UserAdminError> {
+        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+
+        let row = sqlx::query(
+            "SELECT id, bootstrap_admin
+             FROM users
+             WHERE email = ?
+             FOR UPDATE",
+        )
+        .bind(email)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?
+        .ok_or(UserAdminError::NotFound)?;
+
+        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
+        let bootstrap_admin = row
+            .try_get::<i64, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?
+            != 0;
+
+        if bootstrap_admin {
+            return Err(UserAdminError::ProtectedUser);
+        }
+
+        sqlx::query("DELETE FROM auth_challenges WHERE email = ?")
+            .bind(email)
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        sqlx::query("DELETE FROM users WHERE id = ?")
+            .bind(user_id.as_uuid().as_bytes())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        tx.commit().await.map_err(|_| UserAdminError::Persistence)
+    }
+
+    async fn set_admin_role(
+        &self,
+        email: &str,
+        role: AdminUserRole,
+    ) -> Result<UserAccess, UserAdminError> {
+        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+
+        let row = sqlx::query(
+            "SELECT id, bootstrap_admin
+             FROM users
+             WHERE email = ?
+             FOR UPDATE",
+        )
+        .bind(email)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?
+        .ok_or(UserAdminError::NotFound)?;
+
+        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
+        let bootstrap_admin = row
+            .try_get::<i64, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?
+            != 0;
+
+        if bootstrap_admin && role == AdminUserRole::None {
+            return Err(UserAdminError::ProtectedUser);
+        }
+
+        match role {
+            AdminUserRole::Admin => {
+                sqlx::query(
+                    "INSERT INTO user_roles (user_id, role)
+                     VALUES (?, 'admin')
+                     ON DUPLICATE KEY UPDATE role = VALUES(role)",
+                )
+                .bind(user_id.as_uuid().as_bytes())
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| UserAdminError::Persistence)?;
+            }
+            AdminUserRole::None => {
+                sqlx::query(
+                    "DELETE FROM user_roles
+                     WHERE user_id = ? AND role = 'admin'",
+                )
+                .bind(user_id.as_uuid().as_bytes())
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| UserAdminError::Persistence)?;
+            }
+        }
+
+        let user = self
+            .user_by_id(&mut tx, user_id, current_epoch())
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
+        Ok(user)
     }
 }
 
