@@ -42,7 +42,7 @@ impl Database {
 
         let mut tx = self.pool.begin().await.map_err(|_| AuthError::Persistence)?;
 
-        let existing_id = sqlx::query("SELECT id FROM users WHERE email = ? FOR UPDATE")
+        let existing_id = sqlx::query("SELECT id, bootstrap_admin FROM users WHERE email = ? FOR UPDATE")
             .bind(&email)
             .fetch_optional(&mut *tx)
             .await
@@ -51,7 +51,7 @@ impl Database {
         let user_id = match existing_id {
             Some(row) => row_to_id(&row)?,
             None => {
-                sqlx::query("INSERT INTO users (id, email, created_at) VALUES (?, ?, ?)")
+                sqlx::query("INSERT INTO users (id, email, bootstrap_admin, created_at) VALUES (?, ?, 0, ?)")
                     .bind(user_id.as_uuid().as_bytes())
                     .bind(&email)
                     .bind(now)
@@ -61,6 +61,12 @@ impl Database {
                 user_id
             }
         };
+
+        sqlx::query("UPDATE users SET bootstrap_admin = 1 WHERE id = ?")
+            .bind(user_id.as_uuid().as_bytes())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| AuthError::Persistence)?;
 
         sqlx::query(
             "INSERT INTO user_roles (user_id, role)
@@ -248,7 +254,7 @@ impl AuthRepository for Database {
         }
 
         let insert = sqlx::query(
-            "INSERT INTO users (id, email, created_at) VALUES (?, ?, ?)",
+            "INSERT INTO users (id, email, bootstrap_admin, created_at) VALUES (?, ?, 0, ?)",
         )
         .bind(user_id.as_uuid().as_bytes())
         .bind(email)
@@ -294,7 +300,13 @@ impl AuthRepository for Database {
             .ok_or(AuthError::Persistence)?;
 
         let user_id = row_to_id(&row)?;
-        consume_challenge(&mut tx, challenge_id, now).await?;
+        let bootstrap_admin = row
+            .try_get::<i64, _>("bootstrap_admin")
+            .map_err(|_| AuthError::Persistence)?
+            != 0;
+        if !bootstrap_admin {
+            consume_challenge(&mut tx, challenge_id, now).await?;
+        }
         insert_session(&mut tx, user_id, session_token_hash, now, session_expires_at).await?;
 
         let user = self.user_by_id(&mut tx, user_id, now).await?;
