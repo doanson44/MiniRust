@@ -448,6 +448,19 @@ impl AuthRepository for Database {
         Ok(exists != 0)
     }
 
+    async fn is_bootstrap_admin(&self, email: &str) -> Result<bool, AuthError> {
+        let bootstrap_admin = sqlx::query_scalar::<_, i64>(
+            "SELECT bootstrap_admin FROM users WHERE email = ?",
+        )
+        .bind(email)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|_| AuthError::Persistence)?
+        .unwrap_or(0);
+
+        Ok(bootstrap_admin != 0)
+    }
+
     async fn create_challenge(
         &self,
         challenge: Challenge,
