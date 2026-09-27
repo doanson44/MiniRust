@@ -6,7 +6,10 @@ license.workspace = true
 description = "MariaDB database adapter for MiniRust"
 
 [dependencies]
+minirust-core.workspace = true
+minirust-services.workspace = true
 sqlx.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
