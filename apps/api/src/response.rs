@@ -2,7 +2,7 @@ use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use minirust_core::ValidationError;
-use minirust_services::AuthError;
+use minirust_services::{AuthError, UserAdminError};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -194,6 +194,73 @@ impl ProblemDetails {
             message_key,
             locale: locale.as_str(),
             detail,
+        }
+    }
+
+    pub fn user_admin(error: &UserAdminError, locale: Locale) -> Self {
+        let (status, code, message_key, detail) = match error {
+            UserAdminError::InvalidEmail => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_EMAIL",
+                "errors.user.invalid_email",
+                match locale {
+                    Locale::Vi => "Email không hợp lệ.".to_owned(),
+                    Locale::En => "The email address is invalid.".to_owned(),
+                },
+            ),
+            UserAdminError::NotFound => (
+                StatusCode::NOT_FOUND,
+                "USER_NOT_FOUND",
+                "errors.user.not_found",
+                match locale {
+                    Locale::Vi => "Không tìm thấy người dùng.".to_owned(),
+                    Locale::En => "User was not found.".to_owned(),
+                },
+            ),
+            UserAdminError::EmailAlreadyExists => (
+                StatusCode::CONFLICT,
+                "EMAIL_ALREADY_EXISTS",
+                "errors.user.email_already_exists",
+                match locale {
+                    Locale::Vi => "Email đã được sử dụng.".to_owned(),
+                    Locale::En => "The email address is already in use.".to_owned(),
+                },
+            ),
+            UserAdminError::ProtectedUser => (
+                StatusCode::CONFLICT,
+                "PROTECTED_USER",
+                "errors.user.protected",
+                match locale {
+                    Locale::Vi => "Tài khoản hệ thống này được bảo vệ.".to_owned(),
+                    Locale::En => "This system account is protected.".to_owned(),
+                },
+            ),
+            UserAdminError::Persistence => return Self::internal(locale),
+        };
+
+        Self {
+            problem_type: "https://minirust.dev/problems/user-management",
+            title: "User management error",
+            status: status.as_u16(),
+            code,
+            message_key,
+            locale: locale.as_str(),
+            detail,
+        }
+    }
+
+    pub fn forbidden(locale: Locale) -> Self {
+        Self {
+            problem_type: "https://minirust.dev/problems/forbidden",
+            title: "Forbidden",
+            status: StatusCode::FORBIDDEN.as_u16(),
+            code: "FORBIDDEN",
+            message_key: "errors.authorization.forbidden",
+            locale: locale.as_str(),
+            detail: match locale {
+                Locale::Vi => "Bạn không có quyền thực hiện thao tác này.".to_owned(),
+                Locale::En => "You are not authorized to perform this operation.".to_owned(),
+            },
         }
     }
 
