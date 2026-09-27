@@ -351,7 +351,7 @@ async fn auth_register_verify_code(
     };
 
     match state.auth_commands.handle(AuthCommand::VerifyRegistrationCode { email: body.email.clone(), code: body.code.clone() }).await {
-        Ok(session) => {
+        Ok(AuthCommandResult::Session(session)) => {
             let response = AuthSessionResponse {
                 user: auth_user_response(session.user),
                 expires_at: session.expires_at,
@@ -407,7 +407,7 @@ async fn auth_me(
     };
 
     match state.auth_queries.handle(CurrentSessionQuery { token: cookie.value().to_owned() }).await {
-        Ok(user) => (
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -469,7 +469,7 @@ async fn admin_users_list(
     }
 
     match state.user_queries.handle(UserAdminQuery::ListUsers).await {
-        Ok(users) => (
+        Ok(UserAdminQueryResult::Users(users)) => (
             StatusCode::OK,
             Json(ApiResponse::new(AdminUserListResponse {
                 users: users.into_iter().map(auth_user_response).collect(),
@@ -497,7 +497,7 @@ async fn admin_users_create(
     };
 
     match state.user_commands.handle(UserAdminCommand::CreateUser { email: body.email.clone() }).await {
-        Ok(user) => (
+        Ok(UserAdminQueryResult::User(user)) => (
             StatusCode::CREATED,
             Json(ApiResponse::new(auth_user_response(user))),
         )
@@ -604,7 +604,7 @@ async fn admin_user_get_premium(
     }
 
     match state.user_queries.handle(UserAdminQuery::GetPremium { email: email.clone() }).await {
-        Ok(entitlement) => (
+        Ok(UserAdminQueryResult::Premium(entitlement)) => (
             StatusCode::OK,
             Json(ApiResponse::new(AdminPremiumResponse {
                 active: entitlement.active,
@@ -655,8 +655,12 @@ async fn admin_user_set_premium(
     };
 
     match state
-        .users
-        .set_premium(&email, body.active, body.expires_at)
+        .user_commands
+        .handle(UserAdminCommand::SetPremium {
+            email: email.clone(),
+            active: body.active,
+            expires_at: body.expires_at,
+        })
         .await
     {
         Ok(user) => (
@@ -717,11 +721,11 @@ async fn user_profile_update(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    match state.users.update_profile(
-        user.id,
-        body.full_name.as_deref(),
-        body.avatar_url.as_deref(),
-    ).await {
+    match state.user_commands.handle(UserAdminCommand::UpdateProfile {
+        user_id: user.id,
+        full_name: body.full_name.clone(),
+        avatar_url: body.avatar_url.clone(),
+    }).await {
         Ok(user) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
@@ -742,7 +746,7 @@ async fn user_lock(
     };
 
     match state.user_commands.handle(UserAdminCommand::LockUser { user_id: user.id }).await {
-        Ok(()) => (
+        Ok(UserAdminCommandResult::Locked) => (
             jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
             StatusCode::OK,
             Json(ApiResponse::new(AccountActionResponse { success: true })),
@@ -763,7 +767,7 @@ async fn user_delete(
     };
 
     match state.user_commands.handle(UserAdminCommand::DeleteUserById { user_id: user.id }).await {
-        Ok(()) => (
+        Ok(UserAdminCommandResult::Deleted) => (
             jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
             StatusCode::OK,
             Json(ApiResponse::new(AccountActionResponse { success: true })),
@@ -781,7 +785,7 @@ async fn current_authenticated_user(
         return Err(auth_error_response(AuthError::SessionInvalid, locale).into_response());
     };
 
-    state.auth.current_session(cookie.value()).await
+    state.auth_queries.handle(CurrentSessionQuery { token: cookie.value().to_owned() }).await
         .map_err(|error| auth_error_response(error, locale).into_response())
 }
 
@@ -793,7 +797,7 @@ async fn auth_logout(
     let locale = Locale::from_accept_language(&headers);
 
     if let Some(cookie) = jar.get(SESSION_COOKIE) {
-        if let Err(error) = state.auth.logout(cookie.value()).await {
+        if let Err(error) = state.auth_commands.handle(AuthCommand::Logout { token: cookie.value().to_owned() }).await {
             return auth_error_response(error, locale).into_response();
         }
     }
