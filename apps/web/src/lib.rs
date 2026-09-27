@@ -3,6 +3,7 @@
 use axum::extract::{FromRef, State};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::IntoResponse;
+use axum::routing::get;
 use axum::Router;
 use leptos::config::LeptosOptions;
 use leptos::prelude::*;
@@ -440,6 +441,7 @@ pub fn render_home_page(message: &str) -> String {
 pub fn router(state: AppState) -> Router {
     let routes = generate_route_list(App);
     Router::new()
+        .route("/health", get(health))
         .leptos_routes(&state.leptos_options, routes, {
             let options = state.leptos_options.clone();
             move || shell(options.clone())
