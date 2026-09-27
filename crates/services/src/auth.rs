@@ -97,6 +97,7 @@ pub struct Challenge {
 
 pub trait AuthRepository: Clone + Send + Sync + 'static {
     async fn user_exists(&self, email: &str) -> Result<bool, AuthError>;
+    async fn is_bootstrap_admin(&self, email: &str) -> Result<bool, AuthError>;
 
     async fn create_challenge(
         &self,
@@ -247,6 +248,13 @@ where
             ChallengePurpose::Registration => !exists,
             ChallengePurpose::Login => exists,
         };
+
+        if should_send
+            && purpose == ChallengePurpose::Login
+            && self.repository.is_bootstrap_admin(&email).await?
+        {
+            return Ok(CodeRequestAccepted);
+        }
 
         // Both existing and non-existing accounts receive the same public result.
         if !should_send {
