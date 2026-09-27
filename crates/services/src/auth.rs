@@ -40,6 +40,9 @@ pub struct UserAccess {
     pub email: String,
     pub is_admin: bool,
     pub is_premium: bool,
+    pub full_name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub is_locked: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
