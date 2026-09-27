@@ -29,7 +29,6 @@ async fn test_app() -> Router {
 }
 
 #[tokio::test]
-#[ignore = "requires an isolated MariaDB test database"]
 async fn register_request_rejects_invalid_email() {
     let app = test_app().await;
 
@@ -47,7 +46,6 @@ async fn register_request_rejects_invalid_email() {
 }
 
 #[tokio::test]
-#[ignore = "requires an isolated MariaDB test database"]
 async fn login_request_rejects_invalid_email() {
     let app = test_app().await;
 
@@ -65,7 +63,6 @@ async fn login_request_rejects_invalid_email() {
 }
 
 #[tokio::test]
-#[ignore = "requires an isolated MariaDB test database"]
 async fn register_verify_rejects_unknown_code() {
     let app = test_app().await;
 
@@ -83,7 +80,6 @@ async fn register_verify_rejects_unknown_code() {
 }
 
 #[tokio::test]
-#[ignore = "requires an isolated MariaDB test database"]
 async fn login_verify_rejects_unknown_code() {
     let app = test_app().await;
 
@@ -101,7 +97,6 @@ async fn login_verify_rejects_unknown_code() {
 }
 
 #[tokio::test]
-#[ignore = "requires an isolated MariaDB test database"]
 async fn logout_without_session_is_successful_and_clears_cookie() {
     let app = test_app().await;
 
@@ -119,7 +114,6 @@ async fn logout_without_session_is_successful_and_clears_cookie() {
 }
 
 #[tokio::test]
-#[ignore = "requires an isolated MariaDB test database"]
 async fn me_without_session_is_unauthorized() {
     let app = test_app().await;
 
@@ -174,7 +168,6 @@ async fn admin_cookie(app: &Router) -> String {
 }
 
 #[tokio::test]
-#[ignore = "requires an isolated MariaDB test database"]
 async fn admin_user_crud_and_role_assignment() {
     let app = test_app().await;
     let cookie = admin_cookie(&app).await;
@@ -355,7 +348,6 @@ async fn admin_user_crud_and_role_assignment() {
 }
 
 #[tokio::test]
-#[ignore = "requires an isolated MariaDB test database"]
 async fn admin_user_endpoints_require_authentication() {
     let app = test_app().await;
 
