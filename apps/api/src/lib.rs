@@ -712,7 +712,7 @@ async fn user_profile_update(
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     let user = match current_authenticated_user(&state, &jar, locale).await {
-        Ok(user) => user,
+        Ok(UserAdminCommandResult::User(user)) => user,
         Err(response) => return response,
     };
 
@@ -726,7 +726,7 @@ async fn user_profile_update(
         full_name: body.full_name.clone(),
         avatar_url: body.avatar_url.clone(),
     }).await {
-        Ok(user) => (
+        Ok(UserAdminCommandResult::User(user)) => (
             StatusCode::OK,
             Json(ApiResponse::new(auth_user_response(user))),
         ).into_response(),
