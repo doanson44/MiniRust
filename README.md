@@ -88,17 +88,19 @@ The API requires `MINIRUST_DATABASE_URL` because its current startup contract es
 
 ## Integration tests
 
-Database integration tests use Docker Compose to start an isolated MariaDB instance for the test run. The test allocates an ephemeral host port, waits for the database healthcheck, connects through the same `minirust-database` abstraction used by the application, and removes the container and its volumes after the test.
+Every API endpoint must have integration-test coverage. Tests should exercise the public HTTP contract through the Axum router and the real application/database boundary.
 
-Run the integration test together with the workspace tests:
+The project intentionally uses **business-rule-focused integration testing** rather than maximizing test count. A new endpoint should add only the scenarios needed to prove its meaningful business invariants, authorization behavior, persistence effects, and important response contract. Do not add redundant tests for trivial permutations or implementation details already covered by stronger scenarios.
+
+Database integration tests use Testcontainers. The test process starts an isolated MariaDB container, waits for readiness, runs migrations and test seeding, then removes the container automatically.
+
+Run all workspace tests normally:
 
 ```bash
 cargo test --workspace --all-targets
 ```
 
-Docker must be running when the database integration test executes.
-
-The dedicated test environment is defined in [`docker-compose.integration.yml`](docker-compose.integration.yml) and is intentionally separate from the runtime `docker-compose.yml` stack.
+Docker must be running when database integration tests execute. No separate test Compose command or pre-created test database is required.
 
 ## Environment
 
