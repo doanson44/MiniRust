@@ -434,7 +434,7 @@ async fn admin_users_create(
     body: Result<Json<AdminCreateUserRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -460,7 +460,7 @@ async fn admin_user_get(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -482,7 +482,7 @@ async fn admin_user_update(
     body: Result<Json<AdminUpdateUserRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -508,7 +508,7 @@ async fn admin_user_unlock(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -528,7 +528,7 @@ async fn admin_user_delete(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -550,7 +550,7 @@ async fn admin_user_get_premium(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -574,7 +574,7 @@ async fn admin_user_revoke_premium(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -596,7 +596,7 @@ async fn admin_user_set_premium(
     body: Result<Json<AdminPremiumRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
@@ -627,7 +627,7 @@ async fn admin_user_assign_role(
     body: Result<Json<AdminAssignRoleRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = require_admin(&state, &jar, locale).await {
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
