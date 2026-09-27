@@ -85,3 +85,26 @@ On API startup, after migrations complete, the backend idempotently seeds the bo
 - OTP challenge is recreated on each API startup so the bootstrap OTP is available again after restart
 
 This is a development/bootstrap credential and is intentionally unsafe for production. A production deployment must replace the fixed OTP bootstrap with the normal email-delivery flow and remove or disable the bootstrap account.
+
+
+## Admin user management
+
+Administrative user management is exposed under /api/v1/admin/users and requires an authenticated session whose current user has the admin system role. Authorization is checked server-side for every request.
+
+Endpoints:
+
+- GET /api/v1/admin/users — list users
+- POST /api/v1/admin/users — create a normal user from an email
+- GET /api/v1/admin/users/{email} — read a user by email
+- PATCH /api/v1/admin/users/{email} — change the user's email
+- DELETE /api/v1/admin/users/{email} — delete the user
+- PUT /api/v1/admin/users/{email}/role — assign or remove the admin system role
+
+The role endpoint accepts:
+
+- admin — add the admin system role
+- none — remove the admin system role
+
+Premium is deliberately not represented as a role. It remains a user entitlement and will eventually be managed by the billing/payment bounded context.
+
+The bootstrap admin account is protected from email changes, deletion, and removal of its admin role.
