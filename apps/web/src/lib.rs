@@ -320,10 +320,23 @@ mod tests {
         let body = body_string(response).await;
         assert!(body.contains("MiniRust"));
         assert!(body.contains("viewport"));
-        assert!(body.contains("@tailwindcss/browser@4"));
+        assert!(body.contains("<style>"));
         assert!(body.contains("sm:text-6xl"));
         assert!(body.contains("md:flex"));
         assert!(body.contains("lg:grid-cols"));
+    }
+
+
+    #[tokio::test]
+    async fn account_pages_are_server_rendered() {
+        for path in ["/login", "/register", "/app", "/admin"] {
+            let response = router(AppState::new())
+                .oneshot(Request::get(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            assert!(body_string(response).await.contains("MiniRust"));
+        }
     }
 
     #[tokio::test]
