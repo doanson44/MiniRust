@@ -579,6 +579,30 @@ impl UserAdminRepository for Database {
         tx.commit().await.map_err(|_| UserAdminError::Persistence)
     }
 
+    async fn unlock_user(&self, email: &str) -> Result<UserAccess, UserAdminError> {
+        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let row = sqlx::query("SELECT id FROM users WHERE email = ? FOR UPDATE")
+            .bind(email)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?
+            .ok_or(UserAdminError::NotFound)?;
+        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
+
+        sqlx::query("UPDATE users SET locked_at = NULL WHERE id = ?")
+            .bind(user_id.as_uuid().as_bytes())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        let user = self.user_by_id(&mut tx, user_id, current_epoch())
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+        tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
+        Ok(user)
+    }
+
+
     async fn delete_user_by_id(&self, user_id: EntityId) -> Result<(), UserAdminError> {
         let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
         let row = sqlx::query("SELECT bootstrap_admin FROM users WHERE id = ? FOR UPDATE")
