@@ -25,13 +25,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let database_url = config.database_url()?;
     let database = Database::connect(database_url).await?;
+    database.migrate().await?;
     let bind = config.server_bind(ServerKind::Api)?;
     let addr = bind.socket_addr()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
     tracing::info!(environment = %config.environment, address = %addr, "starting MiniRust API");
 
-    axum::serve(listener, router(AppState::new(database)))
+    let auth_secret = config.auth_secret()?;
+    let state = AppState::new(
+        database,
+        auth_secret.as_bytes().to_vec(),
+        matches!(config.environment, minirust_config::Environment::Production),
+    )?;
+
+    axum::serve(listener, router(state))
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 
