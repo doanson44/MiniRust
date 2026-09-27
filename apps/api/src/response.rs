@@ -2,6 +2,7 @@ use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use minirust_core::ValidationError;
+use minirust_services::AuthError;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,6 +122,78 @@ impl ProblemDetails {
                 Locale::Vi => "Đã xảy ra lỗi không mong muốn.".to_owned(),
                 Locale::En => "An unexpected error occurred.".to_owned(),
             },
+        }
+    }
+
+    pub fn auth(error: &AuthError, locale: Locale) -> Self {
+        let (status, code, message_key, detail) = match error {
+            AuthError::InvalidEmail => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_EMAIL",
+                "errors.auth.invalid_email",
+                match locale {
+                    Locale::Vi => "Email không hợp lệ.".to_owned(),
+                    Locale::En => "The email address is invalid.".to_owned(),
+                },
+            ),
+            AuthError::InvalidCode => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_VERIFICATION_CODE",
+                "errors.auth.invalid_code",
+                match locale {
+                    Locale::Vi => "Mã xác thực không hợp lệ.".to_owned(),
+                    Locale::En => "The verification code is invalid.".to_owned(),
+                },
+            ),
+            AuthError::CodeExpired => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "VERIFICATION_CODE_EXPIRED",
+                "errors.auth.code_expired",
+                match locale {
+                    Locale::Vi => "Mã xác thực đã hết hạn.".to_owned(),
+                    Locale::En => "The verification code has expired.".to_owned(),
+                },
+            ),
+            AuthError::CodeAttemptsExceeded => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "VERIFICATION_ATTEMPTS_EXCEEDED",
+                "errors.auth.attempts_exceeded",
+                match locale {
+                    Locale::Vi => "Đã vượt quá số lần nhập mã cho phép.".to_owned(),
+                    Locale::En => "The maximum number of verification attempts was exceeded.".to_owned(),
+                },
+            ),
+            AuthError::SessionInvalid => (
+                StatusCode::UNAUTHORIZED,
+                "SESSION_INVALID",
+                "errors.auth.session_invalid",
+                match locale {
+                    Locale::Vi => "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.".to_owned(),
+                    Locale::En => "The session is invalid or has expired.".to_owned(),
+                },
+            ),
+            AuthError::EmailDeliveryUnavailable => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "EMAIL_DELIVERY_UNAVAILABLE",
+                "errors.auth.email_delivery_unavailable",
+                match locale {
+                    Locale::Vi => "Dịch vụ email hiện chưa khả dụng.".to_owned(),
+                    Locale::En => "Email delivery is currently unavailable.".to_owned(),
+                },
+            ),
+            AuthError::Persistence | AuthError::InvalidSecret | AuthError::Randomness => {
+                return Self::internal(locale);
+            }
+        };
+
+        Self {
+            problem_type: "https://minirust.dev/problems/authentication",
+            title: "Authentication error",
+            status: status.as_u16(),
+            code,
+            message_key,
+            locale: locale.as_str(),
+            detail,
         }
     }
 
