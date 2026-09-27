@@ -3,6 +3,7 @@
 mod response;
 
 use axum::extract::{rejection::JsonRejection, State};
+use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
@@ -10,6 +11,7 @@ use axum::{Json, Router};
 use minirust_core::AppError;
 use minirust_database::Database;
 use minirust_services::cqrs::{CommandHandler, QueryHandler};
+use minirust_services::{AuthError, AuthService, UnavailableEmailSender};
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
 use response::{ApiResponse, Locale, ProblemDetails};
 use serde::{Deserialize, Serialize};
@@ -20,15 +22,20 @@ pub struct AppState {
     pub echo: EchoCommandHandler,
     pub greeting: GreetingQueryHandler,
     pub database: Database,
+    pub auth: AuthService<Database, UnavailableEmailSender>,
+    pub secure_cookies: bool,
 }
 
 impl AppState {
-    pub fn new(database: Database) -> Self {
-        Self {
+    pub fn new(database: Database, auth_secret: impl Into<Vec<u8>>, secure_cookies: bool) -> Result<Self, AuthError> {
+        let auth = AuthService::new(database.clone(), UnavailableEmailSender, auth_secret)?;
+        Ok(Self {
             echo: EchoCommandHandler,
             greeting: GreetingQueryHandler,
             database,
-        }
+            auth,
+            secure_cookies,
+        })
     }
 }
 
@@ -77,6 +84,12 @@ pub fn router(state: AppState) -> Router {
         .route("/health", get(health))
         .route("/api/v1/hello", get(hello))
         .route("/api/v1/echo", post(echo))
+        .route("/api/v1/auth/register/request-code", post(auth_register_request_code))
+        .route("/api/v1/auth/register/verify-code", post(auth_register_verify_code))
+        .route("/api/v1/auth/login/request-code", post(auth_login_request_code))
+        .route("/api/v1/auth/login/verify-code", post(auth_login_verify_code))
+        .route("/api/v1/auth/logout", post(auth_logout))
+        .route("/api/v1/auth/me", get(auth_me))
         .route("/api/v1/openapi.json", get(openapi))
         .route("/swagger", get(swagger_ui))
         .layer(TraceLayer::new_for_http())
@@ -137,6 +150,197 @@ async fn echo(
             .into_response(),
         Err(error) => app_error_response(error, locale).into_response(),
     }
+}
+
+
+const SESSION_COOKIE: &str = "minirust_session";
+
+#[derive(Deserialize)]
+struct AuthEmailRequest {
+    email: String,
+}
+
+#[derive(Deserialize)]
+struct AuthVerifyRequest {
+    email: String,
+    code: String,
+}
+
+#[derive(Serialize)]
+struct CodeRequestResponse {
+    accepted: bool,
+}
+
+#[derive(Serialize)]
+struct AuthUserResponse {
+    id: String,
+    email: String,
+    is_admin: bool,
+    is_premium: bool,
+}
+
+#[derive(Serialize)]
+struct AuthSessionResponse {
+    user: AuthUserResponse,
+    expires_at: i64,
+}
+
+#[derive(Serialize)]
+struct LogoutResponse {
+    success: bool,
+}
+
+fn auth_user_response(user: minirust_services::UserAccess) -> AuthUserResponse {
+    AuthUserResponse {
+        id: user.id.as_uuid().to_string(),
+        email: user.email,
+        is_admin: user.is_admin,
+        is_premium: user.is_premium,
+    }
+}
+
+fn auth_error_response(error: AuthError, locale: Locale) -> ProblemDetails {
+    tracing::warn!(error = %error, "authentication request failed");
+    ProblemDetails::auth(&error, locale)
+}
+
+fn session_cookie(value: &str, secure: bool) -> Cookie<'static> {
+    Cookie::build((SESSION_COOKIE, value.to_owned()))
+        .path("/")
+        .http_only(true)
+        .secure(secure)
+        .same_site(SameSite::Lax)
+        .build()
+}
+
+async fn auth_register_request_code(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(body): Json<AuthEmailRequest>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+
+    match state.auth.request_registration_code(&body.email).await {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(CodeRequestResponse { accepted: true })),
+        )
+            .into_response(),
+        Err(error) => auth_error_response(error, locale).into_response(),
+    }
+}
+
+async fn auth_login_request_code(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(body): Json<AuthEmailRequest>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+
+    match state.auth.request_login_code(&body.email).await {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(CodeRequestResponse { accepted: true })),
+        )
+            .into_response(),
+        Err(error) => auth_error_response(error, locale).into_response(),
+    }
+}
+
+async fn auth_register_verify_code(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(body): Json<AuthVerifyRequest>,
+    jar: CookieJar,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+
+    match state.auth.verify_registration_code(&body.email, &body.code).await {
+        Ok(session) => {
+            let response = AuthSessionResponse {
+                user: auth_user_response(session.user),
+                expires_at: session.expires_at,
+            };
+            (
+                jar.add(session_cookie(&session.token, state.secure_cookies)),
+                StatusCode::OK,
+                Json(ApiResponse::new(response)),
+            )
+                .into_response()
+        }
+        Err(error) => auth_error_response(error, locale).into_response(),
+    }
+}
+
+async fn auth_login_verify_code(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(body): Json<AuthVerifyRequest>,
+    jar: CookieJar,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+
+    match state.auth.verify_login_code(&body.email, &body.code).await {
+        Ok(session) => {
+            let response = AuthSessionResponse {
+                user: auth_user_response(session.user),
+                expires_at: session.expires_at,
+            };
+            (
+                jar.add(session_cookie(&session.token, state.secure_cookies)),
+                StatusCode::OK,
+                Json(ApiResponse::new(response)),
+            )
+                .into_response()
+        }
+        Err(error) => auth_error_response(error, locale).into_response(),
+    }
+}
+
+async fn auth_me(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    let Some(cookie) = jar.get(SESSION_COOKIE) else {
+        return auth_error_response(AuthError::SessionInvalid, locale).into_response();
+    };
+
+    match state.auth.current_session(cookie.value()).await {
+        Ok(user) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(auth_user_response(user))),
+        )
+            .into_response(),
+        Err(error) => auth_error_response(error, locale).into_response(),
+    }
+}
+
+async fn auth_logout(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+
+    if let Some(cookie) = jar.get(SESSION_COOKIE) {
+        if let Err(error) = state.auth.logout(cookie.value()).await {
+            return auth_error_response(error, locale).into_response();
+        }
+    }
+
+    let removal = Cookie::build(SESSION_COOKIE)
+        .path("/")
+        .removal()
+        .build();
+
+    (
+        jar.remove(removal),
+        StatusCode::OK,
+        Json(ApiResponse::new(LogoutResponse { success: true })),
+    )
+        .into_response()
 }
 
 async fn openapi() -> impl IntoResponse {
