@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::time::Duration;
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},
@@ -5,27 +8,66 @@ use axum::{
 };
 use minirust_api::{router, AppState};
 use minirust_database::Database;
+use testcontainers::{core::{IntoContainerPort, WaitFor}, runners::AsyncRunner, GenericImage};
+use tokio::time::sleep;
 use tower::ServiceExt;
 
-async fn test_app() -> Router {
-    let url = std::env::var("MINIRUST_TEST_DATABASE_URL")
-        .expect("MINIRUST_TEST_DATABASE_URL must be set for auth integration tests");
-    let database = Database::connect(&url)
-        .await
-        .expect("test MariaDB must be reachable");
-    database
-        .migrate()
-        .await
-        .expect("test database migrations must succeed");
+struct TestApp {
+    router: Router,
+    _database: Arc<TestDatabase>,
+}
 
-    database
-        .seed_admin("admin@minirust.local", "123456", &[b'a'; 32])
+impl TestApp {
+    fn router(&self) -> Router {
+        self.router.clone()
+    }
+}
+
+struct TestDatabase {
+    _database: Database,
+    _container: testcontainers::ContainerAsync<GenericImage>,
+}
+
+async fn test_app() -> TestApp {
+    let container = GenericImage::new("mariadb", "11")
+        .with_exposed_port(3306.tcp())
+        .with_env_var("MARIADB_DATABASE", "minirust_test")
+        .with_env_var("MARIADB_USER", "minirust_test")
+        .with_env_var("MARIADB_PASSWORD", "minirust_test")
+        .with_env_var("MARIADB_ROOT_PASSWORD", "minirust_test_root")
+        .with_wait_for(WaitFor::message_on_stdout("ready for connections"))
+        .start()
         .await
+        .expect("test MariaDB container must start");
+
+    let host = container.get_host().await.expect("test container host must be available");
+    let port = container.get_host_port_ipv4(3306).await.expect("test MariaDB port must be available");
+    let url = format!("mysql://minirust_test:minirust_test@{host}:{port}/minirust_test");
+
+    let mut database = None;
+    for _ in 0..30 {
+        if let Ok(candidate) = Database::connect(&url).await {
+            database = Some(candidate);
+            break;
+        }
+        sleep(Duration::from_millis(200)).await;
+    }
+    let database = database.expect("test MariaDB must accept connections");
+
+    database.migrate().await.expect("test database migrations must succeed");
+    database.seed_admin("admin@minirust.local", "123456", &[b'a'; 32]).await
         .expect("bootstrap admin seed must succeed");
 
-    let state = AppState::new(database, vec![b'a'; 32], false)
+    let state = AppState::new(database.clone(), vec![b'a'; 32], false)
         .expect("test authentication secret must be valid");
-    router(state)
+
+    TestApp {
+        router: router(state),
+        _database: Arc::new(TestDatabase {
+            _database: database,
+            _container: container,
+        }),
+    }
 }
 
 #[tokio::test]
