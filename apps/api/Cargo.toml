@@ -7,6 +7,7 @@ description = "MiniRust REST API"
 
 [dependencies]
 axum.workspace = true
+axum-extra.workspace = true
 minirust-config.workspace = true
 minirust-core.workspace = true
 minirust-database.workspace = true
