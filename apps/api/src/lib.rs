@@ -43,7 +43,7 @@ pub struct AuthRateLimiter {
 impl AuthRateLimiter {
     pub fn check(&self, key: &str, max_requests: usize, window: Duration) -> bool {
         let now = Instant::now();
-        let mut entries = self.entries.lock().expect("auth rate limiter mutex poisoned");
+        let mut entries = match self.entries.lock() { Ok(entries) => entries, Err(poisoned) => poisoned.into_inner(), };
         let timestamps = entries.entry(key.to_owned()).or_default();
         while timestamps
             .front()
