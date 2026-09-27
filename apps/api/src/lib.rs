@@ -100,6 +100,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/users/me", delete(user_delete))
         .route("/api/v1/admin/users", get(admin_users_list).post(admin_users_create))
         .route("/api/v1/admin/users/{email}", get(admin_user_get).patch(admin_user_update).delete(admin_user_delete))
+        .route("/api/v1/admin/users/{email}/unlock", post(admin_user_unlock))
         .route("/api/v1/admin/users/{email}/role", put(admin_user_assign_role))
         .route("/api/v1/admin/users/{email}/entitlements/premium", get(admin_user_get_premium).put(admin_user_set_premium).delete(admin_user_revoke_premium))
         .route("/api/v1/openapi.json", get(openapi))
@@ -509,6 +510,26 @@ async fn admin_user_update(
             Json(ApiResponse::new(auth_user_response(user))),
         )
             .into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+    }
+}
+
+async fn admin_user_unlock(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Path(email): Path<String>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    if let Err(response) = require_admin(&state, &jar, locale).await {
+        return response;
+    }
+
+    match state.users.unlock(&email).await {
+        Ok(user) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(auth_user_response(user))),
+        ).into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
     }
 }
