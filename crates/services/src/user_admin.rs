@@ -87,6 +87,7 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
     async fn revoke_premium(&self, email: &str) -> Result<UserAccess, UserAdminError>;
     async fn update_profile(&self, user_id: EntityId, full_name: Option<&str>, avatar_url: Option<&str>) -> Result<UserAccess, UserAdminError>;
     async fn lock_user(&self, user_id: EntityId) -> Result<(), UserAdminError>;
+    async fn unlock_user(&self, email: &str) -> Result<UserAccess, UserAdminError>;
     async fn delete_user_by_id(&self, user_id: EntityId) -> Result<(), UserAdminError>;
 }
 
@@ -211,6 +212,11 @@ where
 
     pub async fn delete_by_id(&self, user_id: EntityId) -> Result<(), UserAdminError> {
         self.repository.delete_user_by_id(user_id).await
+    }
+
+    pub async fn unlock(&self, email: &str) -> Result<UserAccess, UserAdminError> {
+        let email = normalize_email(email)?;
+        self.repository.unlock_user(&email).await
     }
 
 }
