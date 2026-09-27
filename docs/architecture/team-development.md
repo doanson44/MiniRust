@@ -76,9 +76,15 @@ Every feature review should answer:
 
 ## Integration test execution
 
+Every new API endpoint must have integration-test coverage in the same change. The test must exercise the public HTTP contract through the Axum router and the real application/database boundary; do not satisfy this rule with only unit tests.
+
+Coverage is intentionally business-rule focused. Add the smallest set of integration tests that proves the endpoint's meaningful business invariants, authorization rules, persistence behavior, and important response contract. Do not create one test for every trivial status-code permutation, serialization detail, or mechanically duplicated endpoint path when the behavior is already covered by a stronger scenario.
+
+For each API change, review existing integration tests first and extend them when an existing scenario can cover the new rule. Prefer a small number of scenario-oriented tests over endpoint-count-driven test proliferation.
+
 API integration tests that require MariaDB use Testcontainers. Each integration-test fixture starts an isolated MariaDB container, waits until it is ready, runs migrations and seeds test data, then the container is removed when the fixture is dropped.
 
-Integration tests are not ignored and do not require a separate test Compose command.
+Integration tests are not ignored and do not require a separate test Compose command. Docker is the infrastructure prerequisite; the test process owns the container lifecycle.
 
 Run the normal workspace test command:
 
@@ -86,4 +92,13 @@ Run the normal workspace test command:
 cargo test --workspace --all-targets
 ```
 
-Docker is the infrastructure prerequisite for database integration tests; the test process owns the container lifecycle. This keeps the developer workflow equivalent to other Cargo tests while preserving a real MariaDB boundary.
+Test workflow for API work:
+
+1. Implement the endpoint and its application/domain rules.
+2. Identify the business rules that must hold at the HTTP boundary.
+3. Add or extend the smallest integration-test scenarios that prove those rules.
+4. Run the relevant integration test target.
+5. Run workspace verification when practical.
+6. Review the diff and confirm the test covers behavior, not implementation details.
+
+A missing integration test is incomplete API work unless the endpoint is explicitly documented as an exception by architecture or task scope.
