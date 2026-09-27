@@ -29,6 +29,80 @@ impl Database {
         sqlx::migrate!("./migrations").run(&self.pool).await
     }
 
+    pub async fn seed_admin(&self, email: &str, otp: &str, secret: &[u8]) -> Result<(), AuthError> {
+        let email = email.trim().to_ascii_lowercase();
+        if email.is_empty() || secret.len() < 32 || otp.len() != 6 || !otp.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(AuthError::InvalidSecret);
+        }
+
+        let now = current_epoch();
+        let user_id = EntityId::from_uuid(
+            Uuid::now_v7(),
+        ).ok_or(AuthError::Persistence)?;
+
+        let mut tx = self.pool.begin().await.map_err(|_| AuthError::Persistence)?;
+
+        let existing_id = sqlx::query("SELECT id FROM users WHERE email = ? FOR UPDATE")
+            .bind(&email)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| AuthError::Persistence)?;
+
+        let user_id = match existing_id {
+            Some(row) => row_to_id(&row)?,
+            None => {
+                sqlx::query("INSERT INTO users (id, email, created_at) VALUES (?, ?, ?)")
+                    .bind(user_id.as_uuid().as_bytes())
+                    .bind(&email)
+                    .bind(now)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| AuthError::Persistence)?;
+                user_id
+            }
+        };
+
+        sqlx::query(
+            "INSERT INTO user_roles (user_id, role)
+             VALUES (?, 'admin')
+             ON DUPLICATE KEY UPDATE role = VALUES(role)",
+        )
+        .bind(user_id.as_uuid().as_bytes())
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AuthError::Persistence)?;
+
+        let challenge_id = EntityId::new();
+        let code_hash = seed_otp_hash(secret, challenge_id, &email, otp)?;
+
+        sqlx::query(
+            "UPDATE auth_challenges
+             SET consumed_at = ?
+             WHERE email = ? AND purpose = 'login' AND consumed_at IS NULL",
+        )
+        .bind(now)
+        .bind(&email)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AuthError::Persistence)?;
+
+        sqlx::query(
+            "INSERT INTO auth_challenges
+                (id, email, purpose, code_hash, attempts, max_attempts, expires_at, created_at)
+             VALUES (?, ?, 'login', ?, 0, 255, ?, ?)",
+        )
+        .bind(challenge_id.as_uuid().as_bytes())
+        .bind(&email)
+        .bind(code_hash.as_slice())
+        .bind(now + 365 * 24 * 60 * 60)
+        .bind(now)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AuthError::Persistence)?;
+
+        tx.commit().await.map_err(|_| AuthError::Persistence)
+    }
+
     pub async fn health(&self) -> Result<(), sqlx::Error> {
         sqlx::query("SELECT 1")
             .execute(&self.pool)
@@ -420,4 +494,18 @@ fn current_epoch() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|value| value.as_secs() as i64)
         .unwrap_or(0)
+}
+
+fn seed_otp_hash(secret: &[u8], challenge_id: EntityId, email: &str, otp: &str) -> Result<[u8; 32], AuthError> {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+
+    type HmacSha256 = Hmac<Sha256>;
+    let mut mac = HmacSha256::new_from_slice(secret).map_err(|_| AuthError::InvalidSecret)?;
+    mac.update(challenge_id.as_uuid().as_bytes());
+    mac.update(b"login");
+    mac.update(email.as_bytes());
+    mac.update(otp.as_bytes());
+
+    Ok(mac.finalize().into_bytes().into())
 }
