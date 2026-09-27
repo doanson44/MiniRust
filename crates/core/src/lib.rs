@@ -4,7 +4,7 @@
 
 mod error;
 
-pub use error::AppError;
+pub use error::{AppError, ValidationError};
 
 pub const APP_NAME: &str = "MiniRust";
 
@@ -55,7 +55,7 @@ impl EchoInput {
         let message = raw.trim().to_owned();
 
         if message.is_empty() {
-            return Err(AppError::validation("message must not be empty"));
+            return Err(AppError::validation(ValidationError::MessageRequired));
         }
 
         if message.chars().count() > ECHO_MAX_CHARS {
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn echo_input_rejects_empty_message() {
         let err = EchoInput::parse(String::new()).unwrap_err();
-        assert!(err.to_string().contains("empty"));
+        assert!(matches!(err, AppError::Validation(ValidationError::MessageRequired)));
     }
 
     #[test]
@@ -114,7 +114,7 @@ mod tests {
     fn echo_input_rejects_message_exceeding_max_length() {
         let long = "a".repeat(ECHO_MAX_CHARS + 1);
         let err = EchoInput::parse(long).unwrap_err();
-        assert!(err.to_string().contains("500"));
+        assert!(matches!(err, AppError::Validation(ValidationError::MessageTooLong { max: ECHO_MAX_CHARS })));
     }
 
     #[test]
