@@ -298,7 +298,7 @@ mod tests {
         assert!(html.contains("id=\"architecture\""));
         assert!(html.contains("Hello from MiniRust"));
         assert!(html.contains("md:flex"));
-        assert!(html.contains("lg:grid-cols"));
+        assert!(html.contains("href=\"/login\""));\n        assert!(html.contains("href=\"/register\""));\n        assert!(html.contains("lg:grid-cols"));
     }
 
     #[tokio::test]
