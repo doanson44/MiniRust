@@ -1,18 +1,32 @@
 use std::fmt;
 
-/// Internal application error.
-///
-/// HTTP and UI layers map this type to user-facing responses. Do not expose
-/// internal details such as database messages or secrets to clients.
-///
-/// - `Config`     — startup/configuration error; never reaches normal request handling.
-/// - `Io`         — OS-level I/O failure; log the detail, return a generic 500.
-/// - `Validation` — invalid user input; safe to return the message to the caller as-is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ValidationError {
+    MessageRequired,
+    MessageTooLong { max: usize },
+}
+
+impl ValidationError {
+    pub const fn code(&self) -> &'static str {
+        match self {
+            Self::MessageRequired => "MESSAGE_REQUIRED",
+            Self::MessageTooLong { .. } => "MESSAGE_TOO_LONG",
+        }
+    }
+
+    pub const fn message_key(&self) -> &'static str {
+        match self {
+            Self::MessageRequired => "errors.validation.message_required",
+            Self::MessageTooLong { .. } => "errors.validation.message_too_long",
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum AppError {
     Config(String),
     Io(std::io::Error),
-    Validation(String),
+    Validation(ValidationError),
 }
 
 impl AppError {
@@ -20,9 +34,8 @@ impl AppError {
         Self::Config(message.into())
     }
 
-    /// Create a validation error whose message is safe to return to API callers.
-    pub fn validation(message: impl Into<String>) -> Self {
-        Self::Validation(message.into())
+    pub const fn validation(error: ValidationError) -> Self {
+        Self::Validation(error)
     }
 }
 
@@ -31,7 +44,7 @@ impl fmt::Display for AppError {
         match self {
             Self::Config(message) => formatter.write_str(message),
             Self::Io(error) => write!(formatter, "{error}"),
-            Self::Validation(message) => formatter.write_str(message),
+            Self::Validation(error) => formatter.write_str(error.code()),
         }
     }
 }
