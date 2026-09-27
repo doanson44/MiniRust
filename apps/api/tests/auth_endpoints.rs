@@ -242,6 +242,45 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(assign.status(), StatusCode::OK);
 
+    let premium = app
+        .clone()
+        .oneshot(
+            Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(r#"{"active":true,"expires_at":null}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(premium.status(), StatusCode::OK);
+
+    let remove_premium = app
+        .clone()
+        .oneshot(
+            Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(r#"{"active":false,"expires_at":null}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(remove_premium.status(), StatusCode::OK);
+
+    let invalid_expiry = app
+        .clone()
+        .oneshot(
+            Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(r#"{"active":true,"expires_at":1}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(invalid_expiry.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
     let remove_role = app
         .clone()
         .oneshot(
@@ -315,6 +354,10 @@ async fn admin_user_endpoints_require_authentication() {
         Request::put("/api/v1/admin/users/user@example.com/role")
             .header("content-type", "application/json")
             .body(Body::from(r#"{"role":"admin"}"#))
+            .unwrap(),
+        Request::put("/api/v1/admin/users/user@example.com/entitlements/premium")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"active":true,"expires_at":null}"#))
             .unwrap(),
     ];
 
