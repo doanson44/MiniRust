@@ -208,6 +208,15 @@ impl ProblemDetails {
                     Locale::En => "The email address is invalid.".to_owned(),
                 },
             ),
+            UserAdminError::InvalidRole => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_ROLE",
+                "errors.user.invalid_role",
+                match locale {
+                    Locale::Vi => "Role không hợp lệ. Chỉ hỗ trợ admin hoặc none.".to_owned(),
+                    Locale::En => "The role is invalid. Only admin or none is supported.".to_owned(),
+                },
+            ),
             UserAdminError::NotFound => (
                 StatusCode::NOT_FOUND,
                 "USER_NOT_FOUND",
