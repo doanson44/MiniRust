@@ -61,9 +61,9 @@ impl Database {
         let user_id = match existing_id {
             Some(row) => {
                 let bootstrap_admin = row
-                    .try_get::<i64, _>("bootstrap_admin")
+                    .try_get::<bool, _>("bootstrap_admin")
                     .map_err(|_| AuthError::Persistence)?
-                    != 0;
+                    ;
                 if !bootstrap_admin {
                     return Err(AuthError::BootstrapAdminConflict);
                 }
@@ -323,9 +323,8 @@ impl UserAdminRepository for Database {
             .try_get::<String, _>("email")
             .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
-            .map_err(|_| UserAdminError::Persistence)?
-            != 0;
+            .try_get::<bool, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?;
 
         if bootstrap_admin {
             return Err(UserAdminError::ProtectedUser);
@@ -389,9 +388,8 @@ impl UserAdminRepository for Database {
             .try_get::<String, _>("email")
             .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
-            .map_err(|_| UserAdminError::Persistence)?
-            != 0;
+            .try_get::<bool, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?;
 
         if bootstrap_admin {
             return Err(UserAdminError::ProtectedUser);
@@ -436,7 +434,7 @@ impl UserAdminRepository for Database {
         .ok_or(UserAdminError::NotFound)?;
 
         let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
+            .try_get::<bool, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
             != 0;
 
@@ -493,10 +491,9 @@ impl UserAdminRepository for Database {
 
         Ok(PremiumEntitlement {
             active: row
-                .try_get::<Option<i64>, _>("active")
+                .try_get::<Option<bool>, _>("active")
                 .map_err(|_| UserAdminError::Persistence)?
-                .unwrap_or(0)
-                != 0,
+                .unwrap_or(false),
             expires_at: row
                 .try_get("expires_at")
                 .map_err(|_| UserAdminError::Persistence)?,
@@ -605,7 +602,7 @@ impl UserAdminRepository for Database {
             .ok_or(UserAdminError::NotFound)?;
 
         if row
-            .try_get::<i64, _>("bootstrap_admin")
+            .try_get::<bool, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
             != 0
         {
@@ -889,7 +886,7 @@ impl AuthRepository for Database {
         }
 
         let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
+            .try_get::<bool, _>("bootstrap_admin")
             .map_err(|_| AuthError::Persistence)?
             != 0;
         if !bootstrap_admin {
