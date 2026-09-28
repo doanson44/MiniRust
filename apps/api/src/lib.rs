@@ -12,7 +12,7 @@ use axum::response::IntoResponse;
 use axum::routing::{delete, get, patch, post, put};
 use axum::{Json, Router};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
-use minirust_core::AppError;
+use minirust_core::{AppError, EntityId};
 use minirust_database::Database;
 use minirust_services::cqrs::{
     AsyncCommandHandler, AsyncQueryHandler, CommandHandler, QueryHandler,
@@ -26,6 +26,7 @@ use minirust_services::{
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
 use response::{ApiResponse, Locale, ProblemDetails};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use tower_http::trace::TraceLayer;
 
 #[derive(Clone)]
@@ -169,21 +170,21 @@ pub fn router(state: AppState) -> Router {
             get(admin_users_list).post(admin_users_create),
         )
         .route(
-            "/api/v1/admin/users/{email}",
+            "/api/v1/admin/users/{user_id}",
             get(admin_user_get)
                 .patch(admin_user_update)
                 .delete(admin_user_delete),
         )
         .route(
-            "/api/v1/admin/users/{email}/unlock",
+            "/api/v1/admin/users/{user_id}/unlock",
             post(admin_user_unlock),
         )
         .route(
-            "/api/v1/admin/users/{email}/role",
+            "/api/v1/admin/users/{user_id}/role",
             put(admin_user_assign_role),
         )
         .route(
-            "/api/v1/admin/users/{email}/entitlements/premium",
+            "/api/v1/admin/users/{user_id}/entitlements/premium",
             get(admin_user_get_premium)
                 .put(admin_user_set_premium)
                 .delete(admin_user_revoke_premium),
@@ -614,22 +615,35 @@ async fn admin_users_create(
     }
 }
 
+fn parse_user_id(value: &str, locale: Locale) -> Result<EntityId, axum::response::Response> {
+    let uuid = match Uuid::parse_str(value) {
+        Ok(uuid) => uuid,
+        Err(_) => return Err(ProblemDetails::bad_request(locale).into_response()),
+    };
+
+    EntityId::from_uuid(uuid)
+        .ok_or_else(|| ProblemDetails::bad_request(locale).into_response())
+}
+
 async fn admin_user_get(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
-    Path(email): Path<String>,
+    Path(user_id_value): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let user_id = match parse_user_id(&user_id_value, locale) {
+        Ok(user_id) => user_id,
+        Err(response) => return response,
+    };
+
     if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
     match state
         .user_queries
-        .handle(UserAdminQuery::GetUser {
-            email: email.clone(),
-        })
+        .handle(UserAdminQuery::GetUser { user_id })
         .await
     {
         Ok(UserAdminQueryResult::User(user)) => (
@@ -650,6 +664,11 @@ async fn admin_user_update(
     body: Result<Json<AdminUpdateUserRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let user_id = match parse_user_id(&user_id_value, locale) {
+        Ok(user_id) => user_id,
+        Err(response) => return response,
+    };
+
     if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
@@ -662,7 +681,7 @@ async fn admin_user_update(
     match state
         .user_commands
         .handle(UserAdminCommand::UpdateUserEmail {
-            current_email: email.clone(),
+            user_id,
             new_email: body.email.clone(),
         })
         .await
@@ -684,15 +703,18 @@ async fn admin_user_unlock(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let user_id = match parse_user_id(&user_id_value, locale) {
+        Ok(user_id) => user_id,
+        Err(response) => return response,
+    };
+
     if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
     match state
         .user_commands
-        .handle(UserAdminCommand::UnlockUser {
-            email: email.clone(),
-        })
+        .handle(UserAdminCommand::UnlockUser { user_id })
         .await
     {
         Ok(UserAdminCommandResult::User(user)) => (
@@ -712,15 +734,18 @@ async fn admin_user_delete(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let user_id = match parse_user_id(&user_id_value, locale) {
+        Ok(user_id) => user_id,
+        Err(response) => return response,
+    };
+
     if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
     match state
         .user_commands
-        .handle(UserAdminCommand::DeleteUser {
-            email: email.clone(),
-        })
+        .handle(UserAdminCommand::DeleteUser { user_id })
         .await
     {
         Ok(UserAdminCommandResult::Deleted) => StatusCode::NO_CONTENT.into_response(),
@@ -736,15 +761,18 @@ async fn admin_user_get_premium(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let user_id = match parse_user_id(&user_id_value, locale) {
+        Ok(user_id) => user_id,
+        Err(response) => return response,
+    };
+
     if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
     match state
         .user_queries
-        .handle(UserAdminQuery::GetPremium {
-            email: email.clone(),
-        })
+        .handle(UserAdminQuery::GetPremium { user_id })
         .await
     {
         Ok(UserAdminQueryResult::Premium(entitlement)) => (
@@ -767,15 +795,18 @@ async fn admin_user_revoke_premium(
     Path(email): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let user_id = match parse_user_id(&user_id_value, locale) {
+        Ok(user_id) => user_id,
+        Err(response) => return response,
+    };
+
     if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
     match state
         .user_commands
-        .handle(UserAdminCommand::RevokePremium {
-            email: email.clone(),
-        })
+        .handle(UserAdminCommand::RevokePremium { user_id })
         .await
     {
         Ok(UserAdminCommandResult::User(user)) => (
@@ -796,6 +827,11 @@ async fn admin_user_set_premium(
     body: Result<Json<AdminPremiumRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let user_id = match parse_user_id(&user_id_value, locale) {
+        Ok(user_id) => user_id,
+        Err(response) => return response,
+    };
+
     if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
@@ -808,7 +844,7 @@ async fn admin_user_set_premium(
     match state
         .user_commands
         .handle(UserAdminCommand::SetPremium {
-            email: email.clone(),
+            user_id,
             active: body.active,
             expires_at: body.expires_at,
         })
@@ -832,6 +868,11 @@ async fn admin_user_assign_role(
     body: Result<Json<AdminAssignRoleRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
+    let user_id = match parse_user_id(&user_id_value, locale) {
+        Ok(user_id) => user_id,
+        Err(response) => return response,
+    };
+
     if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
@@ -848,10 +889,7 @@ async fn admin_user_assign_role(
 
     match state
         .user_commands
-        .handle(UserAdminCommand::AssignRole {
-            email: email.clone(),
-            role,
-        })
+        .handle(UserAdminCommand::AssignRole { user_id, role })
         .await
     {
         Ok(UserAdminCommandResult::User(user)) => (
