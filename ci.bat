@@ -44,10 +44,12 @@ exit /b 0
 
 :clip
 set "CI_LOG=%TEMP%\minirust-ci-%RANDOM%.log"
-call "%~f0" --internal > "%CI_LOG%" 2>&1
+set "CI_ERR=%TEMP%\minirust-ci-%RANDOM%.err"
+call "%~f0" --internal > "%CI_LOG%" 2> "%CI_ERR%"
 set "CI_EXIT=%errorlevel%"
 
 type "%CI_LOG%"
+type "%CI_ERR%"
 
 if "%CI_EXIT%"=="0" (
     echo.
@@ -55,23 +57,26 @@ if "%CI_EXIT%"=="0" (
     echo SUCCESS: CI passed. Nothing copied to clipboard.
     echo =========================================
     del "%CI_LOG%" >nul 2>&1
+    del "%CI_ERR%" >nul 2>&1
     exit /b 0
 )
 
 echo.
 echo =========================================
-echo ERROR: CI failed. Copying output to clipboard...
+echo ERROR: CI failed. Copying errors to clipboard...
 echo =========================================
-clip < "%CI_LOG%"
+clip < "%CI_ERR%"
 if errorlevel 1 (
-    echo ERROR: Failed to copy CI output to clipboard.
+    echo ERROR: Failed to copy CI errors to clipboard.
     echo Make sure the Windows "clip" command is available.
     del "%CI_LOG%" >nul 2>&1
+    del "%CI_ERR%" >nul 2>&1
     exit /b %CI_EXIT%
 )
 
-echo CI output copied to clipboard.
+echo CI errors copied to clipboard.
 del "%CI_LOG%" >nul 2>&1
+del "%CI_ERR%" >nul 2>&1
 exit /b %CI_EXIT%
 
 :error
