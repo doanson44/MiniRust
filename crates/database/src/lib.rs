@@ -591,11 +591,14 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?
             .ok_or(UserAdminError::NotFound)?;
 
-        if row
+        let bootstrap_admin = row
             .try_get::<i64, _>("bootstrap_admin")
-            .map_err(|_| UserAdminError::Persistence)?
-            != 0
-        {
+            .map_err(|error| {
+                error!(%error, "failed to decode bootstrap_admin while locking user");
+                UserAdminError::Persistence
+            })?;
+
+        if bootstrap_admin != 0 {
             return Err(UserAdminError::ProtectedUser);
         }
 
@@ -1092,33 +1095,52 @@ fn row_to_id(row: &sqlx::mysql::MySqlRow) -> Result<EntityId, AuthError> {
 }
 
 fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, AuthError> {
-    let bytes = row
-        .try_get::<Vec<u8>, _>("id")
-        .map_err(|_| AuthError::Persistence)?;
-    let uuid = Uuid::from_slice(&bytes).map_err(|_| AuthError::Persistence)?;
-    let id = EntityId::from_uuid(uuid).ok_or(AuthError::Persistence)?;
+    let bytes = row.try_get::<Vec<u8>, _>("id").map_err(|error| {
+        error!(%error, "failed to decode user projection field");
+        AuthError::Persistence
+    })?;
+    let uuid = Uuid::from_slice(&bytes).map_err(|error| {
+        error!(%error, "failed to parse user projection id");
+        AuthError::Persistence
+    })?;
+    let id = EntityId::from_uuid(uuid).ok_or_else(|| {
+        error!("failed to convert user projection id to EntityId");
+        AuthError::Persistence
+    })?;
+
+    let email = row.try_get::<String, _>("email").map_err(|error| {
+        error!(%error, "failed to decode user projection field email");
+        AuthError::Persistence
+    })?;
+    let full_name = row.try_get::<Option<String>, _>("full_name").map_err(|error| {
+        error!(%error, "failed to decode user projection field full_name");
+        AuthError::Persistence
+    })?;
+    let avatar_url = row.try_get::<Option<String>, _>("avatar_url").map_err(|error| {
+        error!(%error, "failed to decode user projection field avatar_url");
+        AuthError::Persistence
+    })?;
+    let is_locked = row.try_get::<i64, _>("is_locked").map_err(|error| {
+        error!(%error, "failed to decode user projection field is_locked");
+        AuthError::Persistence
+    })? != 0;
+    let is_admin = row.try_get::<i64, _>("is_admin").map_err(|error| {
+        error!(%error, "failed to decode user projection field is_admin");
+        AuthError::Persistence
+    })? != 0;
+    let is_premium = row.try_get::<i64, _>("is_premium").map_err(|error| {
+        error!(%error, "failed to decode user projection field is_premium");
+        AuthError::Persistence
+    })? != 0;
 
     Ok(UserAccess {
         id,
-        email: row.try_get("email").map_err(|_| AuthError::Persistence)?,
-        full_name: row
-            .try_get("full_name")
-            .map_err(|_| AuthError::Persistence)?,
-        avatar_url: row
-            .try_get("avatar_url")
-            .map_err(|_| AuthError::Persistence)?,
-        is_locked: row
-            .try_get::<i64, _>("is_locked")
-            .map_err(|_| AuthError::Persistence)?
-            != 0,
-        is_admin: row
-            .try_get::<i64, _>("is_admin")
-            .map_err(|_| AuthError::Persistence)?
-            != 0,
-        is_premium: row
-            .try_get::<i64, _>("is_premium")
-            .map_err(|_| AuthError::Persistence)?
-            != 0,
+        email,
+        full_name,
+        avatar_url,
+        is_locked,
+        is_admin,
+        is_premium,
     })
 }
 
