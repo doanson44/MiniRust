@@ -21,14 +21,12 @@ tokio = { workspace = true, optional = true }
 tower-http = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }
-
-[dev-dependencies]
-tower.workspace = true
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-net.workspace = true
 web-sys.workspace = true
 wasm-bindgen.workspace = true
+
+[dev-dependencies]
+tower.workspace = true
 
 [features]
 default = ["ssr"]

@@ -954,6 +954,7 @@ async fn user_delete(
     }
 }
 
+#[allow(clippy::result_large_err)]
 async fn current_authenticated_user(
     state: &AppState,
     jar: &CookieJar,
