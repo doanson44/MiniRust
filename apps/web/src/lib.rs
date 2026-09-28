@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 #![cfg_attr(not(feature = "hydrate"), allow(unused_variables, dead_code))]
 
 //! MiniRust Leptos SSR application.
