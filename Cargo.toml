@@ -14,6 +14,13 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
 [workspace.dependencies]
 axum = "0.8"
 axum-extra = { version = "0.12", default-features = false, features = ["cookie"] }
