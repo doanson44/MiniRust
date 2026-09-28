@@ -6,6 +6,7 @@ license.workspace = true
 description = "Shared application observability and logging"
 
 [dependencies]
+minirust-config.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true
