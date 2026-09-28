@@ -1,7 +1,7 @@
 //! Application configuration loaded from the process environment.
 //!
-//! A `.env` file is loaded when present. Missing `.env` is not an error.
-//! The database URL targets MariaDB through SQLx's `mysql` driver.
+//! A .env file is loaded when present. Missing .env is not an error.
+//! The database URL targets MariaDB through SQLx's mysql driver.
 
 use std::env;
 use std::fmt;
@@ -12,12 +12,14 @@ use std::num::ParseIntError;
 use minirust_core::AppError;
 
 pub const DEFAULT_LOG_FILTER: &str = "info";
+pub const DEFAULT_LOG_DIRECTORY: &str = "logs";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_API_PORT: u16 = 3000;
 pub const DEFAULT_WEB_PORT: u16 = 3001;
 
 pub const ENV_ENVIRONMENT: &str = "MINIRUST_ENV";
 pub const ENV_LOG: &str = "MINIRUST_LOG";
+pub const ENV_LOG_DIRECTORY: &str = "MINIRUST_LOG_DIR";
 pub const ENV_API_HOST: &str = "MINIRUST_API_HOST";
 pub const ENV_API_PORT: &str = "MINIRUST_API_PORT";
 pub const ENV_WEB_HOST: &str = "MINIRUST_WEB_HOST";
@@ -83,6 +85,7 @@ pub enum ServerKind {
 pub struct Config {
     pub environment: Environment,
     pub log_filter: String,
+    pub log_directory: String,
     pub database_url: Option<String>,
     pub auth_secret: Option<String>,
     pub admin_email: String,
@@ -105,6 +108,7 @@ impl Config {
         Ok(Self {
             environment,
             log_filter: read_or_default(ENV_LOG, DEFAULT_LOG_FILTER),
+            log_directory: read_or_default(ENV_LOG_DIRECTORY, DEFAULT_LOG_DIRECTORY),
             database_url: read_optional(ENV_DATABASE_URL),
             auth_secret: read_optional(ENV_AUTH_SECRET),
             admin_email: match environment {
