@@ -31,6 +31,14 @@ impl ChallengePurpose {
             Self::Login => "login",
         }
     }
+
+    pub fn parse(value: &str) -> Result<Self, AuthError> {
+        match value {
+            "registration" => Ok(Self::Registration),
+            "login" => Ok(Self::Login),
+            _ => Err(AuthError::Persistence),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
