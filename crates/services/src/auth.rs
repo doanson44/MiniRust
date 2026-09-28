@@ -10,7 +10,6 @@ use getrandom::fill;
 use hmac::{Hmac, KeyInit, Mac};
 use minirust_core::EntityId;
 use sha2::{Digest, Sha256};
-use uuid::Uuid;
 
 const OTP_DIGITS: u32 = 1_000_000;
 const OTP_MAX_ATTEMPTS: u8 = 5;
@@ -129,6 +128,7 @@ pub trait AuthRepository: Clone + Send + Sync + 'static {
         now: i64,
     ) -> Result<Option<ChallengeRef>, AuthError>;
 
+    #[allow(clippy::too_many_arguments)]
     async fn consume_registration_code(
         &self,
         challenge_id: EntityId,
