@@ -669,7 +669,7 @@ async fn admin_user_update(
 
     let user_id = match parse_user_id(&user_id_value, locale) {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
 
     let Json(body) = match body {
@@ -708,7 +708,7 @@ async fn admin_user_unlock(
 
     let user_id = match parse_user_id(&user_id_value, locale) {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
 
     match state
@@ -739,7 +739,7 @@ async fn admin_user_delete(
 
     let user_id = match parse_user_id(&user_id_value, locale) {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
 
     match state
@@ -766,7 +766,7 @@ async fn admin_user_get_premium(
 
     let user_id = match parse_user_id(&user_id_value, locale) {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
 
     match state
@@ -800,7 +800,7 @@ async fn admin_user_revoke_premium(
 
     let user_id = match parse_user_id(&user_id_value, locale) {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
 
     match state
@@ -832,7 +832,7 @@ async fn admin_user_set_premium(
 
     let user_id = match parse_user_id(&user_id_value, locale) {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
 
     let Json(body) = match body {
@@ -873,7 +873,7 @@ async fn admin_user_assign_role(
 
     let user_id = match parse_user_id(&user_id_value, locale) {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
 
     let Json(body) = match body {
