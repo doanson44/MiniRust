@@ -97,3 +97,4 @@ API response DTOs are transport contracts. Query handlers return read DTOs/proje
 The API layer maps those application results into this HTTP contract.
 
 Reference: https://www.rfc-editor.org/rfc/rfc9457.html
+\n## Integration-test contract rule\n\nAPI integration tests must validate stable transport semantics rather than human-readable error wording. For error responses, tests should assert the HTTP status and, when applicable, the stable application `code` and required media type. Localized `detail` text and human-readable `title` must not be asserted in ordinary endpoint tests. Wording and localization changes must not break integration tests unless the test specifically targets the localization/response presentation contract.\n\nTest assertion failures must not echo server error bodies or internal diagnostics. Internal database and infrastructure details belong in structured tracing, not test expectations or public API contracts.\n
