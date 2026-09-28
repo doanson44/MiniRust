@@ -5,6 +5,7 @@ members = [
     "crates/config",
     "crates/core",
     "crates/database",
+    "crates/observability",
     "crates/services",
 ]
 resolver = "2"
@@ -44,9 +45,11 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["trace"] }
 tracing = "0.1"
+tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 minirust-config = { path = "crates/config" }
 minirust-core = { path = "crates/core" }
 minirust-database = { path = "crates/database" }
+minirust-observability = { path = "crates/observability" }
 minirust-services = { path = "crates/services" }
