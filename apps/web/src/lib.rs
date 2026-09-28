@@ -823,6 +823,12 @@ fn AdminPage() -> impl IntoView {
                                     let is_admin = user.is_admin;
                                     let is_premium = user.is_premium;
                                     let is_locked = user.is_locked;
+                                    let role_email = email.clone();
+                                    let grant_email = email.clone();
+                                    let revoke_email = email.clone();
+                                    let edit_email = email.clone();
+                                    let unlock_email = email.clone();
+                                    let delete_email = email.clone();
 
                                     view! {
                                         <tr class="border-t border-white/10 align-top">
@@ -844,40 +850,25 @@ fn AdminPage() -> impl IntoView {
                                                 <div class="mt-2 flex gap-2">
                                                     <input type="number" placeholder="Unix expiry timestamp (optional)" class="w-44 rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-xs text-white"
                                                         on:input=move |ev| set_premium_expires.set(event_target_value(&ev))/>
-                                                    <button on:click={
-                                                        let email = email.clone();
-                                                        move |_| {
-                                                            let value = premium_expires.get();
-                                                            let timestamp = if value.is_empty() { None } else { value.parse::<i64>().ok() };
-                                                            premium_user(email.clone(), true, timestamp);
-                                                        }
+                                                    <button on:click=move |_| {
+                                                        let value = premium_expires.get();
+                                                        let timestamp = if value.is_empty() { None } else { value.parse::<i64>().ok() };
+                                                        premium_user(grant_email.clone(), true, timestamp);
                                                     } class="rounded-lg bg-cyan-300/10 px-2 py-2 text-xs text-cyan-200">"Grant"</button>
-                                                    <button on:click={
-                                                        let email = email.clone();
-                                                        move |_| premium_user(email.clone(), false, None)
-                                                    } class="rounded-lg bg-red-300/10 px-2 py-2 text-xs text-red-200">"Revoke"</button>
+                                                    <button on:click=move |_| premium_user(revoke_email.clone(), false, None) class="rounded-lg bg-red-300/10 px-2 py-2 text-xs text-red-200">"Revoke"</button>
                                                 </div>
                                             </td>
                                             <td class="px-4 py-4 text-sm text-slate-400">{if is_locked {"Locked"} else {"Active"}}</td>
                                             <td class="px-4 py-4 text-sm">
                                                 <div class="flex flex-wrap gap-2">
-                                                    <button on:click={
-                                                        let email = email.clone();
-                                                        move |_| {
-                                                            set_selected.set(Some(email.clone()));
-                                                            set_edit_email.set(email.clone());
-                                                        }
+                                                    <button on:click=move |_| {
+                                                        set_selected.set(Some(edit_email.clone()));
+                                                        set_edit_email.set(edit_email.clone());
                                                     } class="rounded-lg border border-white/10 px-3 py-2 text-slate-300">"Edit"</button>
                                                     <Show when=move || is_locked>
-                                                        <button on:click={
-                                                            let email = email.clone();
-                                                            move |_| action_user(email.clone(), "unlock")
-                                                        } class="rounded-lg bg-amber-300/10 px-3 py-2 text-amber-200">"Unlock"</button>
+                                                        <button on:click=move |_| action_user(unlock_email.clone(), "unlock") class="rounded-lg bg-amber-300/10 px-3 py-2 text-amber-200">"Unlock"</button>
                                                     </Show>
-                                                    <button on:click={
-                                                        let email = email.clone();
-                                                        move |_| action_user(email.clone(), "delete")
-                                                    } class="rounded-lg bg-red-300/10 px-3 py-2 text-red-200">"Delete"</button>
+                                                    <button on:click=move |_| action_user(delete_email.clone(), "delete") class="rounded-lg bg-red-300/10 px-3 py-2 text-red-200">"Delete"</button>
                                                 </div>
                                             </td>
                                         </tr>
