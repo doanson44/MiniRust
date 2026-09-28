@@ -233,4 +233,7 @@ Documentation describes the repository state but does not imply that the latest 
 - `POST /api/v1/auth/login/request-code` — request login code.
 - `POST /api/v1/auth/login/verify-code` — verify login code and create session.
 - `POST /api/v1/auth/logout` — clear current session.
-\n### API integration-test assertion policy\n\nIntegration tests validate stable API behavior rather than message wording. Error scenarios must assert the HTTP status and, where defined by the API contract, the stable application error `code`. They should not assert localized `detail` or human-readable error text unless that exact presentation is the behavior under test. Error bodies and internal diagnostics must not be embedded in assertion messages.\n
+
+### API integration-test assertion policy
+
+Integration tests validate stable API behavior rather than message wording. Error scenarios must assert the HTTP status and, where defined by the API contract, the stable application error `code`. They should not assert localized `detail` or human-readable error text unless that exact presentation is the behavior under test. Error bodies and internal diagnostics must not be embedded in assertion messages.
