@@ -249,7 +249,7 @@ async fn api_request(
     path: &str,
     body: Option<String>,
 ) -> Result<gloo_net::http::Response, String> {
-    let mut request = match method {
+    let request = match method {
         gloo_net::http::Method::GET => gloo_net::http::Request::get(path),
         gloo_net::http::Method::POST => gloo_net::http::Request::post(path),
         gloo_net::http::Method::PATCH => gloo_net::http::Request::patch(path),
