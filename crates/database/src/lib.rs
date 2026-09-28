@@ -9,6 +9,7 @@ use minirust_services::{
     PremiumEntitlement, UserAccess, UserAdminError, UserAdminRepository,
 };
 use sqlx::mysql::{MySqlPool, MySqlPoolOptions};
+use tracing::error;
 use sqlx::{MySql, Row, Transaction};
 use uuid::Uuid;
 
@@ -171,7 +172,10 @@ impl Database {
             .bind(user_id.as_uuid().as_bytes().as_slice())
             .fetch_one(&mut **tx)
             .await
-            .map_err(|_| AuthError::Persistence)?;
+            .map_err(|error| {
+                error!(%error, "failed to load user projection by id");
+                AuthError::Persistence
+            })?;
 
         row_to_user(&row)
     }
@@ -208,6 +212,7 @@ impl UserAdminRepository for Database {
             {
                 return Err(UserAdminError::EmailAlreadyExists);
             }
+            error!(%error, "failed to create user");
             return Err(UserAdminError::Persistence);
         }
 
@@ -588,7 +593,10 @@ impl UserAdminRepository for Database {
             .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
             .await
-            .map_err(|_| UserAdminError::Persistence)?;
+            .map_err(|error| {
+                error!(%error, "failed to update user profile");
+                UserAdminError::Persistence
+            })?;
 
         let user = self
             .user_by_id(&mut tx, user_id, current_epoch())
@@ -625,7 +633,10 @@ impl UserAdminRepository for Database {
             .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
             .await
-            .map_err(|_| UserAdminError::Persistence)?;
+            .map_err(|error| {
+                error!(%error, "failed to lock user");
+                UserAdminError::Persistence
+            })?;
 
         sqlx::query(
             "UPDATE auth_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL",
