@@ -107,7 +107,10 @@ mod tests {
     #[test]
     fn echo_input_rejects_empty_message() {
         let err = EchoInput::parse(String::new()).unwrap_err();
-        assert!(matches!(err, AppError::Validation(ValidationError::MessageRequired)));
+        assert!(matches!(
+            err,
+            AppError::Validation(ValidationError::MessageRequired)
+        ));
     }
 
     #[test]
@@ -120,7 +123,12 @@ mod tests {
     fn echo_input_rejects_message_exceeding_max_length() {
         let long = "a".repeat(ECHO_MAX_CHARS + 1);
         let err = EchoInput::parse(long).unwrap_err();
-        assert!(matches!(err, AppError::Validation(ValidationError::MessageTooLong { max: ECHO_MAX_CHARS })));
+        assert!(matches!(
+            err,
+            AppError::Validation(ValidationError::MessageTooLong {
+                max: ECHO_MAX_CHARS
+            })
+        ));
     }
 
     #[test]

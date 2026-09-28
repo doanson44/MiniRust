@@ -89,7 +89,9 @@ impl std::fmt::Display for AuthError {
             Self::Forbidden => f.write_str("admin role required"),
             Self::EmailDeliveryUnavailable => f.write_str("email delivery unavailable"),
             Self::EmailAlreadyExists => f.write_str("email already exists"),
-            Self::BootstrapAdminConflict => f.write_str("bootstrap admin conflicts with an existing account"),
+            Self::BootstrapAdminConflict => {
+                f.write_str("bootstrap admin conflicts with an existing account")
+            }
             Self::Persistence => f.write_str("authentication persistence failed"),
             Self::InvalidSecret => f.write_str("authentication secret is invalid"),
             Self::Randomness => f.write_str("secure randomness is unavailable"),
@@ -193,7 +195,11 @@ where
     R: AuthRepository,
     E: EmailSender,
 {
-    pub fn new(repository: R, email_sender: E, secret: impl Into<Vec<u8>>) -> Result<Self, AuthError> {
+    pub fn new(
+        repository: R,
+        email_sender: E,
+        secret: impl Into<Vec<u8>>,
+    ) -> Result<Self, AuthError> {
         let secret = secret.into();
         if secret.len() < 32 {
             return Err(AuthError::InvalidSecret);
@@ -210,7 +216,8 @@ where
         &self,
         email: &str,
     ) -> Result<CodeRequestAccepted, AuthError> {
-        self.request_code(email, ChallengePurpose::Registration).await
+        self.request_code(email, ChallengePurpose::Registration)
+            .await
     }
 
     pub async fn request_login_code(&self, email: &str) -> Result<CodeRequestAccepted, AuthError> {
@@ -226,11 +233,7 @@ where
             .await
     }
 
-    pub async fn verify_login_code(
-        &self,
-        email: &str,
-        code: &str,
-    ) -> Result<Session, AuthError> {
+    pub async fn verify_login_code(&self, email: &str, code: &str) -> Result<Session, AuthError> {
         self.verify_code(email, code, ChallengePurpose::Login).await
     }
 
@@ -244,7 +247,11 @@ where
 
     pub async fn require_admin(&self, token: &str) -> Result<UserAccess, AuthError> {
         let user = self.current_session(token).await?;
-        if user.is_admin { Ok(user) } else { Err(AuthError::Forbidden) }
+        if user.is_admin {
+            Ok(user)
+        } else {
+            Err(AuthError::Forbidden)
+        }
     }
 
     pub async fn logout(&self, token: &str) -> Result<(), AuthError> {
@@ -285,22 +292,10 @@ where
             max_attempts: OTP_MAX_ATTEMPTS,
         };
         let code = generate_otp()?;
-        let code_hash = hash_otp(
-            &self.secret,
-            challenge.id,
-            &email,
-            purpose,
-            &code,
-        )?;
+        let code_hash = hash_otp(&self.secret, challenge.id, &email, purpose, &code)?;
 
         self.repository
-            .create_challenge(
-                challenge,
-                &email,
-                purpose,
-                code_hash,
-                now,
-            )
+            .create_challenge(challenge, &email, purpose, code_hash, now)
             .await?;
 
         if let Err(error) = self
@@ -331,13 +326,7 @@ where
             .await?
             .ok_or(AuthError::InvalidCode)?;
 
-        let code_hash = hash_otp(
-            &self.secret,
-            challenge.id,
-            &email,
-            purpose,
-            code,
-        )?;
+        let code_hash = hash_otp(&self.secret, challenge.id, &email, purpose, code)?;
         let token = generate_session_token()?;
         let token_hash = hash_session_token(&token);
         let expires_at = now + SESSION_TTL_SECONDS;

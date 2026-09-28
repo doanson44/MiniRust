@@ -8,7 +8,11 @@ use axum::{
 };
 use minirust_api::{router, AppState};
 use minirust_database::Database;
-use testcontainers::{core::{IntoContainerPort, WaitFor}, runners::AsyncRunner, GenericImage, ImageExt};
+use testcontainers::{
+    core::{IntoContainerPort, WaitFor},
+    runners::AsyncRunner,
+    GenericImage, ImageExt,
+};
 use tokio::time::sleep;
 use tower::ServiceExt;
 
@@ -40,8 +44,14 @@ async fn test_app() -> TestApp {
         .await
         .expect("test MariaDB container must start");
 
-    let host = container.get_host().await.expect("test container host must be available");
-    let port = container.get_host_port_ipv4(3306).await.expect("test MariaDB port must be available");
+    let host = container
+        .get_host()
+        .await
+        .expect("test container host must be available");
+    let port = container
+        .get_host_port_ipv4(3306)
+        .await
+        .expect("test MariaDB port must be available");
     let url = format!("mysql://minirust_test:minirust_test@{host}:{port}/minirust_test");
 
     let mut database = None;
@@ -54,8 +64,13 @@ async fn test_app() -> TestApp {
     }
     let database = database.expect("test MariaDB must accept connections");
 
-    database.migrate().await.expect("test database migrations must succeed");
-    database.seed_admin("admin@minirust.local", "123456", &[b'a'; 32]).await
+    database
+        .migrate()
+        .await
+        .expect("test database migrations must succeed");
+    database
+        .seed_admin("admin@minirust.local", "123456", &[b'a'; 32])
+        .await
         .expect("bootstrap admin seed must succeed");
 
     let state = AppState::new(database.clone(), vec![b'a'; 32], false)
@@ -74,7 +89,8 @@ async fn test_app() -> TestApp {
 async fn register_request_rejects_invalid_email() {
     let app = test_app().await;
 
-    let response = app.router()
+    let response = app
+        .router()
         .oneshot(
             Request::post("/api/v1/auth/register/request-code")
                 .header("content-type", "application/json")
@@ -91,7 +107,8 @@ async fn register_request_rejects_invalid_email() {
 async fn login_request_rejects_invalid_email() {
     let app = test_app().await;
 
-    let response = app.router()
+    let response = app
+        .router()
         .oneshot(
             Request::post("/api/v1/auth/login/request-code")
                 .header("content-type", "application/json")
@@ -108,11 +125,14 @@ async fn login_request_rejects_invalid_email() {
 async fn register_verify_rejects_unknown_code() {
     let app = test_app().await;
 
-    let response = app.router()
+    let response = app
+        .router()
         .oneshot(
             Request::post("/api/v1/auth/register/verify-code")
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"email":"user@example.com","code":"123456"}"#))
+                .body(Body::from(
+                    r#"{"email":"user@example.com","code":"123456"}"#,
+                ))
                 .unwrap(),
         )
         .await
@@ -125,11 +145,14 @@ async fn register_verify_rejects_unknown_code() {
 async fn login_verify_rejects_unknown_code() {
     let app = test_app().await;
 
-    let response = app.router()
+    let response = app
+        .router()
         .oneshot(
             Request::post("/api/v1/auth/login/verify-code")
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"email":"user@example.com","code":"123456"}"#))
+                .body(Body::from(
+                    r#"{"email":"user@example.com","code":"123456"}"#,
+                ))
                 .unwrap(),
         )
         .await
@@ -142,7 +165,8 @@ async fn login_verify_rejects_unknown_code() {
 async fn logout_without_session_is_successful_and_clears_cookie() {
     let app = test_app().await;
 
-    let response = app.router()
+    let response = app
+        .router()
         .oneshot(
             Request::post("/api/v1/auth/logout")
                 .body(Body::empty())
@@ -159,21 +183,18 @@ async fn logout_without_session_is_successful_and_clears_cookie() {
 async fn me_without_session_is_unauthorized() {
     let app = test_app().await;
 
-    let response = app.router()
-        .oneshot(
-            Request::get("/api/v1/auth/me")
-                .body(Body::empty())
-                .unwrap(),
-        )
+    let response = app
+        .router()
+        .oneshot(Request::get("/api/v1/auth/me").body(Body::empty()).unwrap())
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
-
 async fn admin_cookie(app: &TestApp) -> String {
-    let request_response = app.router()
+    let request_response = app
+        .router()
         .oneshot(
             Request::post("/api/v1/auth/login/request-code")
                 .header("content-type", "application/json")
@@ -184,11 +205,14 @@ async fn admin_cookie(app: &TestApp) -> String {
         .unwrap();
     assert_eq!(request_response.status(), StatusCode::OK);
 
-    let response = app.router()
+    let response = app
+        .router()
         .oneshot(
             Request::post("/api/v1/auth/login/verify-code")
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"email":"admin@minirust.local","code":"123456"}"#))
+                .body(Body::from(
+                    r#"{"email":"admin@minirust.local","code":"123456"}"#,
+                ))
                 .unwrap(),
         )
         .await
@@ -225,7 +249,8 @@ async fn authenticated_user_can_update_profile() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let me = app.router()
+    let me = app
+        .router()
         .oneshot(
             Request::get("/api/v1/auth/me")
                 .header("cookie", &cookie)
@@ -236,7 +261,9 @@ async fn authenticated_user_can_update_profile() {
         .unwrap();
 
     assert_eq!(me.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(me.into_body(), 1024 * 1024).await.unwrap();
+    let body = axum::body::to_bytes(me.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
     let body = String::from_utf8(body.to_vec()).unwrap();
     assert!(body.contains("MiniRust Admin"));
     assert!(body.contains("https://example.com/avatar.png"));
@@ -246,7 +273,8 @@ async fn authenticated_user_can_update_profile() {
 async fn self_service_account_actions_require_authentication() {
     let app = test_app().await;
 
-    let lock = app.router()
+    let lock = app
+        .router()
         .oneshot(
             Request::post("/api/v1/users/me/lock")
                 .body(Body::empty())
@@ -256,7 +284,8 @@ async fn self_service_account_actions_require_authentication() {
         .unwrap();
     assert_eq!(lock.status(), StatusCode::UNAUTHORIZED);
 
-    let delete = app.router()
+    let delete = app
+        .router()
         .oneshot(
             Request::delete("/api/v1/users/me")
                 .body(Body::empty())
@@ -272,7 +301,8 @@ async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
     let app = test_app().await;
     let cookie = admin_cookie(&app).await;
 
-    let lock = app.router()
+    let lock = app
+        .router()
         .oneshot(
             Request::post("/api/v1/users/me/lock")
                 .header("cookie", &cookie)
@@ -283,7 +313,8 @@ async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
         .unwrap();
     assert_eq!(lock.status(), StatusCode::CONFLICT);
 
-    let delete = app.router()
+    let delete = app
+        .router()
         .oneshot(
             Request::delete("/api/v1/users/me")
                 .header("cookie", &cookie)
@@ -300,7 +331,8 @@ async fn admin_user_crud_and_role_assignment() {
     let app = test_app().await;
     let cookie = admin_cookie(&app).await;
 
-    let list = app.router()
+    let list = app
+        .router()
         .oneshot(
             Request::get("/api/v1/admin/users")
                 .header("cookie", &cookie)
@@ -311,7 +343,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(list.status(), StatusCode::OK);
 
-    let create = app.router()
+    let create = app
+        .router()
         .oneshot(
             Request::post("/api/v1/admin/users")
                 .header("content-type", "application/json")
@@ -323,7 +356,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(create.status(), StatusCode::CREATED);
 
-    let get = app.router()
+    let get = app
+        .router()
         .oneshot(
             Request::get("/api/v1/admin/users/crud@example.com")
                 .header("cookie", &cookie)
@@ -334,7 +368,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(get.status(), StatusCode::OK);
 
-    let update = app.router()
+    let update = app
+        .router()
         .oneshot(
             Request::patch("/api/v1/admin/users/crud@example.com")
                 .header("content-type", "application/json")
@@ -346,7 +381,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(update.status(), StatusCode::OK);
 
-    let assign = app.router()
+    let assign = app
+        .router()
         .oneshot(
             Request::put("/api/v1/admin/users/updated@example.com/role")
                 .header("content-type", "application/json")
@@ -358,7 +394,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(assign.status(), StatusCode::OK);
 
-    let premium_get = app.router()
+    let premium_get = app
+        .router()
         .oneshot(
             Request::get("/api/v1/admin/users/updated@example.com/entitlements/premium")
                 .header("cookie", &cookie)
@@ -369,7 +406,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(premium_get.status(), StatusCode::OK);
 
-    let premium = app.router()
+    let premium = app
+        .router()
         .oneshot(
             Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
                 .header("content-type", "application/json")
@@ -381,7 +419,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(premium.status(), StatusCode::OK);
 
-    let remove_premium = app.router()
+    let remove_premium = app
+        .router()
         .oneshot(
             Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
                 .header("content-type", "application/json")
@@ -393,7 +432,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(remove_premium.status(), StatusCode::OK);
 
-    let invalid_expiry = app.router()
+    let invalid_expiry = app
+        .router()
         .oneshot(
             Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
                 .header("content-type", "application/json")
@@ -405,7 +445,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(invalid_expiry.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
-    let premium_delete = app.router()
+    let premium_delete = app
+        .router()
         .oneshot(
             Request::delete("/api/v1/admin/users/updated@example.com/entitlements/premium")
                 .header("cookie", &cookie)
@@ -416,7 +457,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(premium_delete.status(), StatusCode::OK);
 
-    let remove_role = app.router()
+    let remove_role = app
+        .router()
         .oneshot(
             Request::put("/api/v1/admin/users/updated@example.com/role")
                 .header("content-type", "application/json")
@@ -428,7 +470,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(remove_role.status(), StatusCode::OK);
 
-    let protected_delete = app.router()
+    let protected_delete = app
+        .router()
         .oneshot(
             Request::delete("/api/v1/admin/users/admin@minirust.local")
                 .header("cookie", &cookie)
@@ -439,7 +482,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(protected_delete.status(), StatusCode::CONFLICT);
 
-    let delete = app.router()
+    let delete = app
+        .router()
         .oneshot(
             Request::delete("/api/v1/admin/users/updated@example.com")
                 .header("cookie", &cookie)
@@ -450,7 +494,8 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(delete.status(), StatusCode::NO_CONTENT);
 
-    let missing = app.router()
+    let missing = app
+        .router()
         .oneshot(
             Request::get("/api/v1/admin/users/updated@example.com")
                 .header("cookie", &cookie)
@@ -467,7 +512,9 @@ async fn admin_user_endpoints_require_authentication() {
     let app = test_app().await;
 
     let requests = [
-        Request::get("/api/v1/admin/users").body(Body::empty()).unwrap(),
+        Request::get("/api/v1/admin/users")
+            .body(Body::empty())
+            .unwrap(),
         Request::post("/api/v1/admin/users")
             .header("content-type", "application/json")
             .body(Body::from(r#"{"email":"unauthorized@example.com"}"#))
@@ -503,7 +550,8 @@ async fn auth_code_requests_are_rate_limited() {
     let app = test_app().await;
 
     for _ in 0..3 {
-        let response = app.router()
+        let response = app
+            .router()
             .oneshot(
                 Request::post("/api/v1/auth/login/request-code")
                     .header("content-type", "application/json")
@@ -515,7 +563,8 @@ async fn auth_code_requests_are_rate_limited() {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    let response = app.router()
+    let response = app
+        .router()
         .oneshot(
             Request::post("/api/v1/auth/login/request-code")
                 .header("content-type", "application/json")
@@ -527,4 +576,3 @@ async fn auth_code_requests_are_rate_limited() {
 
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
 }
-

@@ -106,7 +106,9 @@ impl Config {
             database_url: read_optional(ENV_DATABASE_URL),
             auth_secret: read_optional(ENV_AUTH_SECRET),
             admin_email: match environment {
-                Environment::Development => read_or_default(ENV_ADMIN_EMAIL, "admin@minirust.local"),
+                Environment::Development => {
+                    read_or_default(ENV_ADMIN_EMAIL, "admin@minirust.local")
+                }
                 Environment::Production => require_var(ENV_ADMIN_EMAIL)?,
             },
             admin_otp: match environment {
@@ -122,9 +124,13 @@ impl Config {
             .ok_or_else(|| ConfigError::MissingRequired(ENV_DATABASE_URL.to_owned()))
     }
 
-    pub fn admin_email(&self) -> &str { &self.admin_email }
+    pub fn admin_email(&self) -> &str {
+        &self.admin_email
+    }
 
-    pub fn admin_otp(&self) -> &str { &self.admin_otp }
+    pub fn admin_otp(&self) -> &str {
+        &self.admin_otp
+    }
 
     pub fn auth_secret(&self) -> Result<&str, ConfigError> {
         self.auth_secret

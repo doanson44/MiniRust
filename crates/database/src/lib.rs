@@ -32,22 +32,30 @@ impl Database {
 
     pub async fn seed_admin(&self, email: &str, otp: &str, secret: &[u8]) -> Result<(), AuthError> {
         let email = email.trim().to_ascii_lowercase();
-        if email.is_empty() || secret.len() < 32 || otp.len() != 6 || !otp.bytes().all(|b| b.is_ascii_digit()) {
+        if email.is_empty()
+            || secret.len() < 32
+            || otp.len() != 6
+            || !otp.bytes().all(|b| b.is_ascii_digit())
+        {
             return Err(AuthError::InvalidSecret);
         }
 
         let now = current_epoch();
-        let user_id = EntityId::from_uuid(
-            Uuid::now_v7(),
-        ).ok_or(AuthError::Persistence)?;
+        let user_id = EntityId::from_uuid(Uuid::now_v7()).ok_or(AuthError::Persistence)?;
 
-        let mut tx = self.pool.begin().await.map_err(|_| AuthError::Persistence)?;
-
-        let existing_id = sqlx::query("SELECT id, bootstrap_admin, locked_at FROM users WHERE email = ? FOR UPDATE")
-            .bind(&email)
-            .fetch_optional(&mut *tx)
+        let mut tx = self
+            .pool
+            .begin()
             .await
             .map_err(|_| AuthError::Persistence)?;
+
+        let existing_id = sqlx::query(
+            "SELECT id, bootstrap_admin, locked_at FROM users WHERE email = ? FOR UPDATE",
+        )
+        .bind(&email)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| AuthError::Persistence)?;
 
         let user_id = match existing_id {
             Some(row) => {
@@ -169,7 +177,6 @@ impl Database {
     }
 }
 
-
 impl UserAdminRepository for Database {
     async fn create_user(
         &self,
@@ -177,7 +184,11 @@ impl UserAdminRepository for Database {
         email: &str,
         now: i64,
     ) -> Result<UserAccess, UserAdminError> {
-        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
 
         let result = sqlx::query(
             "INSERT INTO users (id, email, bootstrap_admin, created_at)
@@ -190,7 +201,11 @@ impl UserAdminRepository for Database {
         .await;
 
         if let Err(error) = result {
-            if error.as_database_error().and_then(|database| database.code().map(|code| code == "1062")).unwrap_or(false) {
+            if error
+                .as_database_error()
+                .and_then(|database| database.code().map(|code| code == "1062"))
+                .unwrap_or(false)
+            {
                 return Err(UserAdminError::EmailAlreadyExists);
             }
             return Err(UserAdminError::Persistence);
@@ -295,7 +310,11 @@ impl UserAdminRepository for Database {
         current_email: &str,
         new_email: &str,
     ) -> Result<UserAccess, UserAdminError> {
-        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
 
         let row = sqlx::query(
             "SELECT id, bootstrap_admin
@@ -326,7 +345,11 @@ impl UserAdminRepository for Database {
             .await;
 
         if let Err(error) = result {
-            if error.as_database_error().and_then(|database| database.code().map(|code| code == "1062")).unwrap_or(false) {
+            if error
+                .as_database_error()
+                .and_then(|database| database.code().map(|code| code == "1062"))
+                .unwrap_or(false)
+            {
                 return Err(UserAdminError::EmailAlreadyExists);
             }
             return Err(UserAdminError::Persistence);
@@ -351,7 +374,11 @@ impl UserAdminRepository for Database {
     }
 
     async fn delete_user(&self, email: &str) -> Result<(), UserAdminError> {
-        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
 
         let row = sqlx::query(
             "SELECT id, bootstrap_admin
@@ -395,7 +422,11 @@ impl UserAdminRepository for Database {
         email: &str,
         role: AdminUserRole,
     ) -> Result<UserAccess, UserAdminError> {
-        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
 
         let row = sqlx::query(
             "SELECT id, bootstrap_admin
@@ -451,10 +482,7 @@ impl UserAdminRepository for Database {
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
         Ok(user)
     }
-    async fn get_premium(
-        &self,
-        email: &str,
-    ) -> Result<PremiumEntitlement, UserAdminError> {
+    async fn get_premium(&self, email: &str) -> Result<PremiumEntitlement, UserAdminError> {
         let row = sqlx::query(
             "SELECT ue.active, ue.expires_at
              FROM users u
@@ -470,10 +498,14 @@ impl UserAdminRepository for Database {
         .ok_or(UserAdminError::NotFound)?;
 
         Ok(PremiumEntitlement {
-            active: row.try_get::<Option<i64>, _>("active")
+            active: row
+                .try_get::<Option<i64>, _>("active")
                 .map_err(|_| UserAdminError::Persistence)?
-                .unwrap_or(0) != 0,
-            expires_at: row.try_get("expires_at").map_err(|_| UserAdminError::Persistence)?,
+                .unwrap_or(0)
+                != 0,
+            expires_at: row
+                .try_get("expires_at")
+                .map_err(|_| UserAdminError::Persistence)?,
         })
     }
 
@@ -487,7 +519,11 @@ impl UserAdminRepository for Database {
         active: bool,
         expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError> {
-        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
 
         let row = sqlx::query(
             "SELECT id
@@ -531,7 +567,11 @@ impl UserAdminRepository for Database {
         full_name: Option<&str>,
         avatar_url: Option<&str>,
     ) -> Result<UserAccess, UserAdminError> {
-        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
         let exists = sqlx::query("SELECT id FROM users WHERE id = ? FOR UPDATE")
             .bind(user_id.as_uuid().as_bytes())
             .fetch_optional(&mut *tx)
@@ -550,7 +590,8 @@ impl UserAdminRepository for Database {
             .await
             .map_err(|_| UserAdminError::Persistence)?;
 
-        let user = self.user_by_id(&mut tx, user_id, current_epoch())
+        let user = self
+            .user_by_id(&mut tx, user_id, current_epoch())
             .await
             .map_err(|_| UserAdminError::Persistence)?;
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
@@ -558,7 +599,11 @@ impl UserAdminRepository for Database {
     }
 
     async fn lock_user(&self, user_id: EntityId) -> Result<(), UserAdminError> {
-        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
         let row = sqlx::query("SELECT bootstrap_admin FROM users WHERE id = ? FOR UPDATE")
             .bind(user_id.as_uuid().as_bytes())
             .fetch_optional(&mut *tx)
@@ -566,7 +611,11 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?
             .ok_or(UserAdminError::NotFound)?;
 
-        if row.try_get::<i64, _>("bootstrap_admin").map_err(|_| UserAdminError::Persistence)? != 0 {
+        if row
+            .try_get::<i64, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?
+            != 0
+        {
             return Err(UserAdminError::ProtectedUser);
         }
 
@@ -578,18 +627,24 @@ impl UserAdminRepository for Database {
             .await
             .map_err(|_| UserAdminError::Persistence)?;
 
-        sqlx::query("UPDATE auth_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL")
-            .bind(now)
-            .bind(user_id.as_uuid().as_bytes())
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
+        sqlx::query(
+            "UPDATE auth_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL",
+        )
+        .bind(now)
+        .bind(user_id.as_uuid().as_bytes())
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?;
 
         tx.commit().await.map_err(|_| UserAdminError::Persistence)
     }
 
     async fn unlock_user(&self, email: &str) -> Result<UserAccess, UserAdminError> {
-        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
         let row = sqlx::query("SELECT id FROM users WHERE email = ? FOR UPDATE")
             .bind(email)
             .fetch_optional(&mut *tx)
@@ -604,16 +659,20 @@ impl UserAdminRepository for Database {
             .await
             .map_err(|_| UserAdminError::Persistence)?;
 
-        let user = self.user_by_id(&mut tx, user_id, current_epoch())
+        let user = self
+            .user_by_id(&mut tx, user_id, current_epoch())
             .await
             .map_err(|_| UserAdminError::Persistence)?;
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
         Ok(user)
     }
 
-
     async fn delete_user_by_id(&self, user_id: EntityId) -> Result<(), UserAdminError> {
-        let mut tx = self.pool.begin().await.map_err(|_| UserAdminError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
         let row = sqlx::query("SELECT bootstrap_admin FROM users WHERE id = ? FOR UPDATE")
             .bind(user_id.as_uuid().as_bytes())
             .fetch_optional(&mut *tx)
@@ -621,15 +680,21 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?
             .ok_or(UserAdminError::NotFound)?;
 
-        if row.try_get::<i64, _>("bootstrap_admin").map_err(|_| UserAdminError::Persistence)? != 0 {
+        if row
+            .try_get::<i64, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?
+            != 0
+        {
             return Err(UserAdminError::ProtectedUser);
         }
 
-        sqlx::query("DELETE FROM auth_challenges WHERE email = (SELECT email FROM users WHERE id = ?)")
-            .bind(user_id.as_uuid().as_bytes())
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
+        sqlx::query(
+            "DELETE FROM auth_challenges WHERE email = (SELECT email FROM users WHERE id = ?)",
+        )
+        .bind(user_id.as_uuid().as_bytes())
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?;
 
         sqlx::query("DELETE FROM users WHERE id = ?")
             .bind(user_id.as_uuid().as_bytes())
@@ -639,33 +704,28 @@ impl UserAdminRepository for Database {
 
         tx.commit().await.map_err(|_| UserAdminError::Persistence)
     }
-
-
 }
-
 
 impl AuthRepository for Database {
     async fn user_exists(&self, email: &str) -> Result<bool, AuthError> {
-        let exists = sqlx::query_scalar::<_, i64>(
-            "SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)",
-        )
-        .bind(email)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|_| AuthError::Persistence)?;
+        let exists =
+            sqlx::query_scalar::<_, i64>("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)")
+                .bind(email)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|_| AuthError::Persistence)?;
 
         Ok(exists != 0)
     }
 
     async fn is_bootstrap_admin(&self, email: &str) -> Result<bool, AuthError> {
-        let bootstrap_admin = sqlx::query_scalar::<_, i64>(
-            "SELECT bootstrap_admin FROM users WHERE email = ?",
-        )
-        .bind(email)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|_| AuthError::Persistence)?
-        .unwrap_or(0);
+        let bootstrap_admin =
+            sqlx::query_scalar::<_, i64>("SELECT bootstrap_admin FROM users WHERE email = ?")
+                .bind(email)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|_| AuthError::Persistence)?
+                .unwrap_or(0);
 
         Ok(bootstrap_admin != 0)
     }
@@ -679,21 +739,24 @@ impl AuthRepository for Database {
         created_at: i64,
     ) -> Result<(), AuthError> {
         if purpose == ChallengePurpose::Login {
-            let bootstrap_admin = sqlx::query_scalar::<_, i64>(
-                "SELECT bootstrap_admin FROM users WHERE email = ?",
-            )
-            .bind(email)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|_| AuthError::Persistence)?
-            .unwrap_or(0);
+            let bootstrap_admin =
+                sqlx::query_scalar::<_, i64>("SELECT bootstrap_admin FROM users WHERE email = ?")
+                    .bind(email)
+                    .fetch_optional(&self.pool)
+                    .await
+                    .map_err(|_| AuthError::Persistence)?
+                    .unwrap_or(0);
 
             if bootstrap_admin != 0 {
                 return Ok(());
             }
         }
 
-        let mut tx = self.pool.begin().await.map_err(|_| AuthError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| AuthError::Persistence)?;
 
         sqlx::query(
             "DELETE FROM auth_challenges WHERE email = ? AND purpose = ? AND consumed_at IS NULL",
@@ -760,13 +823,23 @@ impl AuthRepository for Database {
         session_token_hash: [u8; 32],
         session_expires_at: i64,
     ) -> Result<UserAccess, AuthError> {
-        let mut tx = self.pool.begin().await.map_err(|_| AuthError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| AuthError::Persistence)?;
         let challenge = lock_challenge(&mut tx, challenge_id).await?;
 
         validate_challenge(&challenge, email, ChallengePurpose::Registration, now)?;
 
         if challenge.code_hash != code_hash {
-            return Err(record_failed_attempt(&mut tx, challenge_id, challenge.attempts, challenge.max_attempts).await?);
+            return Err(record_failed_attempt(
+                &mut tx,
+                challenge_id,
+                challenge.attempts,
+                challenge.max_attempts,
+            )
+            .await?);
         }
 
         let insert = sqlx::query(
@@ -791,7 +864,14 @@ impl AuthRepository for Database {
         }
 
         consume_challenge(&mut tx, challenge_id, now).await?;
-        insert_session(&mut tx, user_id, session_token_hash, now, session_expires_at).await?;
+        insert_session(
+            &mut tx,
+            user_id,
+            session_token_hash,
+            now,
+            session_expires_at,
+        )
+        .await?;
 
         let user = self.user_by_id(&mut tx, user_id, now).await?;
         tx.commit().await.map_err(|_| AuthError::Persistence)?;
@@ -807,24 +887,39 @@ impl AuthRepository for Database {
         session_token_hash: [u8; 32],
         session_expires_at: i64,
     ) -> Result<UserAccess, AuthError> {
-        let mut tx = self.pool.begin().await.map_err(|_| AuthError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| AuthError::Persistence)?;
         let challenge = lock_challenge(&mut tx, challenge_id).await?;
 
         validate_challenge(&challenge, email, ChallengePurpose::Login, now)?;
 
         if challenge.code_hash != code_hash {
-            return Err(record_failed_attempt(&mut tx, challenge_id, challenge.attempts, challenge.max_attempts).await?);
+            return Err(record_failed_attempt(
+                &mut tx,
+                challenge_id,
+                challenge.attempts,
+                challenge.max_attempts,
+            )
+            .await?);
         }
 
-        let row = sqlx::query("SELECT id, bootstrap_admin, locked_at FROM users WHERE email = ? FOR UPDATE")
-            .bind(email)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|_| AuthError::Persistence)?
-            .ok_or(AuthError::Persistence)?;
+        let row = sqlx::query(
+            "SELECT id, bootstrap_admin, locked_at FROM users WHERE email = ? FOR UPDATE",
+        )
+        .bind(email)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| AuthError::Persistence)?
+        .ok_or(AuthError::Persistence)?;
 
         let user_id = row_to_id(&row)?;
-        let locked = row.try_get::<Option<i64>, _>("locked_at").map_err(|_| AuthError::Persistence)?.is_some();
+        let locked = row
+            .try_get::<Option<i64>, _>("locked_at")
+            .map_err(|_| AuthError::Persistence)?
+            .is_some();
         if locked {
             return Err(AuthError::AccountLocked);
         }
@@ -836,7 +931,14 @@ impl AuthRepository for Database {
         if !bootstrap_admin {
             consume_challenge(&mut tx, challenge_id, now).await?;
         }
-        insert_session(&mut tx, user_id, session_token_hash, now, session_expires_at).await?;
+        insert_session(
+            &mut tx,
+            user_id,
+            session_token_hash,
+            now,
+            session_expires_at,
+        )
+        .await?;
 
         let user = self.user_by_id(&mut tx, user_id, now).await?;
         tx.commit().await.map_err(|_| AuthError::Persistence)?;
@@ -848,7 +950,11 @@ impl AuthRepository for Database {
         session_token_hash: [u8; 32],
         now: i64,
     ) -> Result<Option<UserAccess>, AuthError> {
-        let mut tx = self.pool.begin().await.map_err(|_| AuthError::Persistence)?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| AuthError::Persistence)?;
 
         let row = sqlx::query(
             "SELECT user_id
@@ -924,16 +1030,24 @@ async fn lock_challenge(
     .map_err(|_| AuthError::Persistence)?
     .ok_or(AuthError::InvalidCode)?;
 
-    let hash = row.try_get::<Vec<u8>, _>("code_hash").map_err(|_| AuthError::Persistence)?;
+    let hash = row
+        .try_get::<Vec<u8>, _>("code_hash")
+        .map_err(|_| AuthError::Persistence)?;
     let code_hash: [u8; 32] = hash.try_into().map_err(|_| AuthError::Persistence)?;
 
     Ok(StoredChallenge {
         email: row.try_get("email").map_err(|_| AuthError::Persistence)?,
         purpose: row.try_get("purpose").map_err(|_| AuthError::Persistence)?,
         code_hash,
-        attempts: row.try_get("attempts").map_err(|_| AuthError::Persistence)?,
-        max_attempts: row.try_get("max_attempts").map_err(|_| AuthError::Persistence)?,
-        expires_at: row.try_get("expires_at").map_err(|_| AuthError::Persistence)?,
+        attempts: row
+            .try_get("attempts")
+            .map_err(|_| AuthError::Persistence)?,
+        max_attempts: row
+            .try_get("max_attempts")
+            .map_err(|_| AuthError::Persistence)?,
+        expires_at: row
+            .try_get("expires_at")
+            .map_err(|_| AuthError::Persistence)?,
     })
 }
 
@@ -1034,11 +1148,24 @@ fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, AuthError> {
     Ok(UserAccess {
         id,
         email: row.try_get("email").map_err(|_| AuthError::Persistence)?,
-        full_name: row.try_get("full_name").map_err(|_| AuthError::Persistence)?,
-        avatar_url: row.try_get("avatar_url").map_err(|_| AuthError::Persistence)?,
-        is_locked: row.try_get::<Option<i64>, _>("locked_at").map_err(|_| AuthError::Persistence)?.is_some(),
-        is_admin: row.try_get::<i64, _>("is_admin").map_err(|_| AuthError::Persistence)? != 0,
-        is_premium: row.try_get::<i64, _>("is_premium").map_err(|_| AuthError::Persistence)? != 0,
+        full_name: row
+            .try_get("full_name")
+            .map_err(|_| AuthError::Persistence)?,
+        avatar_url: row
+            .try_get("avatar_url")
+            .map_err(|_| AuthError::Persistence)?,
+        is_locked: row
+            .try_get::<Option<i64>, _>("locked_at")
+            .map_err(|_| AuthError::Persistence)?
+            .is_some(),
+        is_admin: row
+            .try_get::<i64, _>("is_admin")
+            .map_err(|_| AuthError::Persistence)?
+            != 0,
+        is_premium: row
+            .try_get::<i64, _>("is_premium")
+            .map_err(|_| AuthError::Persistence)?
+            != 0,
     })
 }
 
@@ -1049,7 +1176,12 @@ fn current_epoch() -> i64 {
         .unwrap_or(0)
 }
 
-fn seed_otp_hash(secret: &[u8], challenge_id: EntityId, email: &str, otp: &str) -> Result<[u8; 32], AuthError> {
+fn seed_otp_hash(
+    secret: &[u8],
+    challenge_id: EntityId,
+    email: &str,
+    otp: &str,
+) -> Result<[u8; 32], AuthError> {
     use hmac::{Hmac, Mac};
     use sha2::Sha256;
 

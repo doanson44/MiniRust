@@ -10,12 +10,15 @@ use axum::response::IntoResponse;
 use axum::routing::get;
 #[cfg(feature = "ssr")]
 use axum::Router;
-use leptos::prelude::*;
 #[cfg(feature = "ssr")]
 use leptos::config::LeptosOptions;
+use leptos::prelude::*;
 #[cfg(feature = "ssr")]
 use leptos_axum::{generate_route_list, LeptosRoutes};
-use leptos_router::{components::{Route, Router as LeptosRouter, Routes}, path};
+use leptos_router::{
+    components::{Route, Router as LeptosRouter, Routes},
+    path,
+};
 use minirust_core::APP_NAME;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ssr")]
@@ -46,7 +49,9 @@ impl AppState {
 
 #[cfg(feature = "ssr")]
 impl FromRef<AppState> for LeptosOptions {
-    fn from_ref(state: &AppState) -> Self { state.leptos_options.clone() }
+    fn from_ref(state: &AppState) -> Self {
+        state.leptos_options.clone()
+    }
 }
 
 #[cfg(feature = "ssr")]
@@ -191,13 +196,19 @@ struct UserResponse {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct ApiEnvelope<T> { data: T }
+struct ApiEnvelope<T> {
+    data: T,
+}
 
 #[derive(Clone, Debug, Deserialize)]
-struct AdminUsers { users: Vec<UserResponse> }
+struct AdminUsers {
+    users: Vec<UserResponse>,
+}
 
 #[derive(Clone, Debug, Deserialize)]
-struct ApiProblem { detail: String }
+struct ApiProblem {
+    detail: String,
+}
 
 #[derive(Clone, Debug, Serialize)]
 struct ProfileRequest {
@@ -298,15 +309,26 @@ fn LoginPage() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
             let (path, body) = if requested.get_untracked() {
-                ("/api/v1/auth/login/verify-code", serde_json::json!({"email": email_value, "code": code_value}).to_string())
+                (
+                    "/api/v1/auth/login/verify-code",
+                    serde_json::json!({"email": email_value, "code": code_value}).to_string(),
+                )
             } else {
-                ("/api/v1/auth/login/request-code", serde_json::json!({"email": email_value}).to_string())
+                (
+                    "/api/v1/auth/login/request-code",
+                    serde_json::json!({"email": email_value}).to_string(),
+                )
             };
             match api_empty(gloo_net::http::Method::POST, path, Some(body)).await {
                 Ok(()) if requested.get_untracked() => {
-                    if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); }
+                    if let Some(window) = web_sys::window() {
+                        let _ = window.location().set_href("/app");
+                    }
                 }
-                Ok(()) => { set_requested.set(true); set_status.set("Verification code requested.".to_owned()); }
+                Ok(()) => {
+                    set_requested.set(true);
+                    set_status.set("Verification code requested.".to_owned());
+                }
                 Err(error) => set_status.set(error),
             }
         });
@@ -351,13 +373,32 @@ fn RegisterPage() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
             let verifying = requested.get_untracked();
-            let endpoint = if verifying { "/api/v1/auth/register/verify-code" } else { "/api/v1/auth/register/request-code" };
-            let body = if verifying { serde_json::json!({"email": email_value, "code": code_value}) } else { serde_json::json!({"email": email_value}) };
-            match api_empty(gloo_net::http::Method::POST, endpoint, Some(body.to_string())).await {
+            let endpoint = if verifying {
+                "/api/v1/auth/register/verify-code"
+            } else {
+                "/api/v1/auth/register/request-code"
+            };
+            let body = if verifying {
+                serde_json::json!({"email": email_value, "code": code_value})
+            } else {
+                serde_json::json!({"email": email_value})
+            };
+            match api_empty(
+                gloo_net::http::Method::POST,
+                endpoint,
+                Some(body.to_string()),
+            )
+            .await
+            {
                 Ok(()) if verifying => {
-                    if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); }
+                    if let Some(window) = web_sys::window() {
+                        let _ = window.location().set_href("/app");
+                    }
                 }
-                Ok(()) => { set_requested.set(true); set_status.set("Verification code requested.".to_owned()); }
+                Ok(()) => {
+                    set_requested.set(true);
+                    set_status.set("Verification code requested.".to_owned());
+                }
                 Err(error) => set_status.set(error),
             }
         });
@@ -401,7 +442,9 @@ fn AppPage() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     Effect::new(move |_| {
         leptos::task::spawn_local(async move {
-            match api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None).await {
+            match api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None)
+                .await
+            {
                 Ok(value) => {
                     set_full_name.set(value.full_name.clone().unwrap_or_default());
                     set_avatar_url.set(value.avatar_url.clone().unwrap_or_default());
@@ -419,9 +462,19 @@ fn AppPage() -> impl IntoView {
             let body = serde_json::to_string(&ProfileRequest {
                 full_name: Some(full_name.get()),
                 avatar_url: Some(avatar_url.get()),
-            }).unwrap_or_default();
-            match api_json::<UserResponse>(gloo_net::http::Method::PATCH, "/api/v1/users/me", Some(body)).await {
-                Ok(value) => { set_user.set(Some(value)); set_status.set("Profile updated.".to_owned()); }
+            })
+            .unwrap_or_default();
+            match api_json::<UserResponse>(
+                gloo_net::http::Method::PATCH,
+                "/api/v1/users/me",
+                Some(body),
+            )
+            .await
+            {
+                Ok(value) => {
+                    set_user.set(Some(value));
+                    set_status.set("Profile updated.".to_owned());
+                }
                 Err(error) => set_status.set(error),
             }
         });
@@ -432,7 +485,9 @@ fn AppPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             match api_empty(gloo_net::http::Method::POST, "/api/v1/users/me/lock", None).await {
                 Ok(()) => {
-                    if let Some(window) = web_sys::window() { let _ = window.location().set_href("/login"); }
+                    if let Some(window) = web_sys::window() {
+                        let _ = window.location().set_href("/login");
+                    }
                 }
                 Err(error) => set_status.set(error),
             }
@@ -444,7 +499,9 @@ fn AppPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             match api_empty(gloo_net::http::Method::DELETE, "/api/v1/users/me", None).await {
                 Ok(()) => {
-                    if let Some(window) = web_sys::window() { let _ = window.location().set_href("/"); }
+                    if let Some(window) = web_sys::window() {
+                        let _ = window.location().set_href("/");
+                    }
                 }
                 Err(error) => set_status.set(error),
             }
@@ -455,15 +512,25 @@ fn AppPage() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
             let _ = api_empty(gloo_net::http::Method::POST, "/api/v1/auth/logout", None).await;
-            if let Some(window) = web_sys::window() { let _ = window.location().set_href("/"); }
+            if let Some(window) = web_sys::window() {
+                let _ = window.location().set_href("/");
+            }
         });
     };
 
     let hello = move |_| {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            match api_json::<serde_json::Value>(gloo_net::http::Method::GET, "/api/v1/hello", None).await {
-                Ok(value) => set_hello_result.set(value.get("message").and_then(|v| v.as_str()).unwrap_or_default().to_owned()),
+            match api_json::<serde_json::Value>(gloo_net::http::Method::GET, "/api/v1/hello", None)
+                .await
+            {
+                Ok(value) => set_hello_result.set(
+                    value
+                        .get("message")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default()
+                        .to_owned(),
+                ),
                 Err(error) => set_status.set(error),
             }
         });
@@ -478,8 +545,16 @@ fn AppPage() -> impl IntoView {
                 gloo_net::http::Method::POST,
                 "/api/v1/echo",
                 Some(serde_json::json!({"message": message}).to_string()),
-            ).await {
-                Ok(value) => set_echo_result.set(value.get("echo").and_then(|v| v.as_str()).unwrap_or_default().to_owned()),
+            )
+            .await
+            {
+                Ok(value) => set_echo_result.set(
+                    value
+                        .get("echo")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default()
+                        .to_owned(),
+                ),
                 Err(error) => set_status.set(error),
             }
         });
@@ -568,8 +643,13 @@ fn AdminPage() -> impl IntoView {
     let refresh = move || {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            match api_json::<AdminUsers>(gloo_net::http::Method::GET, "/api/v1/admin/users", None).await {
-                Ok(value) => { set_users.set(value.users); set_status.set("Users loaded.".to_owned()); }
+            match api_json::<AdminUsers>(gloo_net::http::Method::GET, "/api/v1/admin/users", None)
+                .await
+            {
+                Ok(value) => {
+                    set_users.set(value.users);
+                    set_status.set("Users loaded.".to_owned());
+                }
                 Err(error) => set_status.set(error),
             }
         });
@@ -578,10 +658,20 @@ fn AdminPage() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     Effect::new(move |_| {
         leptos::task::spawn_local(async move {
-            match api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None).await {
+            match api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None)
+                .await
+            {
                 Ok(user) if user.is_admin => refresh(),
-                Ok(_) => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
-                Err(_) => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/login"); } }
+                Ok(_) => {
+                    if let Some(window) = web_sys::window() {
+                        let _ = window.location().set_href("/app");
+                    }
+                }
+                Err(_) => {
+                    if let Some(window) = web_sys::window() {
+                        let _ = window.location().set_href("/login");
+                    }
+                }
             }
         });
     });
@@ -591,8 +681,17 @@ fn AdminPage() -> impl IntoView {
         let email = new_email.get();
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            match api_json::<UserResponse>(gloo_net::http::Method::POST, "/api/v1/admin/users", Some(serde_json::to_string(&AdminEmailRequest { email }).unwrap_or_default())).await {
-                Ok(_) => { set_new_email.set(String::new()); refresh(); }
+            match api_json::<UserResponse>(
+                gloo_net::http::Method::POST,
+                "/api/v1/admin/users",
+                Some(serde_json::to_string(&AdminEmailRequest { email }).unwrap_or_default()),
+            )
+            .await
+            {
+                Ok(_) => {
+                    set_new_email.set(String::new());
+                    refresh();
+                }
                 Err(error) => set_status.set(error),
             }
         });
@@ -605,8 +704,17 @@ fn AdminPage() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
             let path = format!("/api/v1/admin/users/{}", current);
-            match api_json::<UserResponse>(gloo_net::http::Method::PATCH, &path, Some(serde_json::to_string(&AdminEmailRequest { email }).unwrap_or_default())).await {
-                Ok(_) => { set_selected.set(None); refresh(); }
+            match api_json::<UserResponse>(
+                gloo_net::http::Method::PATCH,
+                &path,
+                Some(serde_json::to_string(&AdminEmailRequest { email }).unwrap_or_default()),
+            )
+            .await
+            {
+                Ok(_) => {
+                    set_selected.set(None);
+                    refresh();
+                }
                 Err(error) => set_status.set(error),
             }
         });
@@ -617,11 +725,20 @@ fn AdminPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             let path = format!("/api/v1/admin/users/{}", email);
             let result = match action {
-                "unlock" => api_json::<UserResponse>(gloo_net::http::Method::POST, &format!("{path}/unlock"), None).await.map(|_| ()),
+                "unlock" => api_json::<UserResponse>(
+                    gloo_net::http::Method::POST,
+                    &format!("{path}/unlock"),
+                    None,
+                )
+                .await
+                .map(|_| ()),
                 "delete" => api_empty(gloo_net::http::Method::DELETE, &path, None).await,
                 _ => Ok(()),
             };
-            match result { Ok(()) => refresh(), Err(error) => set_status.set(error) }
+            match result {
+                Ok(()) => refresh(),
+                Err(error) => set_status.set(error),
+            }
         });
     };
 
@@ -629,7 +746,13 @@ fn AdminPage() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
             let path = format!("/api/v1/admin/users/{}/role", email);
-            match api_json::<UserResponse>(gloo_net::http::Method::PUT, &path, Some(serde_json::to_string(&AdminRoleRequest { role }).unwrap_or_default())).await {
+            match api_json::<UserResponse>(
+                gloo_net::http::Method::PUT,
+                &path,
+                Some(serde_json::to_string(&AdminRoleRequest { role }).unwrap_or_default()),
+            )
+            .await
+            {
                 Ok(_) => refresh(),
                 Err(error) => set_status.set(error),
             }
@@ -641,11 +764,23 @@ fn AdminPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             let path = format!("/api/v1/admin/users/{}/entitlements/premium", email);
             let result = if active {
-                api_json::<UserResponse>(gloo_net::http::Method::PUT, &path, Some(serde_json::to_string(&PremiumRequest { active, expires_at }).unwrap_or_default())).await.map(|_| ())
+                api_json::<UserResponse>(
+                    gloo_net::http::Method::PUT,
+                    &path,
+                    Some(
+                        serde_json::to_string(&PremiumRequest { active, expires_at })
+                            .unwrap_or_default(),
+                    ),
+                )
+                .await
+                .map(|_| ())
             } else {
                 api_empty(gloo_net::http::Method::DELETE, &path, None).await
             };
-            match result { Ok(()) => refresh(), Err(error) => set_status.set(error) }
+            match result {
+                Ok(()) => refresh(),
+                Err(error) => set_status.set(error),
+            }
         });
     };
 
@@ -804,7 +939,9 @@ mod tests {
     use tower::ServiceExt;
 
     async fn body_string(response: axum::response::Response) -> String {
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         String::from_utf8(bytes.to_vec()).unwrap()
     }
 
@@ -813,7 +950,11 @@ mod tests {
     async fn account_pages_are_server_rendered() {
         let app = router(AppState::new());
         for path in ["/", "/login", "/register", "/app", "/admin"] {
-            let response = app.clone().oneshot(Request::get(path).body(Body::empty()).unwrap()).await.unwrap();
+            let response = app
+                .clone()
+                .oneshot(Request::get(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
             assert_eq!(response.status(), StatusCode::OK);
             let body = body_string(response).await;
             assert!(body.contains("MiniRust"));
@@ -824,7 +965,10 @@ mod tests {
     #[cfg(feature = "ssr")]
     #[tokio::test]
     async fn get_health_returns_ok() {
-        let response = router(AppState::new()).oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();
+        let response = router(AppState::new())
+            .oneshot(Request::get("/health").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(body_string(response).await, "ok");
     }

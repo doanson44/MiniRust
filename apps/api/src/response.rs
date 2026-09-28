@@ -74,8 +74,12 @@ pub struct ProblemDetails {
 impl ProblemDetails {
     pub fn validation(error: &ValidationError, locale: Locale) -> Self {
         let detail = match (error, locale) {
-            (ValidationError::MessageRequired, Locale::Vi) => "Message không được để trống.".to_owned(),
-            (ValidationError::MessageRequired, Locale::En) => "Message must not be empty.".to_owned(),
+            (ValidationError::MessageRequired, Locale::Vi) => {
+                "Message không được để trống.".to_owned()
+            }
+            (ValidationError::MessageRequired, Locale::En) => {
+                "Message must not be empty.".to_owned()
+            }
             (ValidationError::MessageTooLong { max }, Locale::Vi) => {
                 format!("Message không được vượt quá {max} ký tự.")
             }
@@ -160,7 +164,9 @@ impl ProblemDetails {
                 "errors.auth.attempts_exceeded",
                 match locale {
                     Locale::Vi => "Đã vượt quá số lần nhập mã cho phép.".to_owned(),
-                    Locale::En => "The maximum number of verification attempts was exceeded.".to_owned(),
+                    Locale::En => {
+                        "The maximum number of verification attempts was exceeded.".to_owned()
+                    }
                 },
             ),
             AuthError::Forbidden => (
@@ -204,8 +210,13 @@ impl ProblemDetails {
                 "BOOTSTRAP_ADMIN_CONFLICT",
                 "errors.auth.bootstrap_admin_conflict",
                 match locale {
-                    Locale::Vi => "Email bootstrap admin đang trỏ tới một tài khoản thường.".to_owned(),
-                    Locale::En => "The bootstrap admin email points to an existing non-bootstrap account.".to_owned(),
+                    Locale::Vi => {
+                        "Email bootstrap admin đang trỏ tới một tài khoản thường.".to_owned()
+                    }
+                    Locale::En => {
+                        "The bootstrap admin email points to an existing non-bootstrap account."
+                            .to_owned()
+                    }
                 },
             ),
             AuthError::EmailDeliveryUnavailable => (
@@ -277,7 +288,9 @@ impl ProblemDetails {
                 "errors.user.invalid_role",
                 match locale {
                     Locale::Vi => "Role không hợp lệ. Chỉ hỗ trợ admin hoặc none.".to_owned(),
-                    Locale::En => "The role is invalid. Only admin or none is supported.".to_owned(),
+                    Locale::En => {
+                        "The role is invalid. Only admin or none is supported.".to_owned()
+                    }
                 },
             ),
             UserAdminError::NotFound => (
@@ -395,10 +408,8 @@ mod tests {
 
     #[test]
     fn locale_falls_back_to_vietnamese() {
-        let headers = HeaderMap::from_iter([(
-            header::ACCEPT_LANGUAGE,
-            HeaderValue::from_static("fr-FR"),
-        )]);
+        let headers =
+            HeaderMap::from_iter([(header::ACCEPT_LANGUAGE, HeaderValue::from_static("fr-FR"))]);
 
         assert_eq!(Locale::from_accept_language(&headers), Locale::Vi);
     }
