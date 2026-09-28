@@ -441,6 +441,7 @@ async fn auth_register_verify_code(
                 .into_response()
         }
         Err(error) => auth_error_response(error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -477,6 +478,7 @@ async fn auth_login_verify_code(
                 .into_response()
         }
         Err(error) => auth_error_response(error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -991,8 +993,8 @@ async fn auth_logout(
     let removal = Cookie::build(SESSION_COOKIE).path("/").removal().build();
 
     (
-        jar.remove(removal),
         StatusCode::OK,
+        jar.remove(removal),
         Json(ApiResponse::new(LogoutResponse { success: true })),
     )
         .into_response()
