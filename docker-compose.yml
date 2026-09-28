@@ -25,6 +25,7 @@ services:
     restart: unless-stopped
     environment:
       MINIRUST_ENV: production
+      MINIRUST_LOG_DIR: /var/log/minirust
       MINIRUST_API_HOST: 0.0.0.0
       MINIRUST_API_PORT: 3000
       MINIRUST_DATABASE_URL: mysql://${MARIADB_USER:-minirust}:${MARIADB_PASSWORD:-minirust}@mariadb:3306/${MARIADB_DATABASE:-minirust}
@@ -33,6 +34,8 @@ services:
       MINIRUST_ADMIN_OTP: ${MINIRUST_ADMIN_OTP:?MINIRUST_ADMIN_OTP must be set}
     ports:
       - "3000:3000"
+    volumes:
+      - minirust_logs:/var/log/minirust
     depends_on:
       mariadb:
         condition: service_healthy
@@ -50,10 +53,13 @@ services:
     restart: unless-stopped
     environment:
       MINIRUST_ENV: production
+      MINIRUST_LOG_DIR: /var/log/minirust
       MINIRUST_WEB_HOST: 0.0.0.0
       MINIRUST_WEB_PORT: 3001
     ports:
       - "3001:3001"
+    volumes:
+      - minirust_logs:/var/log/minirust
     depends_on:
       api:
         condition: service_healthy
@@ -66,3 +72,4 @@ services:
 
 volumes:
   mariadb_data:
+  minirust_logs:
