@@ -810,7 +810,8 @@ impl AuthRepository for Database {
         .await
         .map_err(|_| AuthError::Persistence)?;
 
-        row.map(|row| row_to_id(&row)).transpose()
+        row.map(|row| row_to_id(&row).map(|id| ChallengeRef { id }))
+            .transpose()
     }
 
     async fn consume_registration_code(
@@ -833,13 +834,15 @@ impl AuthRepository for Database {
         validate_challenge(&challenge, email, ChallengePurpose::Registration, now)?;
 
         if challenge.code_hash != code_hash {
-            return Err(record_failed_attempt(
+            let error = record_failed_attempt(
                 &mut tx,
                 challenge_id,
                 challenge.attempts,
                 challenge.max_attempts,
             )
-            .await?);
+            .await?;
+            tx.commit().await.map_err(|_| AuthError::Persistence)?;
+            return Err(error);
         }
 
         let insert = sqlx::query(
@@ -897,13 +900,15 @@ impl AuthRepository for Database {
         validate_challenge(&challenge, email, ChallengePurpose::Login, now)?;
 
         if challenge.code_hash != code_hash {
-            return Err(record_failed_attempt(
+            let error = record_failed_attempt(
                 &mut tx,
                 challenge_id,
                 challenge.attempts,
                 challenge.max_attempts,
             )
-            .await?);
+            .await?;
+            tx.commit().await.map_err(|_| AuthError::Persistence)?;
+            return Err(error);
         }
 
         let row = sqlx::query(
@@ -1082,8 +1087,6 @@ async fn record_failed_attempt(
         .execute(&mut **tx)
         .await
         .map_err(|_| AuthError::Persistence)?;
-
-    tx.commit().await.map_err(|_| AuthError::Persistence)?;
 
     if next >= max_attempts {
         Ok(AuthError::CodeAttemptsExceeded)
