@@ -35,13 +35,6 @@ default = ["ssr"]
 ssr = ["dep:axum", "dep:leptos_axum", "dep:minirust-config", "dep:tokio", "dep:tower-http", "dep:tracing", "dep:tracing-subscriber", "leptos/ssr", "leptos_axum/default", "leptos_router/ssr"]
 hydrate = ["leptos/hydrate"]
 
-[profile.wasm-release]
-inherits = "release"
-opt-level = "z"
-lto = true
-codegen-units = 1
-panic = "abort"
-
 [package.metadata.leptos]
 output-name = "minirust-web"
 site-root = "target/site"
