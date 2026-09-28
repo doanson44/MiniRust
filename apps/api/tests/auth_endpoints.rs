@@ -217,7 +217,29 @@ async fn admin_cookie(app: &TestApp) -> (String, String) {
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    let status = response.status();
+    let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "admin login verify response: {}",
+        String::from_utf8_lossy(&body)
+    );
+
+    let response = app
+        .router()
+        .oneshot(
+            Request::post("/api/v1/auth/login/verify-code")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"email":"admin@minirust.local","code":"123456"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
 
     let cookie = response
         .headers()
