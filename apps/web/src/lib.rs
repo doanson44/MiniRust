@@ -24,6 +24,8 @@ use leptos_router::{
 use minirust_core::APP_NAME;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ssr")]
+use std::net::SocketAddr;
+#[cfg(feature = "ssr")]
 use tower_http::trace::TraceLayer;
 
 const CSS: &str = include_str!("generated.css");
