@@ -15,6 +15,7 @@ RUN cd apps/web && cargo leptos build --release
 FROM debian:bookworm-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /var/log/minirust
 COPY --from=builder /app/target/server/release/minirust-web /usr/local/bin/minirust-web
 COPY --from=builder /app/target/site /app/site
 ENV LEPTOS_SITE_ROOT=/app/site
