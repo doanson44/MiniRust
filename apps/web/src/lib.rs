@@ -817,11 +817,11 @@ fn AdminPage() -> impl IntoView {
                         <tbody>
                             <For each=move || users.get() key=|user| user.id.clone() let:user>
                                 <tr class="border-t border-white/10 align-top">
-                                    <td class="px-4 py-4 text-sm text-white">{user.clone().email}</td>
+                                    <td class="px-4 py-4 text-sm text-white">{user.email.as_str().to_owned()}</td>
                                     <td class="px-4 py-4 text-sm text-slate-400">
                                         <select on:change=move |ev| {
                                             let role = event_target_value(&ev);
-                                            role_user(user.clone().email, role);
+                                            role_user(user.email.as_str().to_owned(), role);
                                         } class="rounded-lg border border-white/10 bg-slate-950 px-2 py-2">
                                             <option value="user" selected=move || !user.is_admin>"User"</option>
                                             <option value="admin" selected=move || user.is_admin>"Admin"</option>
@@ -835,22 +835,22 @@ fn AdminPage() -> impl IntoView {
                                             <button on:click=move |_| {
                                                 let value = premium_expires.get();
                                                 let timestamp = if value.is_empty() { None } else { value.parse::<i64>().ok() };
-                                                premium_user(user.clone().email, true, timestamp);
+                                                premium_user(user.email.as_str().to_owned(), true, timestamp);
                                             } class="rounded-lg bg-cyan-300/10 px-2 py-2 text-xs text-cyan-200">"Grant"</button>
-                                            <button on:click=move |_| premium_user(user.clone().email, false, None) class="rounded-lg bg-red-300/10 px-2 py-2 text-xs text-red-200">"Revoke"</button>
+                                            <button on:click=move |_| premium_user(user.email.as_str().to_owned(), false, None) class="rounded-lg bg-red-300/10 px-2 py-2 text-xs text-red-200">"Revoke"</button>
                                         </div>
                                     </td>
                                     <td class="px-4 py-4 text-sm text-slate-400">{if user.is_locked {"Locked"} else {"Active"}}</td>
                                     <td class="px-4 py-4 text-sm">
                                         <div class="flex flex-wrap gap-2">
                                             <button on:click=move |_| {
-                                                set_selected.set(Some(user.clone().email));
-                                                set_edit_email.set(user.clone().email);
+                                                set_selected.set(Some(user.email.as_str().to_owned()));
+                                                set_edit_email.set(user.email.as_str().to_owned());
                                             } class="rounded-lg border border-white/10 px-3 py-2 text-slate-300">"Edit"</button>
                                             <Show when=move || user.is_locked>
-                                                <button on:click=move |_| action_user(user.clone().email, "unlock") class="rounded-lg bg-amber-300/10 px-3 py-2 text-amber-200">"Unlock"</button>
+                                                <button on:click=move |_| action_user(user.email.as_str().to_owned(), "unlock") class="rounded-lg bg-amber-300/10 px-3 py-2 text-amber-200">"Unlock"</button>
                                             </Show>
-                                            <button on:click=move |_| action_user(user.clone().email, "delete") class="rounded-lg bg-red-300/10 px-3 py-2 text-red-200">"Delete"</button>
+                                            <button on:click=move |_| action_user(user.email.as_str().to_owned(), "delete") class="rounded-lg bg-red-300/10 px-3 py-2 text-red-200">"Delete"</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -917,7 +917,7 @@ pub fn router(state: AppState) -> Router {
             let options = state.leptos_options.clone();
             move || shell(options.clone())
         })
-        .fallback(leptos_axum::file_and_error_handler(shell))
+        .fallback(leptos_axum::file_and_error_handler::<AppState, _>(shell))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
