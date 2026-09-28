@@ -58,6 +58,7 @@ impl std::fmt::Display for UserAdminError {
 
 impl std::error::Error for UserAdminError {}
 
+#[allow(async_fn_in_trait)]
 pub trait UserAdminRepository: Clone + Send + Sync + 'static {
     async fn create_user(
         &self,

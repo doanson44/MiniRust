@@ -108,6 +108,7 @@ pub struct Challenge {
     pub max_attempts: u8,
 }
 
+#[allow(async_fn_in_trait)]
 pub trait AuthRepository: Clone + Send + Sync + 'static {
     async fn user_exists(&self, email: &str) -> Result<bool, AuthError>;
     async fn is_bootstrap_admin(&self, email: &str) -> Result<bool, AuthError>;
@@ -159,6 +160,7 @@ pub trait AuthRepository: Clone + Send + Sync + 'static {
     async fn discard_challenge(&self, challenge_id: EntityId) -> Result<(), AuthError>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait EmailSender: Clone + Send + Sync + 'static {
     async fn send_verification_code(
         &self,
