@@ -286,7 +286,10 @@ impl UserAdminRepository for Database {
         .bind(now)
         .fetch_all(&self.pool)
         .await
-        .map_err(|_| UserAdminError::Persistence)?;
+        .map_err(|error| {
+            error!(%error, "failed to list users");
+            UserAdminError::Persistence
+        })?;
 
         rows.into_iter()
             .map(|row| row_to_user(&row).map_err(|_| UserAdminError::Persistence))
@@ -660,43 +663,6 @@ impl UserAdminRepository for Database {
         Ok(user)
     }
 
-    async fn delete_user_by_id(&self, user_id: EntityId) -> Result<(), UserAdminError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-        let row = sqlx::query("SELECT bootstrap_admin FROM users WHERE id = ? FOR UPDATE")
-            .bind(user_id.as_uuid().as_bytes().as_slice())
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|_| UserAdminError::Persistence)?
-            .ok_or(UserAdminError::NotFound)?;
-
-        if row
-            .try_get::<i64, _>("bootstrap_admin")
-            .map_err(|_| UserAdminError::Persistence)?
-            != 0
-        {
-            return Err(UserAdminError::ProtectedUser);
-        }
-
-        sqlx::query(
-            "DELETE FROM auth_challenges WHERE email = (SELECT email FROM users WHERE id = ?)",
-        )
-        .bind(user_id.as_uuid().as_bytes().as_slice())
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?;
-
-        sqlx::query("DELETE FROM users WHERE id = ?")
-            .bind(user_id.as_uuid().as_bytes().as_slice())
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-
-        tx.commit().await.map_err(|_| UserAdminError::Persistence)
-    }
 }
 
 impl AuthRepository for Database {
