@@ -35,7 +35,6 @@ Do not put business rules, repository calls, or SQL in the Axum handler.
 | GET | `/health` | Infrastructure health check |
 | GET | `/api/v1/hello` | Query |
 | POST | `/api/v1/echo` | Command |
-| POST | `/api/v1/search` | Search query |
 
 ## Response contract
 
