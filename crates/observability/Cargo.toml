@@ -1,0 +1,11 @@
+[package]
+name = "minirust-observability"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Shared application observability and logging"
+
+[dependencies]
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
