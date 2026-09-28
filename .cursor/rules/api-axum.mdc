@@ -9,6 +9,7 @@ alwaysApply: false
 Bind from `minirust_config` (`ServerKind::Api`). Default development address is `127.0.0.1:3000`.
 
 - Keep routes in `router()`.
+- Search endpoints MUST use `POST`, even when the operation is read-only. Put search criteria in the request body; do not expose search criteria through `GET` query parameters.
 - Handlers map HTTP input to a command/query and application results back to HTTP.
 - Do not put business rules, repository calls, or SQL in handlers.
 - Successful JSON API responses use `{ "data": ... }`.
