@@ -411,8 +411,8 @@ async fn auth_login_request_code(
 async fn auth_register_verify_code(
     headers: HeaderMap,
     State(state): State<AppState>,
-    body: Result<Json<AuthVerifyRequest>, JsonRejection>,
     jar: CookieJar,
+    body: Result<Json<AuthVerifyRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     let Json(body) = match body {
@@ -448,8 +448,8 @@ async fn auth_register_verify_code(
 async fn auth_login_verify_code(
     headers: HeaderMap,
     State(state): State<AppState>,
-    body: Result<Json<AuthVerifyRequest>, JsonRejection>,
     jar: CookieJar,
+    body: Result<Json<AuthVerifyRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     let Json(body) = match body {
