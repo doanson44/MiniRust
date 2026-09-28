@@ -34,7 +34,7 @@ struct TestDatabase {
 
 async fn test_app() -> TestApp {
     let container = GenericImage::new("mariadb", "11")
-        .with_wait_for(WaitFor::message_on_stdout("ready for connections"))
+        .with_wait_for(WaitFor::message_on_stderr("ready for connections"))
         .with_exposed_port(3306.tcp())
         .with_env_var("MARIADB_DATABASE", "minirust_test")
         .with_env_var("MARIADB_USER", "minirust_test")
