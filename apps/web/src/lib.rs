@@ -11,8 +11,6 @@ use axum::routing::get;
 #[cfg(feature = "ssr")]
 use axum::Router;
 #[cfg(feature = "ssr")]
-use std::net::SocketAddr;
-#[cfg(feature = "ssr")]
 use leptos::config::LeptosOptions;
 use leptos::prelude::*;
 #[cfg(feature = "ssr")]
@@ -23,6 +21,8 @@ use leptos_router::{
 };
 use minirust_core::APP_NAME;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ssr")]
+use std::net::SocketAddr;
 #[cfg(feature = "ssr")]
 use tower_http::trace::TraceLayer;
 
