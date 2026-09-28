@@ -615,13 +615,13 @@ async fn admin_users_create(
     }
 }
 
-fn parse_user_id(value: &str, locale: Locale) -> Result<EntityId, axum::response::Response> {
+fn parse_user_id(value: &str, locale: Locale) -> Result<EntityId, ProblemDetails> {
     let uuid = match Uuid::parse_str(value) {
         Ok(uuid) => uuid,
-        Err(_) => return Err(ProblemDetails::bad_request(locale).into_response()),
+        Err(_) => return Err(ProblemDetails::bad_request(locale)),
     };
 
-    EntityId::from_uuid(uuid).ok_or_else(|| ProblemDetails::bad_request(locale).into_response())
+    EntityId::from_uuid(uuid).ok_or_else(|| ProblemDetails::bad_request(locale))
 }
 
 async fn admin_user_get(
@@ -637,7 +637,7 @@ async fn admin_user_get(
 
     let user_id = match parse_user_id(&user_id_value, locale) {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
 
     match state
