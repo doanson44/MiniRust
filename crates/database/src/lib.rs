@@ -965,7 +965,7 @@ impl AuthRepository for Database {
 
 struct StoredChallenge {
     email: String,
-    purpose: String,
+    purpose: ChallengePurpose,
     code_hash: [u8; 32],
     attempts: u8,
     max_attempts: u8,
@@ -995,7 +995,9 @@ async fn lock_challenge(
 
     Ok(StoredChallenge {
         email: row.try_get("email").map_err(|_| AuthError::Persistence)?,
-        purpose: row.try_get("purpose").map_err(|_| AuthError::Persistence)?,
+        purpose: ChallengePurpose::parse(
+            &row.try_get::<String, _>("purpose").map_err(|_| AuthError::Persistence)?,
+        )?,
         code_hash,
         attempts: row
             .try_get("attempts")
@@ -1015,7 +1017,7 @@ fn validate_challenge(
     purpose: ChallengePurpose,
     now: i64,
 ) -> Result<(), AuthError> {
-    if challenge.email != email || challenge.purpose != purpose.as_str() {
+    if challenge.email != email || challenge.purpose != purpose {
         return Err(AuthError::InvalidCode);
     }
     if challenge.expires_at <= now {
