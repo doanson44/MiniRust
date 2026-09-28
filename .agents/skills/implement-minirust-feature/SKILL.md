@@ -50,6 +50,7 @@ The current application package is `crates/services`; its internal structure is 
 
 - Axum/Leptos handlers translate transport data into commands or queries.
 - Handlers contain no business rules.
+- Search endpoints MUST use HTTP `POST`, even when they are CQRS queries. Put search criteria in the request body rather than `GET` query parameters.
 - Map application/domain errors at the transport boundary.
 
 ### Web presentation
