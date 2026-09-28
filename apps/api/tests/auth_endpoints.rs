@@ -329,7 +329,9 @@ async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
         .await
         .unwrap();
     let lock_status = lock.status();
-    let lock_body = axum::body::to_bytes(lock.into_body(), 1024 * 1024).await.unwrap();
+    let lock_body = axum::body::to_bytes(lock.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
     assert_eq!(
         lock_status,
         StatusCode::CONFLICT,
@@ -423,7 +425,9 @@ async fn admin_user_crud_and_role_assignment() {
         .await
         .unwrap();
     let assign_status = assign.status();
-    let assign_body = axum::body::to_bytes(assign.into_body(), 1024 * 1024).await.unwrap();
+    let assign_body = axum::body::to_bytes(assign.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
     assert_eq!(
         assign_status,
         StatusCode::OK,
