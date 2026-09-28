@@ -997,8 +997,7 @@ async fn lock_challenge(
     Ok(StoredChallenge {
         email: row.try_get("email").map_err(|_| AuthError::Persistence)?,
         purpose: ChallengePurpose::parse(
-            &row
-                .try_get::<String, _>("purpose")
+            &row.try_get::<String, _>("purpose")
                 .map_err(|_| AuthError::Persistence)?,
         )?,
         code_hash,
