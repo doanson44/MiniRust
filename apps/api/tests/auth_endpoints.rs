@@ -337,7 +337,7 @@ async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
 #[tokio::test]
 async fn admin_user_crud_and_role_assignment() {
     let app = test_app().await;
-    let (cookie, admin_id) = admin_cookie(&app).await;
+    let (cookie, _admin_id) = admin_cookie(&app).await;
 
     let list = app
         .router()
