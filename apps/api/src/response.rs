@@ -334,7 +334,6 @@ impl ProblemDetails {
         }
     }
 
-
     pub fn rate_limited(locale: Locale) -> Self {
         Self {
             problem_type: "https://minirust.dev/problems/rate-limit",
