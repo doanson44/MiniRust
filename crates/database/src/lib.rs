@@ -1116,9 +1116,9 @@ fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, AuthError> {
             .try_get("avatar_url")
             .map_err(|_| AuthError::Persistence)?,
         is_locked: row
-            .try_get::<Option<i64>, _>("locked_at")
+            .try_get::<i64, _>("is_locked")
             .map_err(|_| AuthError::Persistence)?
-            .is_some(),
+            != 0,
         is_admin: row
             .try_get::<i64, _>("is_admin")
             .map_err(|_| AuthError::Persistence)?
