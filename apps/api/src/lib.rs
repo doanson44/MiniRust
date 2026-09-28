@@ -956,7 +956,7 @@ async fn user_lock(
     {
         Ok(UserAdminCommandResult::Locked) => (
             StatusCode::OK,
-            jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
+            jar.remove(Cookie::build(SESSION_COOKIE).path("/").build()),
             Json(ApiResponse::new(AccountActionResponse { success: true })),
         )
             .into_response(),
@@ -983,7 +983,7 @@ async fn user_delete(
     {
         Ok(UserAdminCommandResult::Deleted) => (
             StatusCode::OK,
-            jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
+            jar.remove(Cookie::build(SESSION_COOKIE).path("/").build()),
             Json(ApiResponse::new(AccountActionResponse { success: true })),
         )
             .into_response(),
@@ -1030,7 +1030,7 @@ async fn auth_logout(
         }
     }
 
-    let removal = Cookie::build(SESSION_COOKIE).path("/").removal().build();
+    let removal = Cookie::build(SESSION_COOKIE).path("/").build();
 
     (
         StatusCode::OK,
