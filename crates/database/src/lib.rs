@@ -686,7 +686,7 @@ impl AuthRepository for Database {
                     .fetch_optional(&self.pool)
                     .await
                     .map_err(|_| AuthError::Persistence)?
-                    .unwrap_or(0);
+                    .unwrap_or(false);
 
             if bootstrap_admin {
                 return Ok(());
