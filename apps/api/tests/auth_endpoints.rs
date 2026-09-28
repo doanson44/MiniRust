@@ -337,7 +337,7 @@ async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
 #[tokio::test]
 async fn admin_user_crud_and_role_assignment() {
     let app = test_app().await;
-    let (cookie, _admin_id) = admin_cookie(&app).await;
+    let (cookie, admin_id) = admin_cookie(&app).await;
 
     let list = app
         .router()
@@ -436,7 +436,7 @@ async fn admin_user_crud_and_role_assignment() {
     let remove_premium = app
         .router()
         .oneshot(
-            Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
+            Request::put(format!("/api/v1/admin/users/{user_id}/entitlements/premium"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(r#"{"active":false,"expires_at":null}"#))
@@ -449,7 +449,7 @@ async fn admin_user_crud_and_role_assignment() {
     let invalid_expiry = app
         .router()
         .oneshot(
-            Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
+            Request::put(format!("/api/v1/admin/users/{user_id}/entitlements/premium"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(r#"{"active":true,"expires_at":1}"#))
@@ -474,7 +474,7 @@ async fn admin_user_crud_and_role_assignment() {
     let remove_role = app
         .router()
         .oneshot(
-            Request::put("/api/v1/admin/users/updated@example.com/role")
+            Request::put(format!("/api/v1/admin/users/{user_id}/role"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(r#"{"role":"none"}"#))
