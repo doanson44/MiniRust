@@ -226,51 +226,34 @@ impl UserAdminRepository for Database {
     }
 
     async fn find_user(&self, email: &str) -> Result<Option<UserAccess>, UserAdminError> {
-        let row = sqlx::query(
-            "SELECT id
-             FROM users
-             WHERE email = ?
-             LIMIT 1",
-        )
-        .bind(email)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?;
+        let row = sqlx::query("SELECT id FROM users WHERE email = ? LIMIT 1")
+            .bind(email)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
 
         let Some(row) = row else {
             return Ok(None);
         };
 
         let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
+        self.find_user_by_id(user_id).await
+    }
+
+    async fn find_user_by_id(
+        &self,
+        user_id: EntityId,
+    ) -> Result<Option<UserAccess>, UserAdminError> {
         let now = current_epoch();
-        let row = sqlx::query(
-            r#"
-                SELECT
-                    u.id,
-                    u.email,
-                    u.full_name,
-                    u.avatar_url,
-                    u.locked_at,
-                    EXISTS(
-                        SELECT 1 FROM user_roles ur
-                        WHERE ur.user_id = u.id AND ur.role = 'admin'
-                    ) AS is_admin,
-                    EXISTS(
-                        SELECT 1 FROM user_entitlements ue
-                        WHERE ue.user_id = u.id
-                          AND ue.entitlement = 'premium'
-                          AND ue.active = 1
-                          AND (ue.expires_at IS NULL OR ue.expires_at > ?)
-                    ) AS is_premium
-                FROM users u
-                WHERE u.id = ?
-            "#,
-        )
-        .bind(now)
-        .bind(user_id.as_uuid().as_bytes().as_slice())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?;
+        let row = sqlx::query(Self::user_query())
+            .bind(now)
+            .bind(user_id.as_uuid().as_bytes().as_slice())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|error| {
+                error!(%error, "failed to find user by id");
+                UserAdminError::Persistence
+            })?;
 
         row.map(|row| row_to_user(&row).map_err(|_| UserAdminError::Persistence))
             .transpose()
@@ -312,7 +295,7 @@ impl UserAdminRepository for Database {
 
     async fn update_user_email(
         &self,
-        current_email: &str,
+        user_id: EntityId,
         new_email: &str,
     ) -> Result<UserAccess, UserAdminError> {
         let mut tx = self
@@ -322,18 +305,20 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?;
 
         let row = sqlx::query(
-            "SELECT id, bootstrap_admin
+            "SELECT email, bootstrap_admin
              FROM users
-             WHERE email = ?
+             WHERE id = ?
              FOR UPDATE",
         )
-        .bind(current_email)
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .fetch_optional(&mut *tx)
         .await
         .map_err(|_| UserAdminError::Persistence)?
         .ok_or(UserAdminError::NotFound)?;
 
-        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
+        let current_email = row
+            .try_get::<String, _>("email")
+            .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
             .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
@@ -378,7 +363,7 @@ impl UserAdminRepository for Database {
         Ok(user)
     }
 
-    async fn delete_user(&self, email: &str) -> Result<(), UserAdminError> {
+    async fn delete_user(&self, user_id: EntityId) -> Result<(), UserAdminError> {
         let mut tx = self
             .pool
             .begin()
@@ -386,18 +371,20 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?;
 
         let row = sqlx::query(
-            "SELECT id, bootstrap_admin
+            "SELECT email, bootstrap_admin
              FROM users
-             WHERE email = ?
+             WHERE id = ?
              FOR UPDATE",
         )
-        .bind(email)
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .fetch_optional(&mut *tx)
         .await
         .map_err(|_| UserAdminError::Persistence)?
         .ok_or(UserAdminError::NotFound)?;
 
-        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
+        let email = row
+            .try_get::<String, _>("email")
+            .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
             .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
@@ -424,7 +411,7 @@ impl UserAdminRepository for Database {
 
     async fn set_admin_role(
         &self,
-        email: &str,
+        user_id: EntityId,
         role: AdminUserRole,
     ) -> Result<UserAccess, UserAdminError> {
         let mut tx = self
@@ -434,18 +421,17 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?;
 
         let row = sqlx::query(
-            "SELECT id, bootstrap_admin
+            "SELECT bootstrap_admin
              FROM users
-             WHERE email = ?
+             WHERE id = ?
              FOR UPDATE",
         )
-        .bind(email)
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .fetch_optional(&mut *tx)
         .await
         .map_err(|_| UserAdminError::Persistence)?
         .ok_or(UserAdminError::NotFound)?;
 
-        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
             .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
@@ -487,16 +473,16 @@ impl UserAdminRepository for Database {
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
         Ok(user)
     }
-    async fn get_premium(&self, email: &str) -> Result<PremiumEntitlement, UserAdminError> {
+    async fn get_premium(&self, user_id: EntityId) -> Result<PremiumEntitlement, UserAdminError> {
         let row = sqlx::query(
             "SELECT ue.active, ue.expires_at
              FROM users u
              LEFT JOIN user_entitlements ue
                ON ue.user_id = u.id AND ue.entitlement = 'premium'
-             WHERE u.email = ?
+             WHERE u.id = ?
              LIMIT 1",
         )
-        .bind(email)
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .fetch_optional(&self.pool)
         .await
         .map_err(|_| UserAdminError::Persistence)?
@@ -514,13 +500,13 @@ impl UserAdminRepository for Database {
         })
     }
 
-    async fn revoke_premium(&self, email: &str) -> Result<UserAccess, UserAdminError> {
-        self.set_premium(email, false, None).await
+    async fn revoke_premium(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError> {
+        self.set_premium(user_id, false, None).await
     }
 
     async fn set_premium(
         &self,
-        email: &str,
+        user_id: EntityId,
         active: bool,
         expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError> {
@@ -533,16 +519,14 @@ impl UserAdminRepository for Database {
         let row = sqlx::query(
             "SELECT id
              FROM users
-             WHERE email = ?
+             WHERE id = ?
              FOR UPDATE",
         )
-        .bind(email)
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .fetch_optional(&mut *tx)
         .await
         .map_err(|_| UserAdminError::Persistence)?
         .ok_or(UserAdminError::NotFound)?;
-
-        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
 
         sqlx::query(
             "INSERT INTO user_entitlements (user_id, entitlement, active, expires_at)
@@ -650,20 +634,18 @@ impl UserAdminRepository for Database {
         tx.commit().await.map_err(|_| UserAdminError::Persistence)
     }
 
-    async fn unlock_user(&self, email: &str) -> Result<UserAccess, UserAdminError> {
+    async fn unlock_user(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(|_| UserAdminError::Persistence)?;
-        let row = sqlx::query("SELECT id FROM users WHERE email = ? FOR UPDATE")
-            .bind(email)
+        let row = sqlx::query("SELECT id FROM users WHERE id = ? FOR UPDATE")
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .fetch_optional(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?
             .ok_or(UserAdminError::NotFound)?;
-        let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
-
         sqlx::query("UPDATE users SET locked_at = NULL WHERE id = ?")
             .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
