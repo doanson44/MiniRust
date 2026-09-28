@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-use crate::api::{api_empty, api_json};
+#[cfg(feature = "hydrate")] use crate::api::{api_empty, api_json};
 use crate::types::UserResponse;
 
 #[component]
@@ -102,7 +102,9 @@ pub fn AppPage() -> impl IntoView {
                 </section>
 
                 <Show when=move || user.get().is_some()>
-                    {move || user.get().map(|u| view! {
+                    {move || {
+                        let u = user.get().unwrap();
+                        view! {
                         <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
                             <h2 class="text-xl font-bold text-white">"Account info"</h2>
                             <dl class="mt-4 space-y-2 text-sm">
@@ -112,7 +114,8 @@ pub fn AppPage() -> impl IntoView {
                                 <div class="flex gap-4"><dt class="w-28 text-slate-500">"Status"</dt><dd class="text-white">{if u.is_locked { "Locked" } else { "Active" }}</dd></div>
                             </dl>
                         </section>
-                    }).unwrap_or_else(|| view! { <div/> })}
+                        }
+                    }}
                 </Show>
 
                 <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
