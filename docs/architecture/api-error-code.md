@@ -183,3 +183,4 @@ FORBIDDEN
 ```
 
 `FORBIDDEN` is returned when the caller is authenticated but does not have the admin system role.
+\n## Testing implications\n\nThe stable machine-readable `code` is part of the API contract; localized `detail` is presentation text. Ordinary integration tests should therefore assert HTTP status and the relevant stable `code`, not localized wording. This allows translations and human-readable messages to change without breaking behavioral tests.\n\nTests for localization or exact Problem Details presentation may assert `detail` deliberately when that presentation itself is the behavior under test. Such tests are exceptions and should be scoped to the localization/response contract rather than repeated across endpoint scenarios.\n
