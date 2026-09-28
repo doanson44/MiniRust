@@ -1114,13 +1114,11 @@ fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, AuthError> {
             .map_err(|_| AuthError::Persistence)?
             .is_some(),
         is_admin: row
-            .try_get::<i64, _>("is_admin")
-            .map_err(|_| AuthError::Persistence)?
-            != 0,
+            .try_get::<bool, _>("is_admin")
+            .map_err(|_| AuthError::Persistence)?,
         is_premium: row
-            .try_get::<i64, _>("is_premium")
-            .map_err(|_| AuthError::Persistence)?
-            != 0,
+            .try_get::<bool, _>("is_premium")
+            .map_err(|_| AuthError::Persistence)?,
     })
 }
 
