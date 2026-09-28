@@ -660,7 +660,7 @@ async fn admin_user_update(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
-    Path(email): Path<String>,
+    Path(user_id_value): Path<String>,
     body: Result<Json<AdminUpdateUserRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
@@ -700,7 +700,7 @@ async fn admin_user_unlock(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
-    Path(email): Path<String>,
+    Path(user_id_value): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     let user_id = match parse_user_id(&user_id_value, locale) {
@@ -731,7 +731,7 @@ async fn admin_user_delete(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
-    Path(email): Path<String>,
+    Path(user_id_value): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     let user_id = match parse_user_id(&user_id_value, locale) {
@@ -758,7 +758,7 @@ async fn admin_user_get_premium(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
-    Path(email): Path<String>,
+    Path(user_id_value): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     let user_id = match parse_user_id(&user_id_value, locale) {
@@ -792,7 +792,7 @@ async fn admin_user_revoke_premium(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
-    Path(email): Path<String>,
+    Path(user_id_value): Path<String>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     let user_id = match parse_user_id(&user_id_value, locale) {
@@ -823,7 +823,7 @@ async fn admin_user_set_premium(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
-    Path(email): Path<String>,
+    Path(user_id_value): Path<String>,
     body: Result<Json<AdminPremiumRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
@@ -864,7 +864,7 @@ async fn admin_user_assign_role(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
-    Path(email): Path<String>,
+    Path(user_id_value): Path<String>,
     body: Result<Json<AdminAssignRoleRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
@@ -978,7 +978,7 @@ async fn user_delete(
 
     match state
         .user_commands
-        .handle(UserAdminCommand::DeleteUserById { user_id: user.id })
+        .handle(UserAdminCommand::DeleteUser { user_id: user.id })
         .await
     {
         Ok(UserAdminCommandResult::Deleted) => (
@@ -1059,10 +1059,10 @@ async fn openapi() -> impl IntoResponse {
                 "/api/v1/users/me": { "patch": { "summary": "Update current user profile", "responses": { "200": { "description": "Profile updated" }, "401": { "description": "Authentication required" }, "422": { "description": "Invalid profile data" } } }, "delete": { "summary": "Delete current user account", "responses": { "200": { "description": "Account deleted" }, "401": { "description": "Authentication required" } } } },
                 "/api/v1/users/me/lock": { "post": { "summary": "Lock current user account", "responses": { "200": { "description": "Account locked" }, "401": { "description": "Authentication required" } } } },
                 "/api/v1/admin/users": { "get": { "summary": "List users (admin only)", "responses": { "200": { "description": "Users" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } }, "post": { "summary": "Create user by email (admin only)", "responses": { "201": { "description": "User created" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } } },
-                "/api/v1/admin/users/{email}": { "get": { "summary": "Get user by email (admin only)", "responses": { "200": { "description": "User" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } }, "patch": { "summary": "Update user email (admin only)", "responses": { "200": { "description": "User updated" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "409": { "description": "Email already exists or protected user" } } }, "delete": { "summary": "Delete user by email (admin only)", "responses": { "204": { "description": "User deleted" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
-                "/api/v1/admin/users/{email}/unlock": { "post": { "summary": "Unlock user account (admin only)", "responses": { "200": { "description": "User unlocked" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
-                "/api/v1/admin/users/{email}/role": { "put": { "summary": "Assign or remove admin role (admin only)", "responses": { "200": { "description": "User role updated" }, "403": { "description": "Admin role required" }, "422": { "description": "Invalid role" } } } },
-                "/api/v1/admin/users/{email}/entitlements/premium": { "get": { "summary": "Get premium entitlement (admin only)", "responses": { "200": { "description": "Premium entitlement" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } }, "put": { "summary": "Assign premium entitlement (admin only)", "responses": { "200": { "description": "Premium entitlement updated" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" }, "422": { "description": "Invalid premium expiry" } } }, "delete": { "summary": "Revoke premium entitlement (admin only)", "responses": { "200": { "description": "Premium entitlement revoked" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } }
+                "/api/v1/admin/users/{user_id}": { "get": { "summary": "Get user by id (admin only)", "responses": { "200": { "description": "User" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } }, "patch": { "summary": "Update user email by user id (admin only)", "responses": { "200": { "description": "User updated" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "409": { "description": "Email already exists or protected user" } } }, "delete": { "summary": "Delete user by user id (admin only)", "responses": { "204": { "description": "User deleted" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
+                "/api/v1/admin/users/{user_id}/unlock": { "post": { "summary": "Unlock user account by user id (admin only)", "responses": { "200": { "description": "User unlocked" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
+                "/api/v1/admin/users/{user_id}/role": { "put": { "summary": "Assign or remove admin role by user id (admin only)", "responses": { "200": { "description": "User role updated" }, "403": { "description": "Admin role required" }, "422": { "description": "Invalid role" } } } },
+                "/api/v1/admin/users/{user_id}/entitlements/premium": { "get": { "summary": "Get premium entitlement by user id (admin only)", "responses": { "200": { "description": "Premium entitlement" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } }, "put": { "summary": "Assign premium entitlement by user id (admin only)", "responses": { "200": { "description": "Premium entitlement updated" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" }, "422": { "description": "Invalid premium expiry" } } }, "delete": { "summary": "Revoke premium entitlement by user id (admin only)", "responses": { "200": { "description": "Premium entitlement revoked" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } }
             }
         })),
     )
