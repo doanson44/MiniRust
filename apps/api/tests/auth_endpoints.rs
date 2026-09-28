@@ -255,7 +255,9 @@ async fn authenticated_user_can_update_profile() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK);
+    let status = response.status();
+    let body = axum::body::to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    assert_eq!(status, StatusCode::OK, "profile update response: {}", String::from_utf8_lossy(&body));
 
     let me = app
         .router()
