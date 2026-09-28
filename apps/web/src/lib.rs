@@ -227,7 +227,14 @@ async fn api_request(
     path: &str,
     body: Option<String>,
 ) -> Result<gloo_net::http::Response, String> {
-    let mut request = gloo_net::http::Request::new(path).method(method);
+    let mut request = match method {
+        gloo_net::http::Method::GET => gloo_net::http::Request::get(path),
+        gloo_net::http::Method::POST => gloo_net::http::Request::post(path),
+        gloo_net::http::Method::PATCH => gloo_net::http::Request::patch(path),
+        gloo_net::http::Method::PUT => gloo_net::http::Request::put(path),
+        gloo_net::http::Method::DELETE => gloo_net::http::Request::delete(path),
+        _ => return Err("Unsupported HTTP method.".to_owned()),
+    };
     if let Some(body) = body {
         request = request
             .header("Content-Type", "application/json")
