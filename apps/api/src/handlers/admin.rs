@@ -9,9 +9,9 @@ use minirust_services::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::handlers::auth::authorize_admin;
 use crate::response::{ApiResponse, Locale, ProblemDetails};
 use crate::{auth_user_response, json_rejection_response, parse_user_id, AppState};
-use crate::handlers::auth::authorize_admin;
 
 #[derive(Deserialize)]
 pub(crate) struct AdminCreateUserRequest {

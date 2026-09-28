@@ -44,20 +44,14 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/users/me", patch(user::profile_update))
         .route("/api/v1/users/me/lock", post(user::lock))
         .route("/api/v1/users/me", delete(user::delete))
-        .route(
-            "/api/v1/admin/users",
-            get(admin::list).post(admin::create),
-        )
+        .route("/api/v1/admin/users", get(admin::list).post(admin::create))
         .route(
             "/api/v1/admin/users/{user_id}",
             get(admin::get)
                 .patch(admin::update)
                 .delete(admin::delete_user),
         )
-        .route(
-            "/api/v1/admin/users/{user_id}/unlock",
-            post(admin::unlock),
-        )
+        .route("/api/v1/admin/users/{user_id}/unlock", post(admin::unlock))
         .route(
             "/api/v1/admin/users/{user_id}/role",
             put(admin::assign_role),

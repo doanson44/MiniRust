@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 
-#[cfg(feature = "hydrate")] use crate::api::{api_empty, api_json};
+#[cfg(feature = "hydrate")]
+use crate::api::{api_empty, api_json};
 use crate::types::{UserListResponse, UserResponse};
 
 #[component]
@@ -17,8 +18,6 @@ pub fn AdminPage() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     {
         leptos::task::spawn_local({
-            let set_users = set_users.clone();
-            let set_status = set_status.clone();
             async move {
                 match api_json::<UserListResponse>(
                     gloo_net::http::Method::GET,
@@ -37,8 +36,6 @@ pub fn AdminPage() -> impl IntoView {
     let reload_users = move || {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local({
-            let set_users = set_users.clone();
-            let set_status = set_status.clone();
             async move {
                 match api_json::<UserListResponse>(
                     gloo_net::http::Method::GET,
@@ -129,9 +126,7 @@ pub fn AdminPage() -> impl IntoView {
                 api_json::<UserResponse>(
                     gloo_net::http::Method::PUT,
                     &format!("/api/v1/admin/users/{}/entitlements/premium", user.id),
-                    Some(
-                        serde_json::json!({ "active": true, "expires_at": expires }).to_string(),
-                    ),
+                    Some(serde_json::json!({ "active": true, "expires_at": expires }).to_string()),
                 )
                 .await
             } else {

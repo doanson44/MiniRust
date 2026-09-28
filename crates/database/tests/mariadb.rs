@@ -22,7 +22,18 @@ async fn database_connects_to_mariadb_running_in_docker() -> Result<(), Box<dyn 
     let port = container.get_host_port_ipv4(3306).await?;
     let url = format!("mysql://minirust:minirust@{host}:{port}/minirust_test");
 
-    let database = Database::connect(&url).await?;
+    let mut retries = 5;
+    let database = loop {
+        match Database::connect(&url).await {
+            Ok(db) => break db,
+            Err(e) if retries > 0 => {
+                retries -= 1;
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            }
+            Err(e) => return Err(e.into()),
+        }
+    };
+    
     database.health().await?;
 
     Ok(())

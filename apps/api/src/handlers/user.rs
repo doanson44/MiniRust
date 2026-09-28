@@ -7,9 +7,9 @@ use minirust_services::cqrs::AsyncCommandHandler;
 use minirust_services::{UserAdminCommand, UserAdminCommandResult};
 use serde::{Deserialize, Serialize};
 
+use crate::handlers::auth::{current_authenticated_user, SESSION_COOKIE};
 use crate::response::{ApiResponse, Locale, ProblemDetails};
 use crate::{auth_user_response, json_rejection_response, AppState};
-use crate::handlers::auth::{current_authenticated_user, SESSION_COOKIE};
 use axum::extract::rejection::JsonRejection;
 
 #[derive(Deserialize)]

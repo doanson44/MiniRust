@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 
-#[cfg(feature = "hydrate")] use crate::api::{api_empty, api_json};
+#[cfg(feature = "hydrate")]
+use crate::api::{api_empty, api_json};
 use crate::types::UserResponse;
 
 #[component]
@@ -14,10 +15,10 @@ pub fn AppPage() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     {
         leptos::task::spawn_local({
-            let set_user = set_user.clone();
-            let set_status = set_status.clone();
             async move {
-                match api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None).await {
+                match api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None)
+                    .await
+                {
                     Ok(user) => {
                         set_full_name.set(user.full_name.clone().unwrap_or_default());
                         set_avatar_url.set(user.avatar_url.clone().unwrap_or_default());

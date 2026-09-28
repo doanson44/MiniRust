@@ -4,8 +4,8 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-mod response;
 mod handlers;
+mod response;
 
 use axum::extract::rejection::JsonRejection;
 use axum::http::StatusCode;
@@ -13,8 +13,8 @@ use axum::http::StatusCode;
 use minirust_core::{AppError, EntityId};
 use minirust_database::Database;
 use minirust_services::{
-    AuthError, AuthCommandHandler, AuthQueryHandler, AuthService,
-    UnavailableEmailSender, UserAdminCommandHandler, UserAdminQueryHandler, UserAdminService,
+    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService, UnavailableEmailSender,
+    UserAdminCommandHandler, UserAdminQueryHandler, UserAdminService,
 };
 use minirust_services::{EchoCommandHandler, GreetingQueryHandler};
 use response::{Locale, ProblemDetails};
