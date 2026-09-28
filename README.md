@@ -61,7 +61,8 @@ The current baseline demonstrates both sides of CQRS:
 
 ## Frontend policy
 
-- Leptos full-stack SSR + client-side hydration is the web rendering model.\n- The server renders the initial HTML; `cargo-leptos` builds the browser WASM/JS bundle used to hydrate the same component tree.\n- Interactive frontend behavior belongs in Leptos components; inline JavaScript is not part of the frontend architecture.
+- Leptos full-stack SSR + client-side hydration is the web rendering model.
+- The server renders the initial HTML; `cargo-leptos` builds the browser WASM/JS bundle used to hydrate the same component tree.\n- Interactive frontend behavior belongs in Leptos components; inline JavaScript is not part of the frontend architecture.
 - Tailwind CSS is the only CSS framework.
 - Bootstrap must not be introduced or preserved as a compatibility layer.
 
@@ -72,7 +73,20 @@ API (`http://127.0.0.1:3000`):
 - `GET /health` — live MariaDB connectivity check. Returns `200` when the database is reachable and `503` otherwise.
 - `GET /api/v1/hello` — greeting query.
 - `POST /api/v1/echo` — echo command.
-- `GET /api/v1/auth/me` — current authenticated user and profile
+- `GET /api/v1/auth/me` — current authenticated user and profile.
+- `PATCH /api/v1/users/me` — update full name and avatar URL.
+- `POST /api/v1/users/me/lock` — lock current account.
+- `DELETE /api/v1/users/me` — permanently delete current account.
+- `GET /api/v1/admin/users` — list users; admin only.
+- `POST /api/v1/admin/users` — create user; admin only.
+- `GET /api/v1/admin/users/{user_id}` — read user; admin only.
+- `PATCH /api/v1/admin/users/{user_id}` — update user; admin only.
+- `DELETE /api/v1/admin/users/{user_id}` — delete user; admin only.
+- `POST /api/v1/admin/users/{user_id}/unlock` — unlock user; admin only.
+- `PUT /api/v1/admin/users/{user_id}/role` — assign/remove admin role.
+- `GET /api/v1/admin/users/{user_id}/entitlements/premium` — read premium entitlement.
+- `PUT /api/v1/admin/users/{user_id}/entitlements/premium` — grant/update premium entitlement.
+- `DELETE /api/v1/admin/users/{user_id}/entitlements/premium` — revoke premium entitlement.
 - `PATCH /api/v1/users/me` — update full name and avatar URL
 - `POST /api/v1/users/me/lock` — lock current account
 - `DELETE /api/v1/users/me` — permanently delete current account
@@ -107,6 +121,13 @@ cargo test --workspace --all-targets
 Docker must be running when database integration tests execute. No separate test Compose command or pre-created test database is required.
 
 ## Environment
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MINIRUST_AUTH_SECRET` | required | Authentication/session secret |
+| `MINIRUST_ADMIN_EMAIL` | `admin@minirust.local` in development | Bootstrap administrator email |
+| `MINIRUST_ADMIN_OTP` | `123456` in development | Bootstrap administrator OTP |
+| `MINIRUST_DOMAIN` | required by production Compose | Public HTTPS domain for Caddy |
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -194,7 +215,9 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml down -v
 
 ## Verification
 
-The CI pipeline runs:
+The repository currently has two GitHub Actions workflows. The main `CI` workflow also installs Rust 1.90, the WASM target, `cargo-leptos`, and verifies the SSR + hydration build. A second `Rust CI` workflow performs locked workspace check, clippy, tests, and build.
+
+The verification commands include:
 
 ```bash
 cargo fmt --all -- --check
@@ -205,3 +228,6 @@ cargo build --workspace --locked
 ```
 
 Do not claim verification unless the commands were actually executed.
+## Current verification state
+
+Documentation describes the repository state but does not imply that the latest commit has passed CI. Build, lint, test, formatting, and frontend verification claims must be based on actual command output or a GitHub Actions result for the exact commit.
