@@ -71,7 +71,10 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
 
     async fn list_users(&self, now: i64) -> Result<Vec<UserAccess>, UserAdminError>;
 
-    async fn find_user_by_id(&self, user_id: EntityId) -> Result<Option<UserAccess>, UserAdminError>;
+    async fn find_user_by_id(
+        &self,
+        user_id: EntityId,
+    ) -> Result<Option<UserAccess>, UserAdminError>;
 
     async fn update_user_email(
         &self,
@@ -183,7 +186,10 @@ where
         self.repository.set_admin_role(user_id, role).await
     }
 
-    pub async fn get_premium(&self, user_id: EntityId) -> Result<PremiumEntitlement, UserAdminError> {
+    pub async fn get_premium(
+        &self,
+        user_id: EntityId,
+    ) -> Result<PremiumEntitlement, UserAdminError> {
         self.repository.get_premium(user_id).await
     }
 
