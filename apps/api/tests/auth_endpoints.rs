@@ -375,7 +375,7 @@ async fn admin_user_crud_and_role_assignment() {
         .oneshot(
             Request::get(format!("/api/v1/admin/users/{user_id}"))
                 .header("cookie", &cookie)
-            .body(Body::empty())
+                .body(Body::empty())
             .unwrap(),
         )
         .await
@@ -401,7 +401,7 @@ async fn admin_user_crud_and_role_assignment() {
             Request::put(format!("/api/v1/admin/users/{user_id}/role"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
-            .body(Body::from(r#"{"role":"admin"}"#))
+                .body(Body::from(r#"{"role":"admin"}"#))
                 .unwrap(),
         )
         .await
@@ -487,7 +487,7 @@ async fn admin_user_crud_and_role_assignment() {
             Request::put(format!("/api/v1/admin/users/{user_id}/role"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
-            .body(Body::from(r#"{"role":"none"}"#))
+                .body(Body::from(r#"{"role":"none"}"#))
                 .unwrap(),
         )
         .await
@@ -499,7 +499,7 @@ async fn admin_user_crud_and_role_assignment() {
         .oneshot(
             Request::delete(format!("/api/v1/admin/users/{admin_id}"))
                 .header("cookie", &cookie)
-            .body(Body::empty())
+                .body(Body::empty())
             .unwrap(),
         )
         .await
@@ -511,7 +511,7 @@ async fn admin_user_crud_and_role_assignment() {
         .oneshot(
             Request::delete(format!("/api/v1/admin/users/{user_id}"))
                 .header("cookie", &cookie)
-            .body(Body::empty())
+                .body(Body::empty())
             .unwrap(),
         )
         .await
@@ -523,7 +523,7 @@ async fn admin_user_crud_and_role_assignment() {
         .oneshot(
             Request::get(format!("/api/v1/admin/users/{user_id}"))
                 .header("cookie", &cookie)
-            .body(Body::empty())
+                .body(Body::empty())
             .unwrap(),
         )
         .await
