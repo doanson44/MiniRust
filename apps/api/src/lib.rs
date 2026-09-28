@@ -1,8 +1,8 @@
+//! MiniRust REST API application.
+
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-
-//! MiniRust REST API application.
 
 mod response;
 
