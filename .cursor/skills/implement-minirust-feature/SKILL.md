@@ -31,6 +31,7 @@ Cross-context integration   → explicit contract or integration event
 - Commands express business intent and may change state.
 - Queries never change state and return purpose-built read DTOs.
 - Transport handlers contain no business rules.
+- Search endpoints MUST use HTTP `POST`, even when they are CQRS queries. Put search criteria in the request body rather than `GET` query parameters.
 - Persistence belongs behind repositories/adapters.
 - Domain code must not depend on Axum, Leptos, SQLx, MariaDB, or vendor SDKs.
 - Do not access another context's tables, repositories, or domain internals directly.
@@ -55,6 +56,7 @@ Cross-context integration   → explicit contract or integration event
 
 - Unit-test domain invariants and command/query handlers.
 - Every HTTP endpoint introduced or modified MUST have an integration test.
+- Search endpoint integration tests MUST assert `POST` as the HTTP method and exercise search criteria through the request body.
 - Endpoint integration tests MUST exercise the real Axum router with `router().oneshot(...)` rather than calling transport handlers directly.
 - Web page tests MUST assert the rendered HTML contract and meaningful responsive/accessibility markers.
 - Database-dependent endpoint tests use the Docker-backed MariaDB environment.
