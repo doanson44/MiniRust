@@ -44,6 +44,7 @@ MiniRust/
     ├── config/           # environment configuration
     ├── core/             # domain primitives and application errors
     ├── database/         # MariaDB / SQLx infrastructure
+    ├── observability/    # shared tracing logger
     └── services/         # current application-layer package; CQRS commands/queries
 ```
 
@@ -124,6 +125,7 @@ Docker must be running when database integration tests execute. No separate test
 | --- | --- | --- |
 | `MINIRUST_ENV` | `development` | Runtime environment |
 | `MINIRUST_LOG` | `info` | Fallback tracing filter |
+| `MINIRUST_LOG_DIR` | `logs` | Production log directory |
 | `MINIRUST_API_HOST` | `127.0.0.1` | API bind host |
 | `MINIRUST_API_PORT` | `3000` | API bind port |
 | `MINIRUST_WEB_HOST` | `127.0.0.1` | Web bind host |
@@ -135,6 +137,16 @@ Docker must be running when database integration tests execute. No separate test
 | `MINIRUST_DOMAIN` | required by production Compose | Public HTTPS domain for Caddy |
 
 Do not use development defaults for production secrets or credentials.
+
+### Logging
+
+The application uses one shared global `tracing` subscriber for the API and Leptos SSR processes:
+
+- Development: logs are written to the console.
+- Production: logs are written to daily-rotated files under `MINIRUST_LOG_DIR`.
+- Docker Compose mounts `/var/log/minirust` to the persistent `minirust_logs` volume in production, so container restarts do not remove application logs.
+
+The API and web processes use separate file prefixes: `minirust-api.log.*` and `minirust-web.log.*`.
 
 ## Run locally
 
