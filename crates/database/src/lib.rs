@@ -61,9 +61,9 @@ impl Database {
         let user_id = match existing_id {
             Some(row) => {
                 let bootstrap_admin = row
-                    .try_get::<i64, _>("bootstrap_admin")
+                    .try_get::<bool, _>("bootstrap_admin")
                     .map_err(|_| AuthError::Persistence)?;
-                if bootstrap_admin == 0 {
+                if !bootstrap_admin {
                     return Err(AuthError::BootstrapAdminConflict);
                 }
                 row_to_id(&row)?
@@ -215,13 +215,10 @@ impl UserAdminRepository for Database {
             return Err(UserAdminError::Persistence);
         }
 
-        let user = self
-            .user_by_id(&mut tx, id, now)
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
-        Ok(user)
+        self.find_user_by_id(id)
+            .await?
+            .ok_or(UserAdminError::NotFound)
     }
 
     async fn find_user(&self, email: &str) -> Result<Option<UserAccess>, UserAdminError> {
@@ -322,10 +319,10 @@ impl UserAdminRepository for Database {
             .try_get::<String, _>("email")
             .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
+            .try_get::<bool, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?;
 
-        if bootstrap_admin != 0 {
+        if bootstrap_admin {
             return Err(UserAdminError::ProtectedUser);
         }
 
@@ -355,13 +352,10 @@ impl UserAdminRepository for Database {
         .await
         .map_err(|_| UserAdminError::Persistence)?;
 
-        let user = self
-            .user_by_id(&mut tx, user_id, current_epoch())
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
-        Ok(user)
+        self.find_user_by_id(user_id)
+            .await?
+            .ok_or(UserAdminError::NotFound)
     }
 
     async fn delete_user(&self, user_id: EntityId) -> Result<(), UserAdminError> {
@@ -387,10 +381,10 @@ impl UserAdminRepository for Database {
             .try_get::<String, _>("email")
             .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
+            .try_get::<bool, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?;
 
-        if bootstrap_admin != 0 {
+        if bootstrap_admin {
             return Err(UserAdminError::ProtectedUser);
         }
 
@@ -433,7 +427,7 @@ impl UserAdminRepository for Database {
         .ok_or(UserAdminError::NotFound)?;
 
         let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
+            .try_get::<bool, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?;
 
         if bootstrap_admin != 0 && role == AdminUserRole::None {
@@ -465,13 +459,10 @@ impl UserAdminRepository for Database {
             }
         }
 
-        let user = self
-            .user_by_id(&mut tx, user_id, current_epoch())
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
-        Ok(user)
+        self.find_user_by_id(user_id)
+            .await?
+            .ok_or(UserAdminError::NotFound)
     }
     async fn get_premium(&self, user_id: EntityId) -> Result<PremiumEntitlement, UserAdminError> {
         let row = sqlx::query(
@@ -580,12 +571,10 @@ impl UserAdminRepository for Database {
                 UserAdminError::Persistence
             })?;
 
-        let user = self
-            .user_by_id(&mut tx, user_id, current_epoch())
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
-        Ok(user)
+        self.find_user_by_id(user_id)
+            .await?
+            .ok_or(UserAdminError::NotFound)
     }
 
     async fn lock_user(&self, user_id: EntityId) -> Result<(), UserAdminError> {
@@ -602,7 +591,7 @@ impl UserAdminRepository for Database {
             .ok_or(UserAdminError::NotFound)?;
 
         if row
-            .try_get::<i64, _>("bootstrap_admin")
+            .try_get::<bool, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
             != 0
         {
@@ -703,7 +692,7 @@ impl AuthRepository for Database {
                     .map_err(|_| AuthError::Persistence)?
                     .unwrap_or(0);
 
-            if bootstrap_admin != 0 {
+            if bootstrap_admin {
                 return Ok(());
             }
         }
@@ -886,9 +875,9 @@ impl AuthRepository for Database {
         }
 
         let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
+            .try_get::<bool, _>("bootstrap_admin")
             .map_err(|_| AuthError::Persistence)?;
-        if bootstrap_admin == 0 {
+        if !bootstrap_admin {
             consume_challenge(&mut tx, challenge_id, now).await?;
         }
         insert_session(
