@@ -45,9 +45,9 @@ impl Greeting {
 
 /// Validated echo input.
 ///
-/// Can only be constructed through EchoInput::parse, which enforces:
+/// Can only be constructed through [`EchoInput::parse`], which enforces:
 /// - the message is non-empty after trimming
-/// - the message does not exceed ECHO_MAX_CHARS characters
+/// - the message does not exceed [`ECHO_MAX_CHARS`] characters
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EchoInput {
     pub message: String,
@@ -56,7 +56,7 @@ pub struct EchoInput {
 impl EchoInput {
     /// Trim, validate, and wrap a raw message string.
     ///
-    /// Returns AppError::Validation when the message is empty or too long.
+    /// Returns [`AppError::Validation`] when the message is empty or too long.
     pub fn parse(raw: String) -> Result<Self, AppError> {
         let message = raw.trim().to_owned();
 
@@ -74,7 +74,7 @@ impl EchoInput {
     }
 }
 
-/// Successful echo result produced by EchoInput processing.
+/// Successful echo result produced by [`EchoInput`] processing.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Echo {
     pub echo: String,
