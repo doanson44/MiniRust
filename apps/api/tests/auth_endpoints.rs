@@ -218,29 +218,6 @@ async fn admin_cookie(app: &TestApp) -> (String, String) {
         .await
         .unwrap();
     let status = response.status();
-    let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
-        .await
-        .unwrap();
-    assert_eq!(
-        status,
-        StatusCode::OK,
-        "admin login verify response: {}",
-        String::from_utf8_lossy(&body)
-    );
-
-    let response = app
-        .router()
-        .oneshot(
-            Request::post("/api/v1/auth/login/verify-code")
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    r#"{"email":"admin@minirust.local","code":"123456"}"#,
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
     let cookie = response
         .headers()
         .get("set-cookie")
@@ -255,6 +232,13 @@ async fn admin_cookie(app: &TestApp) -> (String, String) {
     let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
         .await
         .unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "admin login verify response: {}",
+        String::from_utf8_lossy(&body)
+    );
+
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let user_id = body["data"]["user"]["id"].as_str().unwrap().to_owned();
 
