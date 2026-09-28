@@ -700,7 +700,7 @@ impl AuthRepository for Database {
                     .map_err(|_| AuthError::Persistence)?
                     .unwrap_or(false);
 
-            if bootstrap_admin != 0 {
+            if bootstrap_admin {
                 return Ok(());
             }
         }
