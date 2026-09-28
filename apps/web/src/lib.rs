@@ -261,9 +261,7 @@ async fn api_request(
             .body(body)
             .map_err(|error| error.to_string())?
     } else {
-        request
-            .build()
-            .map_err(|error| error.to_string())?
+        request.build().map_err(|error| error.to_string())?
     };
     request.send().await.map_err(|error| error.to_string())
 }
