@@ -217,23 +217,17 @@ async fn admin_cookie(app: &TestApp) -> (String, String) {
         )
         .await
         .unwrap();
-    let status = response.status();
+    assert_eq!(response.status(), StatusCode::OK);
     let cookie = response
         .headers()
         .get("set-cookie")
         .and_then(|v| v.to_str().ok())
-        .map(|v| v.split(';').next().unwrap_or_default().to_owned());
+        .map(|v| v.split(';').next().unwrap_or_default().to_owned())
+        .expect("admin login must set a session cookie");
+
     let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
         .await
         .unwrap();
-    assert_eq!(
-        status,
-        StatusCode::OK,
-        "admin login verify response: {}",
-        String::from_utf8_lossy(&body)
-    );
-    let cookie = cookie.expect("admin login must set a session cookie");
-
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let user_id = body["data"]["user"]["id"].as_str().unwrap().to_owned();
 
@@ -256,16 +250,7 @@ async fn authenticated_user_can_update_profile() {
         .await
         .unwrap();
 
-    let status = response.status();
-    let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
-        .await
-        .unwrap();
-    assert_eq!(
-        status,
-        StatusCode::OK,
-        "profile update response: {}",
-        String::from_utf8_lossy(&body)
-    );
+    assert_eq!(response.status(), StatusCode::OK);
 
     let me = app
         .router()
@@ -329,16 +314,7 @@ async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
         )
         .await
         .unwrap();
-    let lock_status = lock.status();
-    let lock_body = axum::body::to_bytes(lock.into_body(), 1024 * 1024)
-        .await
-        .unwrap();
-    assert_eq!(
-        lock_status,
-        StatusCode::CONFLICT,
-        "self lock response: {}",
-        String::from_utf8_lossy(&lock_body)
-    );
+    assert_eq!(lock.status(), StatusCode::CONFLICT);
 
     let delete = app
         .router()
@@ -425,16 +401,7 @@ async fn admin_user_crud_and_role_assignment() {
         )
         .await
         .unwrap();
-    let assign_status = assign.status();
-    let assign_body = axum::body::to_bytes(assign.into_body(), 1024 * 1024)
-        .await
-        .unwrap();
-    assert_eq!(
-        assign_status,
-        StatusCode::OK,
-        "assign role response: {}",
-        String::from_utf8_lossy(&assign_body)
-    );
+    assert_eq!(assign.status(), StatusCode::OK);
 
     let premium_get = app
         .router()
