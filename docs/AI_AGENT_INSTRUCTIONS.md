@@ -62,6 +62,14 @@ Write repositories are aggregate-oriented; read repositories are query/projectio
 ## 7. Database
 MariaDB is the relational database; SQLx uses its MySQL/MariaDB driver. Repositories handle persistence; handlers coordinate use cases. Use transactions where needed and explicit concurrency policies where applicable.
 
+Enum persistence rule:
+- Every enum persisted to MariaDB must be stored as a string value, never as a numeric discriminant or ordinal.
+- Define explicit, stable string representations for persisted enum variants; do not rely on Rust enum declaration order.
+- Database columns for persisted enums should use an appropriate string type such as VARCHAR.
+- Map enum <-> string at the infrastructure/persistence boundary. Domain enums must remain independent of SQLx and MariaDB.
+- Unknown or invalid persisted enum values must return a persistence error; never silently fall back to another variant.
+- When changing persisted enum values, preserve backward compatibility or provide an explicit migration.
+
 Do not introduce Redis unless project direction is explicitly changed.
 
 ## 8. API Contract
