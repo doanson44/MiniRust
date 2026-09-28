@@ -34,20 +34,6 @@ if /i "%~1"=="--internal" (
     set "CI_STEP_EXIT=!errorlevel!"
 )
 if not "!CI_STEP_EXIT!"=="0" goto :error
-    cargo fmt --all -- --check
-)
-if %errorlevel% neq 0 goto :error
-
-echo.
-echo [2/5] Running cargo check...
-if /i "%~1"=="--internal" (
-    echo [2/5] Running cargo check...> "%CI_STEP_LOG%"
-    cargo check --workspace --locked >> "%CI_STEP_LOG%" 2>&1
-    type "%CI_STEP_LOG%"
-) else (
-    cargo check --workspace --locked
-)
-if %errorlevel% neq 0 goto :error
 
 echo.
 echo [3/5] Running clippy...
