@@ -1,7 +1,7 @@
 //! Application configuration loaded from the process environment.
 //!
-//! A .env file is loaded when present. Missing .env is not an error.
-//! The database URL targets MariaDB through SQLx's mysql driver.
+//! A `.env` file is loaded when present. Missing `.env` is not an error.
+//! The database URL targets MariaDB through SQLx's `mysql` driver.
 
 use std::env;
 use std::fmt;
@@ -139,3 +139,117 @@ impl Config {
             .as_deref()
             .ok_or_else(|| ConfigError::MissingRequired(ENV_AUTH_SECRET.to_owned()))
     }
+
+    pub fn server_bind(&self, kind: ServerKind) -> Result<ServerBind, ConfigError> {
+        match kind {
+            ServerKind::Api => read_server_bind(
+                self.environment,
+                ENV_API_HOST,
+                ENV_API_PORT,
+                DEFAULT_API_PORT,
+            ),
+            ServerKind::Web => read_server_bind(
+                self.environment,
+                ENV_WEB_HOST,
+                ENV_WEB_PORT,
+                DEFAULT_WEB_PORT,
+            ),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ConfigError {
+    Dotenv(String),
+    MissingRequired(String),
+    InvalidPort {
+        name: String,
+        source: ParseIntError,
+    },
+    InvalidAddress {
+        host: String,
+        port: u16,
+        source: AddrParseError,
+    },
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Dotenv(message) => write!(formatter, "failed to load .env: {message}"),
+            Self::MissingRequired(name) => {
+                write!(formatter, "{name} is required when MINIRUST_ENV=production")
+            }
+            Self::InvalidPort { name, source } => write!(formatter, "invalid {name}: {source}"),
+            Self::InvalidAddress { host, port, source } => {
+                write!(formatter, "invalid server address {host}:{port}: {source}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::InvalidPort { source, .. } => Some(source),
+            Self::InvalidAddress { source, .. } => Some(source),
+            Self::Dotenv(_) | Self::MissingRequired(_) => None,
+        }
+    }
+}
+
+impl From<ConfigError> for AppError {
+    fn from(error: ConfigError) -> Self {
+        AppError::config(error.to_string())
+    }
+}
+
+fn read_or_default(name: &str, default: &str) -> String {
+    match env::var(name) {
+        Ok(value) if !value.is_empty() => value,
+        _ => default.to_owned(),
+    }
+}
+
+fn read_optional(name: &str) -> Option<String> {
+    match env::var(name) {
+        Ok(value) if !value.is_empty() => Some(value),
+        _ => None,
+    }
+}
+
+fn require_var(name: &str) -> Result<String, ConfigError> {
+    match env::var(name) {
+        Ok(value) if !value.is_empty() => Ok(value),
+        _ => Err(ConfigError::MissingRequired(name.to_owned())),
+    }
+}
+
+fn read_server_bind(
+    environment: Environment,
+    host_var: &str,
+    port_var: &str,
+    default_port: u16,
+) -> Result<ServerBind, ConfigError> {
+    match environment {
+        Environment::Development => {
+            let host = read_or_default(host_var, DEFAULT_HOST);
+            let port = match env::var(port_var) {
+                Ok(value) if !value.is_empty() => parse_port(port_var, &value)?,
+                _ => default_port,
+            };
+            Ok(ServerBind { host, port })
+        }
+        Environment::Production => Ok(ServerBind {
+            host: require_var(host_var)?,
+            port: parse_port(port_var, &require_var(port_var)?)?,
+        }),
+    }
+}
+
+fn parse_port(name: &str, value: &str) -> Result<u16, ConfigError> {
+    value.parse().map_err(|source| ConfigError::InvalidPort {
+        name: name.to_owned(),
+        source,
+    })
+}
