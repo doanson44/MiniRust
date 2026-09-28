@@ -61,9 +61,9 @@ impl Database {
         let user_id = match existing_id {
             Some(row) => {
                 let bootstrap_admin = row
-                    .try_get::<bool, _>("bootstrap_admin")
+                    .try_get::<i64, _>("bootstrap_admin")
                     .map_err(|_| AuthError::Persistence)?;
-                if !bootstrap_admin {
+                if bootstrap_admin == 0 {
                     return Err(AuthError::BootstrapAdminConflict);
                 }
                 row_to_id(&row)?
@@ -322,10 +322,10 @@ impl UserAdminRepository for Database {
             .try_get::<String, _>("email")
             .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
-            .try_get::<bool, _>("bootstrap_admin")
+            .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?;
 
-        if bootstrap_admin {
+        if bootstrap_admin != 0 {
             return Err(UserAdminError::ProtectedUser);
         }
 
@@ -387,10 +387,10 @@ impl UserAdminRepository for Database {
             .try_get::<String, _>("email")
             .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
-            .try_get::<bool, _>("bootstrap_admin")
+            .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?;
 
-        if bootstrap_admin {
+        if bootstrap_admin != 0 {
             return Err(UserAdminError::ProtectedUser);
         }
 
@@ -433,10 +433,10 @@ impl UserAdminRepository for Database {
         .ok_or(UserAdminError::NotFound)?;
 
         let bootstrap_admin = row
-            .try_get::<bool, _>("bootstrap_admin")
+            .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?;
 
-        if bootstrap_admin && role == AdminUserRole::None {
+        if bootstrap_admin != 0 && role == AdminUserRole::None {
             return Err(UserAdminError::ProtectedUser);
         }
 
@@ -601,7 +601,7 @@ impl UserAdminRepository for Database {
             .ok_or(UserAdminError::NotFound)?;
 
         if row
-            .try_get::<bool, _>("bootstrap_admin")
+            .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
         {
             return Err(UserAdminError::ProtectedUser);
@@ -701,7 +701,7 @@ impl AuthRepository for Database {
                     .map_err(|_| AuthError::Persistence)?
                     .unwrap_or(false);
 
-            if bootstrap_admin {
+            if bootstrap_admin != 0 {
                 return Ok(());
             }
         }
@@ -884,9 +884,9 @@ impl AuthRepository for Database {
         }
 
         let bootstrap_admin = row
-            .try_get::<bool, _>("bootstrap_admin")
+            .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| AuthError::Persistence)?;
-        if !bootstrap_admin {
+        if bootstrap_admin == 0 {
             consume_challenge(&mut tx, challenge_id, now).await?;
         }
         insert_session(
