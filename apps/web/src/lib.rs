@@ -197,21 +197,89 @@ struct ApiEnvelope<T> { data: T }
 struct AdminUsers { users: Vec<UserResponse> }
 
 #[derive(Clone, Debug, Deserialize)]
+struct PremiumResponse {
+    active: bool,
+    expires_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 struct ApiProblem { detail: String }
 
+#[derive(Clone, Debug, Serialize)]
+struct ProfileRequest {
+    full_name: Option<String>,
+    avatar_url: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct AdminEmailRequest {
+    email: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct AdminRoleRequest {
+    role: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct PremiumRequest {
+    active: bool,
+    expires_at: Option<i64>,
+}
+
 #[cfg(feature = "hydrate")]
-async fn api_post_json(path: &str, body: String) -> Result<(), String> {
-    let response = gloo_net::http::Request::post(path)
-        .header("Content-Type", "application/json")
-        .body(body)
-        .map_err(|error| error.to_string())?
-        .send()
+async fn api_request(
+    method: gloo_net::http::Method,
+    path: &str,
+    body: Option<String>,
+) -> Result<gloo_net::http::Response, String> {
+    let mut request = gloo_net::http::Request::new(path).method(method);
+    if let Some(body) = body {
+        request = request
+            .header("Content-Type", "application/json")
+            .body(body)
+            .map_err(|error| error.to_string())?;
+    }
+    request.send().await.map_err(|error| error.to_string())
+}
+
+#[cfg(feature = "hydrate")]
+async fn api_error(response: gloo_net::http::Response) -> String {
+    response
+        .json::<ApiProblem>()
         .await
-        .map_err(|error| error.to_string())?;
-    if response.ok() {
+        .map(|problem| problem.detail)
+        .unwrap_or_else(|error| error.to_string())
+}
+
+#[cfg(feature = "hydrate")]
+async fn api_json<T: for<'de> Deserialize<'de>>(
+    method: gloo_net::http::Method,
+    path: &str,
+    body: Option<String>,
+) -> Result<T, String> {
+    let response = api_request(method, path, body).await?;
+    if !response.ok() {
+        return Err(api_error(response).await);
+    }
+    response
+        .json::<ApiEnvelope<T>>()
+        .await
+        .map(|envelope| envelope.data)
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(feature = "hydrate")]
+async fn api_empty(
+    method: gloo_net::http::Method,
+    path: &str,
+    body: Option<String>,
+) -> Result<(), String> {
+    let response = api_request(method, path, body).await?;
+    if response.ok() || response.status() == 204 {
         Ok(())
     } else {
-        response.json::<ApiProblem>().await.map(|p| Err(p.detail)).unwrap_or_else(|e| Err(e.to_string()))
+        Err(api_error(response).await)
     }
 }
 
@@ -228,16 +296,17 @@ fn LoginPage() -> impl IntoView {
         let code_value = code.get();
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            if requested.get_untracked() {
-                match api_post_json("/api/v1/auth/login/verify-code", serde_json::json!({"email": email_value, "code": code_value}).to_string()).await {
-                    Ok(()) => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
-                    Err(error) => set_status.set(error),
-                }
+            let (path, body) = if requested.get_untracked() {
+                ("/api/v1/auth/login/verify-code", serde_json::json!({"email": email_value, "code": code_value}).to_string())
             } else {
-                match api_post_json("/api/v1/auth/login/request-code", serde_json::json!({"email": email_value}).to_string()).await {
-                    Ok(()) => { set_requested.set(true); set_status.set("Verification code requested.".to_owned()); }
-                    Err(error) => set_status.set(error),
+                ("/api/v1/auth/login/request-code", serde_json::json!({"email": email_value}).to_string())
+            };
+            match api_empty(gloo_net::http::Method::POST, path, Some(body)).await {
+                Ok(()) if requested.get_untracked() => {
+                    if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); }
                 }
+                Ok(()) => { set_requested.set(true); set_status.set("Verification code requested.".to_owned()); }
+                Err(error) => set_status.set(error),
             }
         });
     };
@@ -283,8 +352,10 @@ fn RegisterPage() -> impl IntoView {
             let verifying = requested.get_untracked();
             let endpoint = if verifying { "/api/v1/auth/register/verify-code" } else { "/api/v1/auth/register/request-code" };
             let body = if verifying { serde_json::json!({"email": email_value, "code": code_value}) } else { serde_json::json!({"email": email_value}) };
-            match api_post_json(endpoint, body.to_string()).await {
-                Ok(()) if verifying => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
+            match api_empty(gloo_net::http::Method::POST, endpoint, Some(body.to_string())).await {
+                Ok(()) if verifying => {
+                    if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); }
+                }
                 Ok(()) => { set_requested.set(true); set_status.set("Verification code requested.".to_owned()); }
                 Err(error) => set_status.set(error),
             }
@@ -320,45 +391,167 @@ fn RegisterPage() -> impl IntoView {
 fn AppPage() -> impl IntoView {
     let (user, set_user) = signal(None::<UserResponse>);
     let (status, set_status) = signal(String::new());
+    let (full_name, set_full_name) = signal(String::new());
+    let (avatar_url, set_avatar_url) = signal(String::new());
+    let (echo_input, set_echo_input) = signal(String::new());
+    let (echo_result, set_echo_result) = signal(String::new());
+    let (hello_result, set_hello_result) = signal(String::new());
 
-    #[cfg(feature = "hydrate")]
-    Effect::new(move |_| {
+    let load_user = move || {
+        #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            match gloo_net::http::Request::get("/api/v1/auth/me").send().await {
-                Ok(response) if response.status() == 401 => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/login"); } }
-                Ok(response) if response.ok() => match response.json::<ApiEnvelope<UserResponse>>().await {
-                    Ok(envelope) => set_user.set(Some(envelope.data)),
-                    Err(error) => set_status.set(error.to_string()),
-                },
-                Ok(response) => set_status.set(format!("Unable to load account ({}).", response.status())),
-                Err(error) => set_status.set(error.to_string()),
+            match api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None).await {
+                Ok(value) => {
+                    set_full_name.set(value.full_name.clone().unwrap_or_default());
+                    set_avatar_url.set(value.avatar_url.clone().unwrap_or_default());
+                    set_user.set(Some(value));
+                }
+                Err(error) => set_status.set(error),
             }
         });
-    });
+    };
+
+    #[cfg(feature = "hydrate")]
+    Effect::new(move |_| load_user());
+
+    let update_profile = move |event: leptos::ev::SubmitEvent| {
+        event.prevent_default();
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            let body = serde_json::to_string(&ProfileRequest {
+                full_name: Some(full_name.get()),
+                avatar_url: Some(avatar_url.get()),
+            }).unwrap_or_default();
+            match api_json::<UserResponse>(gloo_net::http::Method::PATCH, "/api/v1/users/me", Some(body)).await {
+                Ok(value) => { set_user.set(Some(value)); set_status.set("Profile updated.".to_owned()); }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    let lock_account = move |_| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            match api_empty(gloo_net::http::Method::POST, "/api/v1/users/me/lock", None).await {
+                Ok(()) => {
+                    if let Some(window) = web_sys::window() { let _ = window.location().set_href("/login"); }
+                }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    let delete_account = move |_| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            match api_empty(gloo_net::http::Method::DELETE, "/api/v1/users/me", None).await {
+                Ok(()) => {
+                    if let Some(window) = web_sys::window() { let _ = window.location().set_href("/"); }
+                }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
 
     let logout = move |_| {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            let _ = gloo_net::http::Request::post("/api/v1/auth/logout").send().await;
+            let _ = api_empty(gloo_net::http::Method::POST, "/api/v1/auth/logout", None).await;
             if let Some(window) = web_sys::window() { let _ = window.location().set_href("/"); }
+        });
+    };
+
+    let hello = move |_| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            match api_json::<serde_json::Value>(gloo_net::http::Method::GET, "/api/v1/hello", None).await {
+                Ok(value) => set_hello_result.set(value.get("message").and_then(|v| v.as_str()).unwrap_or_default().to_owned()),
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    let echo = move |event: leptos::ev::SubmitEvent| {
+        event.prevent_default();
+        let message = echo_input.get();
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            match api_json::<serde_json::Value>(
+                gloo_net::http::Method::POST,
+                "/api/v1/echo",
+                Some(serde_json::json!({"message": message}).to_string()),
+            ).await {
+                Ok(value) => set_echo_result.set(value.get("echo").and_then(|v| v.as_str()).unwrap_or_default().to_owned()),
+                Err(error) => set_status.set(error),
+            }
         });
     };
 
     view! {
         <div class="min-h-screen">
-            <header class="border-b border-white/10"><nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
-                <a href="/" class="font-black text-white">"MiniRust"</a>
-                <div class="flex gap-3">
-                    <Show when=move || user.get().map(|u| u.is_admin).unwrap_or(false)><a href="/admin" class="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300">"Admin"</a></Show>
-                    <button on:click=logout class="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white">"Sign out"</button>
-                </div>
-            </nav></header>
-            <main class="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:px-10">
-                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Account"</p>
-                <h1 class="mt-3 text-4xl font-black text-white">"Your workspace"</h1>
-                <p class="mt-3 text-slate-400">{status}</p>
-                <Show when=move || user.get().is_some() fallback=|| view! { <p class="mt-8 text-slate-400">"Loading account..."</p> }>
-                    <p class="mt-8 text-white">{move || user.get().map(|u| u.email).unwrap_or_default()}</p>
+            <header class="border-b border-white/10">
+                <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
+                    <a href="/" class="font-black text-white">"MiniRust"</a>
+                    <div class="flex gap-3">
+                        <Show when=move || user.get().map(|u| u.is_admin).unwrap_or(false)>
+                            <a href="/admin" class="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300">"Admin"</a>
+                        </Show>
+                        <button on:click=logout class="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white">"Sign out"</button>
+                    </div>
+                </nav>
+            </header>
+            <main class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
+                <section>
+                    <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Account"</p>
+                    <h1 class="mt-3 text-4xl font-black text-white">"Your workspace"</h1>
+                    <p class="mt-3 text-slate-400">{status}</p>
+                </section>
+
+                <Show when=move || user.get().is_some() fallback=|| view! { <p class="text-slate-400">"Loading account..."</p> }>
+                    <div class="grid gap-6 lg:grid-cols-2">
+                        <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                            <h2 class="text-xl font-bold text-white">"Profile"</h2>
+                            <p class="mt-2 text-sm text-slate-500">{move || user.get().map(|u| u.email).unwrap_or_default()}</p>
+                            <form on:submit=update_profile class="mt-6 space-y-4">
+                                <label class="block text-sm font-semibold text-slate-200">"Full name"
+                                    <input prop:value=full_name on:input=move |ev| set_full_name.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                                </label>
+                                <label class="block text-sm font-semibold text-slate-200">"Avatar URL"
+                                    <input type="url" prop:value=avatar_url on:input=move |ev| set_avatar_url.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                                </label>
+                                <button class="rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950" type="submit">"Save profile"</button>
+                            </form>
+                        </section>
+
+                        <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                            <h2 class="text-xl font-bold text-white">"Account status"</h2>
+                            <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                <div class="rounded-xl border border-white/10 p-4"><span class="text-slate-500">"Role"</span><div class="mt-1 font-semibold text-white">{move || if user.get().map(|u| u.is_admin).unwrap_or(false) {"Admin"} else {"User"}}</div></div>
+                                <div class="rounded-xl border border-white/10 p-4"><span class="text-slate-500">"Entitlement"</span><div class="mt-1 font-semibold text-white">{move || if user.get().map(|u| u.is_premium).unwrap_or(false) {"Premium"} else {"Standard"}}</div></div>
+                            </div>
+                            <div class="mt-6 flex flex-wrap gap-3">
+                                <button on:click=lock_account class="rounded-xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-200">"Lock account"</button>
+                                <button on:click=delete_account class="rounded-xl border border-red-300/20 bg-red-300/10 px-4 py-3 text-sm font-semibold text-red-200">"Delete account"</button>
+                            </div>
+                        </section>
+                    </div>
+
+                    <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                        <h2 class="text-xl font-bold text-white">"API playground"</h2>
+                        <div class="mt-6 grid gap-6 lg:grid-cols-2">
+                            <div>
+                                <button on:click=hello class="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white">"GET /api/v1/hello"</button>
+                                <p class="mt-3 text-sm text-cyan-200">{hello_result}</p>
+                            </div>
+                            <form on:submit=echo class="space-y-3">
+                                <label class="block text-sm font-semibold text-slate-200">"Echo message"
+                                    <input prop:value=echo_input on:input=move |ev| set_echo_input.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                                </label>
+                                <button class="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white" type="submit">"POST /api/v1/echo"</button>
+                                <p class="text-sm text-cyan-200">{echo_result}</p>
+                            </form>
+                        </div>
+                    </section>
                 </Show>
             </main>
         </div>
@@ -369,47 +562,178 @@ fn AppPage() -> impl IntoView {
 fn AdminPage() -> impl IntoView {
     let (users, set_users) = signal(Vec::<UserResponse>::new());
     let (status, set_status) = signal(String::from("Loading..."));
+    let (new_email, set_new_email) = signal(String::new());
+    let (selected, set_selected) = signal(None::<String>);
+    let (edit_email, set_edit_email) = signal(String::new());
+    let (premium_expires, set_premium_expires) = signal(String::new());
+
+    let refresh = move || {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            match api_json::<AdminUsers>(gloo_net::http::Method::GET, "/api/v1/admin/users", None).await {
+                Ok(value) => { set_users.set(value.users); set_status.set("Users loaded.".to_owned()); }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
 
     #[cfg(feature = "hydrate")]
     Effect::new(move |_| {
         leptos::task::spawn_local(async move {
-            let me = gloo_net::http::Request::get("/api/v1/auth/me").send().await;
-            match me {
-                Ok(response) if response.status() == 401 => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/login"); } }
-                Ok(response) if response.ok() => match response.json::<ApiEnvelope<UserResponse>>().await {
-                    Ok(envelope) if envelope.data.is_admin => {
-                        match gloo_net::http::Request::get("/api/v1/admin/users").send().await {
-                            Ok(response) if response.ok() => match response.json::<ApiEnvelope<AdminUsers>>().await {
-                                Ok(envelope) => { let count = envelope.data.users.len(); set_users.set(envelope.data.users); set_status.set(format!("{count} users loaded.")); }
-                                Err(error) => set_status.set(error.to_string()),
-                            },
-                            Ok(response) => set_status.set(format!("Unable to load users ({}).", response.status())),
-                            Err(error) => set_status.set(error.to_string()),
-                        }
-                    }
-                    Ok(_) => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
-                    Err(error) => set_status.set(error.to_string()),
-                },
-                Ok(response) => set_status.set(format!("Unable to load session ({}).", response.status())),
-                Err(error) => set_status.set(error.to_string()),
+            match api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None).await {
+                Ok(user) if user.is_admin => refresh(),
+                Ok(_) => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/app"); } }
+                Err(_) => { if let Some(window) = web_sys::window() { let _ = window.location().set_href("/login"); } }
             }
         });
     });
 
+    let create_user = move |event: leptos::ev::SubmitEvent| {
+        event.prevent_default();
+        let email = new_email.get();
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            match api_json::<UserResponse>(gloo_net::http::Method::POST, "/api/v1/admin/users", Some(serde_json::to_string(&AdminEmailRequest { email }).unwrap_or_default())).await {
+                Ok(_) => { set_new_email.set(String::new()); refresh(); }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    let update_user = move |event: leptos::ev::SubmitEvent| {
+        event.prevent_default();
+        let current = selected.get().unwrap_or_default();
+        let email = edit_email.get();
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            let path = format!("/api/v1/admin/users/{}", urlencoding::encode(&current));
+            match api_json::<UserResponse>(gloo_net::http::Method::PATCH, &path, Some(serde_json::to_string(&AdminEmailRequest { email }).unwrap_or_default())).await {
+                Ok(_) => { set_selected.set(None); refresh(); }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    let action_user = move |email: String, action: &'static str| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            let path = format!("/api/v1/admin/users/{}", urlencoding::encode(&email));
+            let result = match action {
+                "unlock" => api_json::<UserResponse>(gloo_net::http::Method::POST, &format!("{path}/unlock"), None).await.map(|_| ()),
+                "delete" => api_empty(gloo_net::http::Method::DELETE, &path, None).await,
+                _ => Ok(()),
+            };
+            match result { Ok(()) => refresh(), Err(error) => set_status.set(error) }
+        });
+    };
+
+    let role_user = move |email: String, role: String| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            let path = format!("/api/v1/admin/users/{}/role", urlencoding::encode(&email));
+            match api_json::<UserResponse>(gloo_net::http::Method::PUT, &path, Some(serde_json::to_string(&AdminRoleRequest { role }).unwrap_or_default())).await {
+                Ok(_) => refresh(),
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    let premium_user = move |email: String, active: bool, expires_at: Option<i64>| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            let path = format!("/api/v1/admin/users/{}/entitlements/premium", urlencoding::encode(&email));
+            let result = if active {
+                api_json::<UserResponse>(gloo_net::http::Method::PUT, &path, Some(serde_json::to_string(&PremiumRequest { active, expires_at }).unwrap_or_default())).await.map(|_| ())
+            } else {
+                api_empty(gloo_net::http::Method::DELETE, &path, None).await
+            };
+            match result { Ok(()) => refresh(), Err(error) => set_status.set(error) }
+        });
+    };
+
     view! {
         <div class="min-h-screen">
-            <header class="border-b border-white/10"><nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
-                <a href="/app" class="font-black text-white">"MiniRust"</a><a href="/app" class="text-sm text-cyan-300">"Back to workspace"</a>
-            </nav></header>
-            <main class="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:px-10">
-                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Administration"</p><h1 class="mt-3 text-4xl font-black text-white">"Users"</h1>
-                <p class="mt-3 text-sm text-slate-400">{status}</p>
-                <div class="mt-8 overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.03]"><table class="w-full min-w-[680px] text-left">
-                    <thead><tr class="text-xs uppercase tracking-widest text-slate-500"><th class="px-3 py-4">"Email"</th><th class="px-3 py-4">"Role"</th><th class="px-3 py-4">"Entitlement"</th><th class="px-3 py-4 text-right">"Status"</th></tr></thead>
-                    <tbody><For each=move || users.get() key=|user| user.id.clone() let:user>
-                        <tr class="border-t border-white/10"><td class="px-3 py-3 text-sm text-white">{user.email.clone()}</td><td class="px-3 py-3 text-sm text-slate-400">{if user.is_admin {"Admin"} else {"User"}}</td><td class="px-3 py-3 text-sm text-slate-400">{if user.is_premium {"Premium"} else {"—"}}</td><td class="px-3 py-3 text-right text-sm text-slate-400">{if user.is_locked {"Locked"} else {"Active"}}</td></tr>
-                    </For></tbody>
-                </table></div>
+            <header class="border-b border-white/10">
+                <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
+                    <a href="/app" class="font-black text-white">"MiniRust"</a>
+                    <a href="/app" class="text-sm text-cyan-300">"Back to workspace"</a>
+                </nav>
+            </header>
+            <main class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
+                <section>
+                    <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Administration"</p>
+                    <h1 class="mt-3 text-4xl font-black text-white">"Users"</h1>
+                    <p class="mt-3 text-sm text-slate-400">{status}</p>
+                </section>
+
+                <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                    <h2 class="text-xl font-bold text-white">"Create user"</h2>
+                    <form on:submit=create_user class="mt-4 flex flex-col gap-3 sm:flex-row">
+                        <input type="email" required placeholder="user@example.com" prop:value=new_email on:input=move |ev| set_new_email.set(event_target_value(&ev)) class="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                        <button class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950" type="submit">"Create"</button>
+                    </form>
+                </section>
+
+                <section class="overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.03]">
+                    <table class="w-full min-w-[980px] text-left">
+                        <thead><tr class="text-xs uppercase tracking-widest text-slate-500">
+                            <th class="px-4 py-4">"Email"</th><th class="px-4 py-4">"Role"</th><th class="px-4 py-4">"Premium"</th><th class="px-4 py-4">"Status"</th><th class="px-4 py-4">"Actions"</th>
+                        </tr></thead>
+                        <tbody>
+                            <For each=move || users.get() key=|user| user.id.clone() let:user>
+                                <tr class="border-t border-white/10 align-top">
+                                    <td class="px-4 py-4 text-sm text-white">{user.email.clone()}</td>
+                                    <td class="px-4 py-4 text-sm text-slate-400">
+                                        <select on:change=move |ev| {
+                                            let role = event_target_value(&ev);
+                                            role_user(user.email.clone(), role);
+                                        } class="rounded-lg border border-white/10 bg-slate-950 px-2 py-2">
+                                            <option value="user" selected=move || !user.is_admin>"User"</option>
+                                            <option value="admin" selected=move || user.is_admin>"Admin"</option>
+                                        </select>
+                                    </td>
+                                    <td class="px-4 py-4 text-sm text-slate-400">
+                                        <div>{if user.is_premium {"Active"} else {"Inactive"}}</div>
+                                        <div class="mt-2 flex gap-2">
+                                            <input type="datetime-local" placeholder="Expiry" class="w-44 rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-xs text-white"
+                                                on:input=move |ev| set_premium_expires.set(event_target_value(&ev))/>
+                                            <button on:click=move |_| {
+                                                let value = premium_expires.get();
+                                                let timestamp = if value.is_empty() { None } else { value.parse::<i64>().ok() };
+                                                premium_user(user.email.clone(), true, timestamp);
+                                            } class="rounded-lg bg-cyan-300/10 px-2 py-2 text-xs text-cyan-200">"Grant"</button>
+                                            <button on:click=move |_| premium_user(user.email.clone(), false, None) class="rounded-lg bg-red-300/10 px-2 py-2 text-xs text-red-200">"Revoke"</button>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4 text-sm text-slate-400">{if user.is_locked {"Locked"} else {"Active"}}</td>
+                                    <td class="px-4 py-4 text-sm">
+                                        <div class="flex flex-wrap gap-2">
+                                            <button on:click=move |_| {
+                                                set_selected.set(Some(user.email.clone()));
+                                                set_edit_email.set(user.email.clone());
+                                            } class="rounded-lg border border-white/10 px-3 py-2 text-slate-300">"Edit"</button>
+                                            <Show when=move || user.is_locked>
+                                                <button on:click=move |_| action_user(user.email.clone(), "unlock") class="rounded-lg bg-amber-300/10 px-3 py-2 text-amber-200">"Unlock"</button>
+                                            </Show>
+                                            <button on:click=move |_| action_user(user.email.clone(), "delete") class="rounded-lg bg-red-300/10 px-3 py-2 text-red-200">"Delete"</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </For>
+                        </tbody>
+                    </table>
+                </section>
+
+                <Show when=move || selected.get().is_some()>
+                    <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                        <h2 class="text-xl font-bold text-white">"Edit user email"</h2>
+                        <form on:submit=update_user class="mt-4 flex flex-col gap-3 sm:flex-row">
+                            <input type="email" required prop:value=edit_email on:input=move |ev| set_edit_email.set(event_target_value(&ev)) class="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                            <button class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950" type="submit">"Save"</button>
+                            <button type="button" on:click=move |_| set_selected.set(None) class="rounded-xl border border-white/10 px-5 py-3 text-white">"Cancel"</button>
+                        </form>
+                    </section>
+                </Show>
             </main>
         </div>
     }
