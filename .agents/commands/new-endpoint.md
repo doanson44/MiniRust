@@ -18,7 +18,7 @@ Steps:
 8. **Add an integration test for the endpoint in the same change.** The test MUST call `router().oneshot(request)` and exercise the real Axum router.
 9. Assert the HTTP method/route behavior, status code, response contract, and meaningful validation/error cases.
 10. If the endpoint depends on MariaDB, run it against the Docker-backed MariaDB integration environment.
-13. Run the `validate` command.
-14. Before completion, confirm that every newly registered or modified endpoint has integration-test coverage.
+11. Run the `validate` command.
+12. Before completion, confirm that every newly registered or modified endpoint has integration-test coverage.
 
 Do not put business logic in the handler. Do not import Axum or Leptos into `crates/services` or `crates/core`.
