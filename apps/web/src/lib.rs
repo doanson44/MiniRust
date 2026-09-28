@@ -198,37 +198,44 @@ struct UserResponse {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
 struct ApiEnvelope<T> {
     data: T,
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
 struct AdminUsers {
     users: Vec<UserResponse>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
 struct ApiProblem {
     detail: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
 struct ProfileRequest {
     full_name: Option<String>,
     avatar_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
 struct AdminEmailRequest {
     email: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
 struct AdminRoleRequest {
     role: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
 struct PremiumRequest {
     active: bool,
     expires_at: Option<i64>,
@@ -248,12 +255,16 @@ async fn api_request(
         gloo_net::http::Method::DELETE => gloo_net::http::Request::delete(path),
         _ => return Err("Unsupported HTTP method.".to_owned()),
     };
-    if let Some(body) = body {
-        request = request
+    let request = if let Some(body) = body {
+        request
             .header("Content-Type", "application/json")
             .body(body)
-            .map_err(|error| error.to_string())?;
-    }
+            .map_err(|error| error.to_string())?
+    } else {
+        request
+            .build()
+            .map_err(|error| error.to_string())?
+    };
     request.send().await.map_err(|error| error.to_string())
 }
 
@@ -298,6 +309,7 @@ async fn api_empty(
 }
 
 #[component]
+#[allow(unused_variables)]
 fn LoginPage() -> impl IntoView {
     let (email, set_email) = signal(String::new());
     let (code, set_code) = signal(String::new());
@@ -362,6 +374,7 @@ fn LoginPage() -> impl IntoView {
 }
 
 #[component]
+#[allow(unused_variables)]
 fn RegisterPage() -> impl IntoView {
     let (email, set_email) = signal(String::new());
     let (code, set_code) = signal(String::new());
@@ -432,6 +445,7 @@ fn RegisterPage() -> impl IntoView {
 }
 
 #[component]
+#[allow(unused_variables)]
 fn AppPage() -> impl IntoView {
     let (user, set_user) = signal(None::<UserResponse>);
     let (status, set_status) = signal(String::new());
@@ -634,6 +648,7 @@ fn AppPage() -> impl IntoView {
 }
 
 #[component]
+#[allow(unused_variables)]
 fn AdminPage() -> impl IntoView {
     let (users, set_users) = signal(Vec::<UserResponse>::new());
     let (status, set_status) = signal(String::from("Loading..."));
