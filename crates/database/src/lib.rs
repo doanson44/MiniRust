@@ -591,12 +591,10 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?
             .ok_or(UserAdminError::NotFound)?;
 
-        let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
-            .map_err(|error| {
-                error!(%error, "failed to decode bootstrap_admin while locking user");
-                UserAdminError::Persistence
-            })?;
+        let bootstrap_admin = row.try_get::<i64, _>("bootstrap_admin").map_err(|error| {
+            error!(%error, "failed to decode bootstrap_admin while locking user");
+            UserAdminError::Persistence
+        })?;
 
         if bootstrap_admin != 0 {
             return Err(UserAdminError::ProtectedUser);
@@ -1112,14 +1110,18 @@ fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, AuthError> {
         error!(%error, "failed to decode user projection field email");
         AuthError::Persistence
     })?;
-    let full_name = row.try_get::<Option<String>, _>("full_name").map_err(|error| {
-        error!(%error, "failed to decode user projection field full_name");
-        AuthError::Persistence
-    })?;
-    let avatar_url = row.try_get::<Option<String>, _>("avatar_url").map_err(|error| {
-        error!(%error, "failed to decode user projection field avatar_url");
-        AuthError::Persistence
-    })?;
+    let full_name = row
+        .try_get::<Option<String>, _>("full_name")
+        .map_err(|error| {
+            error!(%error, "failed to decode user projection field full_name");
+            AuthError::Persistence
+        })?;
+    let avatar_url = row
+        .try_get::<Option<String>, _>("avatar_url")
+        .map_err(|error| {
+            error!(%error, "failed to decode user projection field avatar_url");
+            AuthError::Persistence
+        })?;
     let is_locked = row.try_get::<i64, _>("is_locked").map_err(|error| {
         error!(%error, "failed to decode user projection field is_locked");
         AuthError::Persistence
