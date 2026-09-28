@@ -61,8 +61,9 @@ impl Database {
         let user_id = match existing_id {
             Some(row) => {
                 let bootstrap_admin = row
-                    .try_get::<bool, _>("bootstrap_admin")
-                    .map_err(|_| AuthError::Persistence)?;
+                    .try_get::<i64, _>("bootstrap_admin")
+                    .map_err(|_| AuthError::Persistence)?
+                    != 0;
                 if !bootstrap_admin {
                     return Err(AuthError::BootstrapAdminConflict);
                 }
@@ -319,8 +320,9 @@ impl UserAdminRepository for Database {
             .try_get::<String, _>("email")
             .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
-            .try_get::<bool, _>("bootstrap_admin")
-            .map_err(|_| UserAdminError::Persistence)?;
+            .try_get::<i64, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?
+            != 0;
 
         if bootstrap_admin {
             return Err(UserAdminError::ProtectedUser);
@@ -381,8 +383,9 @@ impl UserAdminRepository for Database {
             .try_get::<String, _>("email")
             .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
-            .try_get::<bool, _>("bootstrap_admin")
-            .map_err(|_| UserAdminError::Persistence)?;
+            .try_get::<i64, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?
+            != 0;
 
         if bootstrap_admin {
             return Err(UserAdminError::ProtectedUser);
@@ -427,8 +430,9 @@ impl UserAdminRepository for Database {
         .ok_or(UserAdminError::NotFound)?;
 
         let bootstrap_admin = row
-            .try_get::<bool, _>("bootstrap_admin")
-            .map_err(|_| UserAdminError::Persistence)?;
+            .try_get::<i64, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?
+            != 0;
 
         if bootstrap_admin && role == AdminUserRole::None {
             return Err(UserAdminError::ProtectedUser);
@@ -588,8 +592,9 @@ impl UserAdminRepository for Database {
             .ok_or(UserAdminError::NotFound)?;
 
         if row
-            .try_get::<bool, _>("bootstrap_admin")
+            .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
+            != 0
         {
             return Err(UserAdminError::ProtectedUser);
         }
@@ -661,12 +666,13 @@ impl AuthRepository for Database {
 
     async fn is_bootstrap_admin(&self, email: &str) -> Result<bool, AuthError> {
         let bootstrap_admin =
-            sqlx::query_scalar::<_, bool>("SELECT bootstrap_admin FROM users WHERE email = ?")
+            sqlx::query_scalar::<_, i64>("SELECT bootstrap_admin FROM users WHERE email = ?")
                 .bind(email)
                 .fetch_optional(&self.pool)
                 .await
                 .map_err(|_| AuthError::Persistence)?
-                .unwrap_or(false);
+                .unwrap_or(0)
+                != 0;
 
         Ok(bootstrap_admin)
     }
@@ -681,12 +687,13 @@ impl AuthRepository for Database {
     ) -> Result<(), AuthError> {
         if purpose == ChallengePurpose::Login {
             let bootstrap_admin =
-                sqlx::query_scalar::<_, bool>("SELECT bootstrap_admin FROM users WHERE email = ?")
+                sqlx::query_scalar::<_, i64>("SELECT bootstrap_admin FROM users WHERE email = ?")
                     .bind(email)
                     .fetch_optional(&self.pool)
                     .await
                     .map_err(|_| AuthError::Persistence)?
-                    .unwrap_or(false);
+                    .unwrap_or(0)
+                    != 0;
 
             if bootstrap_admin {
                 return Ok(());
@@ -871,7 +878,7 @@ impl AuthRepository for Database {
         }
 
         let bootstrap_admin = row
-            .try_get::<bool, _>("bootstrap_admin")
+            .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| AuthError::Persistence)?;
         if !bootstrap_admin {
             consume_challenge(&mut tx, challenge_id, now).await?;
