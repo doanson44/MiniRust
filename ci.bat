@@ -63,7 +63,7 @@ echo =========================================
 echo ERROR: CI failed. Copying output to clipboard...
 echo =========================================
 clip < "%CI_LOG%"
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo ERROR: Failed to copy CI output to clipboard.
     echo Make sure the Windows "clip" command is available.
     del "%CI_LOG%" >nul 2>&1
@@ -75,10 +75,11 @@ del "%CI_LOG%" >nul 2>&1
 exit /b %CI_EXIT%
 
 :error
+set "CI_EXIT=%errorlevel%"
 echo.
 echo =========================================
 echo ERROR: Pipeline failed at the current step.
 echo Please check the error messages above.
 echo =========================================
 if /i not "%~1"=="--internal" pause
-exit /b %errorlevel%
+exit /b %CI_EXIT%
