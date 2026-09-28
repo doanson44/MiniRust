@@ -137,6 +137,13 @@ where
             .await
     }
 
+    pub async fn get_by_id(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError> {
+        self.repository
+            .find_user_by_id(user_id)
+            .await?
+            .ok_or(UserAdminError::NotFound)
+    }
+
     pub async fn get(&self, email: &str) -> Result<UserAccess, UserAdminError> {
         let email = normalize_email(email)?;
         self.repository
@@ -299,9 +306,6 @@ pub enum UserAdminCommand {
     LockUser {
         user_id: EntityId,
     },
-    DeleteUserById {
-        user_id: EntityId,
-    },
     UnlockUser {
         user_id: EntityId,
     },
@@ -392,11 +396,6 @@ where
                 .lock(user_id)
                 .await
                 .map(|_| UserAdminCommandResult::Locked),
-            UserAdminCommand::DeleteUserById { user_id } => self
-                .service
-                .delete_by_id(user_id)
-                .await
-                .map(|_| UserAdminCommandResult::Deleted),
             UserAdminCommand::UnlockUser { user_id } => self
                 .service
                 .unlock(user_id)
@@ -447,10 +446,7 @@ where
         match query {
             UserAdminQuery::GetUser { user_id } => self
                 .service
-                .repository
-                .find_user_by_id(user_id)
-                .await?
-                .ok_or(UserAdminError::NotFound)
+                .get_by_id(user_id)
                 .await
                 .map(UserAdminQueryResult::User),
             UserAdminQuery::ListUsers => self.service.list().await.map(UserAdminQueryResult::Users),
