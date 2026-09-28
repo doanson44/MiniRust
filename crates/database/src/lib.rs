@@ -519,17 +519,15 @@ impl UserAdminRepository for Database {
             .await
             .map_err(|_| UserAdminError::Persistence)?;
 
-        let row = sqlx::query(
-            "SELECT id
-             FROM users
-             WHERE id = ?
-             FOR UPDATE",
-        )
-        .bind(user_id.as_uuid().as_bytes().as_slice())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?
-        .ok_or(UserAdminError::NotFound)?;
+        let exists = sqlx::query("SELECT 1 FROM users WHERE id = ? FOR UPDATE")
+            .bind(user_id.as_uuid().as_bytes().as_slice())
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?
+            .is_some();
+        if !exists {
+            return Err(UserAdminError::NotFound);
+        }
 
         sqlx::query(
             "INSERT INTO user_entitlements (user_id, entitlement, active, expires_at)
@@ -643,12 +641,15 @@ impl UserAdminRepository for Database {
             .begin()
             .await
             .map_err(|_| UserAdminError::Persistence)?;
-        let row = sqlx::query("SELECT id FROM users WHERE id = ? FOR UPDATE")
+        let exists = sqlx::query("SELECT 1 FROM users WHERE id = ? FOR UPDATE")
             .bind(user_id.as_uuid().as_bytes().as_slice())
             .fetch_optional(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?
-            .ok_or(UserAdminError::NotFound)?;
+            .is_some();
+        if !exists {
+            return Err(UserAdminError::NotFound);
+        }
         sqlx::query("UPDATE users SET locked_at = NULL WHERE id = ?")
             .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
