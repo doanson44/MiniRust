@@ -146,7 +146,7 @@ impl Database {
                     SELECT 1
                     FROM user_roles ur
                     WHERE ur.user_id = u.id AND ur.role = 'admin'
-                ) AS UNSIGNED) AS is_admin,
+                ) AS SIGNED) AS is_admin,
                 CAST(EXISTS(
                     SELECT 1
                     FROM user_entitlements ue
@@ -154,7 +154,7 @@ impl Database {
                       AND ue.entitlement = 'premium'
                       AND ue.active = 1
                       AND (ue.expires_at IS NULL OR ue.expires_at > ?)
-                ) AS UNSIGNED) AS is_premium
+                ) AS SIGNED) AS is_premium
             FROM users u
             WHERE u.id = ?
         "#
@@ -444,10 +444,11 @@ impl UserAdminRepository for Database {
             AdminUserRole::Admin => {
                 sqlx::query(
                     "INSERT INTO user_roles (user_id, role)
-                     VALUES (?, 'admin')
+                     VALUES (?, ?)
                      ON DUPLICATE KEY UPDATE role = VALUES(role)",
                 )
                 .bind(user_id.as_uuid().as_bytes().as_slice())
+                .bind(role.as_str())
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| UserAdminError::Persistence)?;
