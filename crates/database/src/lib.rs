@@ -603,6 +603,7 @@ impl UserAdminRepository for Database {
         if row
             .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
+            != 0
         {
             return Err(UserAdminError::ProtectedUser);
         }
@@ -674,12 +675,12 @@ impl AuthRepository for Database {
 
     async fn is_bootstrap_admin(&self, email: &str) -> Result<bool, AuthError> {
         let bootstrap_admin =
-            sqlx::query_scalar::<_, bool>("SELECT bootstrap_admin FROM users WHERE email = ?")
+            sqlx::query_scalar::<_, i64>("SELECT bootstrap_admin FROM users WHERE email = ?")
                 .bind(email)
                 .fetch_optional(&self.pool)
                 .await
                 .map_err(|_| AuthError::Persistence)?
-                .unwrap_or(false);
+                .unwrap_or(0);
 
         Ok(bootstrap_admin)
     }
