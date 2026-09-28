@@ -31,6 +31,7 @@ Use these repository documents for architectural intent:
 - docs/architecture/api-response.md
 - docs/architecture/api-error-code.md
 - docs/architecture/entity.md
+- Database persistence rules in docs/architecture/entity.md
 - docs/architecture/authentication.md
 
 These documents describe intended architecture; they do not prove that every described feature is implemented.
