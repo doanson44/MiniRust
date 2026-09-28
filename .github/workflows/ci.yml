@@ -9,7 +9,7 @@ on:
       - master
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -42,19 +42,6 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt --all -- --check
-
-      - name: Generate and commit Cargo.lock
-        run: |
-          cargo generate-lockfile
-          if git diff --quiet -- Cargo.lock; then
-            echo "Cargo.lock is already current."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Cargo.lock
-          git commit -m "chore: refresh Cargo.lock"
-          git push
 
       - name: Check workspace
         run: cargo check --workspace --all-targets
