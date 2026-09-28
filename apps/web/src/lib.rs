@@ -11,6 +11,8 @@ use axum::routing::get;
 #[cfg(feature = "ssr")]
 use axum::Router;
 #[cfg(feature = "ssr")]
+use std::net::SocketAddr;
+#[cfg(feature = "ssr")]
 use leptos::config::LeptosOptions;
 use leptos::prelude::*;
 #[cfg(feature = "ssr")]
@@ -41,7 +43,7 @@ impl AppState {
                 .output_name("minirust-web")
                 .site_root("target/site")
                 .site_pkg_dir("pkg")
-                .site_addr("127.0.0.1:3001")
+                .site_addr(SocketAddr::from(([127, 0, 0, 1], 3001)))
                 .build(),
         }
     }
@@ -815,7 +817,7 @@ fn AdminPage() -> impl IntoView {
                         <tbody>
                             <For each=move || users.get() key=|user| user.id.clone() let:user>
                                 <tr class="border-t border-white/10 align-top">
-                                    <td class="px-4 py-4 text-sm text-white">{user.email.clone()}</td>
+                                    <td class="px-4 py-4 text-sm text-white">{user.clone().email}</td>
                                     <td class="px-4 py-4 text-sm text-slate-400">
                                         <select on:change=move |ev| {
                                             let role = event_target_value(&ev);
@@ -909,9 +911,9 @@ pub fn render_home_page(message: &str) -> String {
 #[cfg(feature = "ssr")]
 pub fn router(state: AppState) -> Router {
     let routes = generate_route_list(App);
-    Router::new()
+    Router::<AppState>::new()
         .route("/health", get(health))
-        .leptos_routes(&state.leptos_options, routes, {
+        .leptos_routes(&state, routes, {
             let options = state.leptos_options.clone();
             move || shell(options.clone())
         })
