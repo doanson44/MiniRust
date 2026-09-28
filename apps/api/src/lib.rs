@@ -540,6 +540,7 @@ struct AdminPremiumResponse {
     expires_at: Option<i64>,
 }
 
+#[allow(clippy::result_large_err)]
 async fn authorize_admin(
     state: &AppState,
     jar: &CookieJar,

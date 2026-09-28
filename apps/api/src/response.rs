@@ -334,20 +334,6 @@ impl ProblemDetails {
         }
     }
 
-    pub fn forbidden(locale: Locale) -> Self {
-        Self {
-            problem_type: "https://minirust.dev/problems/forbidden",
-            title: "Forbidden",
-            status: StatusCode::FORBIDDEN.as_u16(),
-            code: "FORBIDDEN",
-            message_key: "errors.authorization.forbidden",
-            locale: locale.as_str(),
-            detail: match locale {
-                Locale::Vi => "Bạn không có quyền thực hiện thao tác này.".to_owned(),
-                Locale::En => "You are not authorized to perform this operation.".to_owned(),
-            },
-        }
-    }
 
     pub fn rate_limited(locale: Locale) -> Self {
         Self {
