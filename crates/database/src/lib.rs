@@ -141,7 +141,7 @@ impl Database {
                 u.email,
                 u.full_name,
                 u.avatar_url,
-                u.locked_at,
+                CAST(u.locked_at IS NOT NULL AS SIGNED) AS is_locked,
                 CAST(EXISTS(
                     SELECT 1
                     FROM user_roles ur
@@ -266,20 +266,20 @@ impl UserAdminRepository for Database {
                     u.email,
                     u.full_name,
                     u.avatar_url,
-                    u.locked_at,
-                    EXISTS(
+                    CAST(u.locked_at IS NOT NULL AS SIGNED) AS is_locked,
+                    CAST(EXISTS(
                         SELECT 1 FROM user_roles ur
                         WHERE ur.user_id = u.id AND ur.role = 'admin'
                     ) AS is_admin,
-                    EXISTS(
+                    CAST(EXISTS(
                         SELECT 1 FROM user_entitlements ue
                         WHERE ue.user_id = u.id
                           AND ue.entitlement = 'premium'
                           AND ue.active = 1
                           AND (ue.expires_at IS NULL OR ue.expires_at > ?)
                     ) AS is_premium
-                FROM users u
-                ORDER BY u.email
+                    FROM users u
+                    ORDER BY u.email
             "#,
         )
         .bind(now)
@@ -490,9 +490,10 @@ impl UserAdminRepository for Database {
 
         Ok(PremiumEntitlement {
             active: row
-                .try_get::<Option<bool>, _>("active")
+                .try_get::<Option<i64>, _>("active")
                 .map_err(|_| UserAdminError::Persistence)?
-                .unwrap_or(false),
+                .unwrap_or(0)
+                != 0,
             expires_at: row
                 .try_get("expires_at")
                 .map_err(|_| UserAdminError::Persistence)?,
