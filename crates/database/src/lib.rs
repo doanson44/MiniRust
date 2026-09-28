@@ -270,16 +270,16 @@ impl UserAdminRepository for Database {
                     CAST(EXISTS(
                         SELECT 1 FROM user_roles ur
                         WHERE ur.user_id = u.id AND ur.role = 'admin'
-                    ) AS is_admin,
+                    ) AS SIGNED) AS is_admin,
                     CAST(EXISTS(
                         SELECT 1 FROM user_entitlements ue
                         WHERE ue.user_id = u.id
                           AND ue.entitlement = 'premium'
                           AND ue.active = 1
                           AND (ue.expires_at IS NULL OR ue.expires_at > ?)
-                    ) AS is_premium
-                    FROM users u
-                    ORDER BY u.email
+                    ) AS SIGNED) AS is_premium
+                FROM users u
+                ORDER BY u.email
             "#,
         )
         .bind(now)
