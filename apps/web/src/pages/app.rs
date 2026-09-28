@@ -1,0 +1,141 @@
+use leptos::prelude::*;
+
+use crate::api::{api_empty, api_json};
+use crate::types::UserResponse;
+
+#[component]
+#[allow(unused_variables)]
+pub fn AppPage() -> impl IntoView {
+    let (user, set_user) = signal(None::<UserResponse>);
+    let (status, set_status) = signal(String::new());
+    let (full_name, set_full_name) = signal(String::new());
+    let (avatar_url, set_avatar_url) = signal(String::new());
+
+    #[cfg(feature = "hydrate")]
+    {
+        leptos::task::spawn_local({
+            let set_user = set_user.clone();
+            let set_status = set_status.clone();
+            async move {
+                match api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None).await {
+                    Ok(user) => {
+                        set_full_name.set(user.full_name.clone().unwrap_or_default());
+                        set_avatar_url.set(user.avatar_url.clone().unwrap_or_default());
+                        set_user.set(Some(user));
+                    }
+                    Err(error) => set_status.set(error),
+                }
+            }
+        });
+    }
+
+    let update_profile = move |event: leptos::ev::SubmitEvent| {
+        event.prevent_default();
+        let name = full_name.get();
+        let avatar = avatar_url.get();
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            match api_json::<UserResponse>(
+                gloo_net::http::Method::PATCH,
+                "/api/v1/users/me",
+                Some(
+                    serde_json::json!({
+                        "full_name": if name.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(name) },
+                        "avatar_url": if avatar.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(avatar) }
+                    })
+                    .to_string(),
+                ),
+            )
+            .await
+            {
+                Ok(user) => {
+                    set_user.set(Some(user));
+                    set_status.set("Profile updated.".to_owned());
+                }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    let sign_out = move |_| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            let _ = api_empty(gloo_net::http::Method::POST, "/api/v1/auth/logout", None).await;
+            if let Some(window) = web_sys::window() {
+                let _ = window.location().set_href("/");
+            }
+        });
+    };
+
+    let lock_account = move |_| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            match api_empty(gloo_net::http::Method::POST, "/api/v1/users/me/lock", None).await {
+                Ok(()) => {
+                    if let Some(window) = web_sys::window() {
+                        let _ = window.location().set_href("/");
+                    }
+                }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    view! {
+        <div class="min-h-screen">
+            <header class="border-b border-white/10">
+                <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
+                    <a href="/" class="font-black text-white">"MiniRust"</a>
+                    <div class="flex items-center gap-4">
+                        <Show when=move || user.get().as_ref().is_some_and(|u| u.is_admin)>
+                            <a href="/admin" class="text-sm text-cyan-300">"Admin"</a>
+                        </Show>
+                        <button on:click=sign_out class="text-sm text-slate-400 transition hover:text-white">"Sign out"</button>
+                    </div>
+                </nav>
+            </header>
+            <main class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
+                <section>
+                    <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Workspace"</p>
+                    <h1 class="mt-3 text-4xl font-black text-white">"Your account"</h1>
+                    <p class="mt-3 text-sm text-slate-400">{status}</p>
+                </section>
+
+                <Show when=move || user.get().is_some()>
+                    {move || user.get().map(|u| view! {
+                        <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                            <h2 class="text-xl font-bold text-white">"Account info"</h2>
+                            <dl class="mt-4 space-y-2 text-sm">
+                                <div class="flex gap-4"><dt class="w-28 text-slate-500">"Email"</dt><dd class="text-white">{u.email.clone()}</dd></div>
+                                <div class="flex gap-4"><dt class="w-28 text-slate-500">"Role"</dt><dd class="text-white">{if u.is_admin { "Admin" } else { "User" }}</dd></div>
+                                <div class="flex gap-4"><dt class="w-28 text-slate-500">"Premium"</dt><dd class="text-white">{if u.is_premium { "Active" } else { "Inactive" }}</dd></div>
+                                <div class="flex gap-4"><dt class="w-28 text-slate-500">"Status"</dt><dd class="text-white">{if u.is_locked { "Locked" } else { "Active" }}</dd></div>
+                            </dl>
+                        </section>
+                    }).unwrap_or_else(|| view! { <div/> })}
+                </Show>
+
+                <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                    <h2 class="text-xl font-bold text-white">"Profile"</h2>
+                    <form on:submit=update_profile class="mt-4 space-y-4">
+                        <label class="block text-sm font-semibold text-slate-200">"Full name"
+                            <input type="text" prop:value=full_name on:input=move |ev| set_full_name.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                        </label>
+                        <label class="block text-sm font-semibold text-slate-200">"Avatar URL"
+                            <input type="url" prop:value=avatar_url on:input=move |ev| set_avatar_url.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                        </label>
+                        <button class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950" type="submit">"Save profile"</button>
+                    </form>
+                </section>
+
+                <section class="rounded-3xl border border-red-500/20 bg-red-500/5 p-6">
+                    <h2 class="text-xl font-bold text-red-300">"Danger zone"</h2>
+                    <p class="mt-2 text-sm text-slate-400">"These actions are destructive."</p>
+                    <div class="mt-4 flex flex-wrap gap-3">
+                        <button on:click=lock_account class="rounded-xl bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-200">"Lock my account"</button>
+                    </div>
+                </section>
+            </main>
+        </div>
+    }
+}

@@ -116,7 +116,10 @@ mod tests {
     #[test]
     fn echo_input_rejects_whitespace_only_message() {
         let err = EchoInput::parse("   ".to_owned()).unwrap_err();
-        assert!(err.to_string().contains("empty"));
+        assert!(matches!(
+            err,
+            AppError::Validation(ValidationError::MessageRequired)
+        ));
     }
 
     #[test]

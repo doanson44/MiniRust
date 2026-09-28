@@ -42,6 +42,7 @@ hmac = "0.13"
 sha2 = "0.11"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "mysql", "migrate"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+testcontainers = "0.28"
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["trace"] }
 tracing = "0.1"

@@ -10,7 +10,7 @@ use tracing_subscriber::EnvFilter;
 #[derive(Debug)]
 pub enum LoggingError {
     CreateLogDirectory(io::Error),
-    SetGlobalDefault(tracing::subscriber::SetGlobalDefaultError),
+    SetGlobalDefault(String),
 }
 
 impl std::fmt::Display for LoggingError {
@@ -28,15 +28,19 @@ impl std::fmt::Display for LoggingError {
 
 impl std::error::Error for LoggingError {}
 
-pub struct LoggingGuard(Option<WorkerGuard>);
+pub struct LoggingGuard {
+    _guard: Option<WorkerGuard>,
+}
 
 impl LoggingGuard {
     fn empty() -> Self {
-        Self(None)
+        Self { _guard: None }
     }
 
     fn new(guard: WorkerGuard) -> Self {
-        Self(Some(guard))
+        Self {
+            _guard: Some(guard),
+        }
     }
 }
 
@@ -55,7 +59,7 @@ pub fn init(
                 .with_target(true)
                 .compact()
                 .try_init()
-                .map_err(LoggingError::SetGlobalDefault)?;
+                .map_err(|e| LoggingError::SetGlobalDefault(e.to_string()))?;
 
             Ok(LoggingGuard::empty())
         }
@@ -73,7 +77,7 @@ pub fn init(
                 .compact()
                 .with_writer(non_blocking)
                 .try_init()
-                .map_err(LoggingError::SetGlobalDefault)?;
+                .map_err(|e| LoggingError::SetGlobalDefault(e.to_string()))?;
 
             Ok(LoggingGuard::new(guard))
         }

@@ -22,5 +22,5 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
-testcontainers = "0.28"
+testcontainers.workspace = true
 tower.workspace = true

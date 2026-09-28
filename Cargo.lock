@@ -614,19 +614,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "217698eaf96b4a3f0bc4f3662aaa55bdf913cd54d7204591faa790070c6d0853"
 
 [[package]]
-name = "crossbeam-queue"
-version = "0.3.14"
+name = "crossbeam-channel"
+version = "0.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03e8bd762f7479489c70ed6c768ddca99d7296857de437a68dcb2a94365b3fae"
+checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
 dependencies = [
  "crossbeam-utils",
 ]
 
 [[package]]
-name = "crossbeam-channel"
-version = "0.5.15"
+name = "crossbeam-queue"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
+checksum = "03e8bd762f7479489c70ed6c768ddca99d7296857de437a68dcb2a94365b3fae"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -2115,6 +2115,7 @@ dependencies = [
  "minirust-services",
  "sha2 0.11.0",
  "sqlx",
+ "testcontainers",
  "tokio",
  "tracing",
  "uuid",
@@ -4077,7 +4078,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "050686193eb999b4bb3bc2acfa891a13da00f79734704c4b8b4ef1a10b368a3c"
 dependencies = [
  "crossbeam-channel",
- "parking_lot",
  "symlink",
  "thiserror 2.0.21",
  "time",
