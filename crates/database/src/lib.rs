@@ -662,7 +662,6 @@ impl UserAdminRepository for Database {
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
         Ok(user)
     }
-
 }
 
 impl AuthRepository for Database {
