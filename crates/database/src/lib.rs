@@ -9,8 +9,8 @@ use minirust_services::{
     PremiumEntitlement, UserAccess, UserAdminError, UserAdminRepository,
 };
 use sqlx::mysql::{MySqlPool, MySqlPoolOptions};
-use tracing::error;
 use sqlx::{MySql, Row, Transaction};
+use tracing::error;
 use uuid::Uuid;
 
 #[derive(Clone)]
