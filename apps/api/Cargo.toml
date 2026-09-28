@@ -11,6 +11,7 @@ axum-extra.workspace = true
 minirust-config.workspace = true
 minirust-core.workspace = true
 minirust-database.workspace = true
+minirust-observability.workspace = true
 minirust-services.workspace = true
 serde.workspace = true
 serde_json = "1"
