@@ -46,8 +46,7 @@ pub fn init(
     log_directory: impl AsRef<Path>,
     service_name: &str,
 ) -> Result<LoggingGuard, LoggingError> {
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_filter));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_filter));
 
     match environment {
         Environment::Development => {
