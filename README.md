@@ -62,7 +62,8 @@ The current baseline demonstrates both sides of CQRS:
 ## Frontend policy
 
 - Leptos full-stack SSR + client-side hydration is the web rendering model.
-- The server renders the initial HTML; `cargo-leptos` builds the browser WASM/JS bundle used to hydrate the same component tree.\n- Interactive frontend behavior belongs in Leptos components; inline JavaScript is not part of the frontend architecture.
+- The server renders the initial HTML; `cargo-leptos` builds the browser WASM/JS bundle used to hydrate the same component tree.
+- Interactive frontend behavior belongs in Leptos components; inline JavaScript is not part of the frontend architecture.
 - Tailwind CSS is the only CSS framework.
 - Bootstrap must not be introduced or preserved as a compatibility layer.
 
@@ -87,9 +88,6 @@ API (`http://127.0.0.1:3000`):
 - `GET /api/v1/admin/users/{user_id}/entitlements/premium` — read premium entitlement.
 - `PUT /api/v1/admin/users/{user_id}/entitlements/premium` — grant/update premium entitlement.
 - `DELETE /api/v1/admin/users/{user_id}/entitlements/premium` — revoke premium entitlement.
-- `PATCH /api/v1/users/me` — update full name and avatar URL
-- `POST /api/v1/users/me/lock` — lock current account
-- `DELETE /api/v1/users/me` — permanently delete current account
 - `GET /api/v1/openapi.json` — OpenAPI 3.0 document.
 - `GET /swagger` — Swagger UI.
 
@@ -124,13 +122,6 @@ Docker must be running when database integration tests execute. No separate test
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `MINIRUST_AUTH_SECRET` | required | Authentication/session secret |
-| `MINIRUST_ADMIN_EMAIL` | `admin@minirust.local` in development | Bootstrap administrator email |
-| `MINIRUST_ADMIN_OTP` | `123456` in development | Bootstrap administrator OTP |
-| `MINIRUST_DOMAIN` | required by production Compose | Public HTTPS domain for Caddy |
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
 | `MINIRUST_ENV` | `development` | Runtime environment |
 | `MINIRUST_LOG` | `info` | Fallback tracing filter |
 | `MINIRUST_API_HOST` | `127.0.0.1` | API bind host |
@@ -138,6 +129,12 @@ Docker must be running when database integration tests execute. No separate test
 | `MINIRUST_WEB_HOST` | `127.0.0.1` | Web bind host |
 | `MINIRUST_WEB_PORT` | `3001` | Web bind port |
 | `MINIRUST_DATABASE_URL` | required by API | MariaDB SQLx connection URL |
+| `MINIRUST_AUTH_SECRET` | required | Authentication/session secret |
+| `MINIRUST_ADMIN_EMAIL` | `admin@minirust.local` in development | Bootstrap administrator email |
+| `MINIRUST_ADMIN_OTP` | `123456` in development | Bootstrap administrator OTP |
+| `MINIRUST_DOMAIN` | required by production Compose | Public HTTPS domain for Caddy |
+
+Do not use development defaults for production secrets or credentials.
 
 ## Run locally
 
@@ -231,3 +228,8 @@ Do not claim verification unless the commands were actually executed.
 ## Current verification state
 
 Documentation describes the repository state but does not imply that the latest commit has passed CI. Build, lint, test, formatting, and frontend verification claims must be based on actual command output or a GitHub Actions result for the exact commit.
+- `POST /api/v1/auth/register/request-code` — request registration code.
+- `POST /api/v1/auth/register/verify-code` — verify registration code and create session.
+- `POST /api/v1/auth/login/request-code` — request login code.
+- `POST /api/v1/auth/login/verify-code` — verify login code and create session.
+- `POST /api/v1/auth/logout` — clear current session.
