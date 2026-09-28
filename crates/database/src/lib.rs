@@ -142,19 +142,19 @@ impl Database {
                 u.full_name,
                 u.avatar_url,
                 u.locked_at,
-                EXISTS(
+                CAST(EXISTS(
                     SELECT 1
                     FROM user_roles ur
                     WHERE ur.user_id = u.id AND ur.role = 'admin'
-                ) AS is_admin,
-                EXISTS(
+                ) AS UNSIGNED) AS is_admin,
+                CAST(EXISTS(
                     SELECT 1
                     FROM user_entitlements ue
                     WHERE ue.user_id = u.id
                       AND ue.entitlement = 'premium'
                       AND ue.active = 1
                       AND (ue.expires_at IS NULL OR ue.expires_at > ?)
-                ) AS is_premium
+                ) AS UNSIGNED) AS is_premium
             FROM users u
             WHERE u.id = ?
         "#
@@ -1114,11 +1114,13 @@ fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, AuthError> {
             .map_err(|_| AuthError::Persistence)?
             .is_some(),
         is_admin: row
-            .try_get::<bool, _>("is_admin")
-            .map_err(|_| AuthError::Persistence)?,
+            .try_get::<i64, _>("is_admin")
+            .map_err(|_| AuthError::Persistence)?
+            != 0,
         is_premium: row
-            .try_get::<bool, _>("is_premium")
-            .map_err(|_| AuthError::Persistence)?,
+            .try_get::<i64, _>("is_premium")
+            .map_err(|_| AuthError::Persistence)?
+            != 0,
     })
 }
 
