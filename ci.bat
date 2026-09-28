@@ -12,7 +12,8 @@ echo.
 
 echo [1/5] Checking formatting...
 if /i "%~1"=="--internal" (
-    cargo fmt --all -- --check > "%CI_STEP_LOG%" 2>&1
+    echo [1/5] Checking formatting...> "%CI_STEP_LOG%"
+    cargo fmt --all -- --check >> "%CI_STEP_LOG%" 2>&1
     type "%CI_STEP_LOG%"
 ) else (
     cargo fmt --all -- --check
@@ -22,7 +23,8 @@ if %errorlevel% neq 0 goto :error
 echo.
 echo [2/5] Running cargo check...
 if /i "%~1"=="--internal" (
-    cargo check --workspace --locked > "%CI_STEP_LOG%" 2>&1
+    echo [2/5] Running cargo check...> "%CI_STEP_LOG%"
+    cargo check --workspace --locked >> "%CI_STEP_LOG%" 2>&1
     type "%CI_STEP_LOG%"
 ) else (
     cargo check --workspace --locked
@@ -32,7 +34,8 @@ if %errorlevel% neq 0 goto :error
 echo.
 echo [3/5] Running clippy...
 if /i "%~1"=="--internal" (
-    cargo clippy --workspace --all-targets --all-features --locked -- -D warnings > "%CI_STEP_LOG%" 2>&1
+    echo [3/5] Running clippy...> "%CI_STEP_LOG%"
+    cargo clippy --workspace --all-targets --all-features --locked -- -D warnings >> "%CI_STEP_LOG%" 2>&1
     type "%CI_STEP_LOG%"
 ) else (
     cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
@@ -43,7 +46,8 @@ echo.
 echo [4/5] Running tests...
 echo (Make sure Docker Desktop is running for the database integration tests)
 if /i "%~1"=="--internal" (
-    cargo test --workspace --locked --all-targets > "%CI_STEP_LOG%" 2>&1
+    echo [4/5] Running tests...> "%CI_STEP_LOG%"
+    cargo test --workspace --locked --all-targets >> "%CI_STEP_LOG%" 2>&1
     type "%CI_STEP_LOG%"
 ) else (
     cargo test --workspace --locked --all-targets
@@ -53,7 +57,8 @@ if %errorlevel% neq 0 goto :error
 echo.
 echo [5/5] Building workspace...
 if /i "%~1"=="--internal" (
-    cargo build --workspace --locked > "%CI_STEP_LOG%" 2>&1
+    echo [5/5] Building workspace...> "%CI_STEP_LOG%"
+    cargo build --workspace --locked >> "%CI_STEP_LOG%" 2>&1
     type "%CI_STEP_LOG%"
 ) else (
     cargo build --workspace --locked
