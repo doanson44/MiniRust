@@ -31,14 +31,12 @@ impl std::error::Error for LoggingError {}
 pub struct LoggingGuard(Option<WorkerGuard>);
 
 impl LoggingGuard {
-    pub fn new(guard: WorkerGuard) -> Self {
-        Self(Some(guard))
+    fn empty() -> Self {
+        Self(None)
     }
-}
 
-impl Drop for LoggingGuard {
-    fn drop(&mut self) {
-        let _ = self.0.take();
+    fn new(guard: WorkerGuard) -> Self {
+        Self(Some(guard))
     }
 }
 
@@ -60,9 +58,7 @@ pub fn init(
                 .try_init()
                 .map_err(LoggingError::SetGlobalDefault)?;
 
-            let (non_blocking, guard) = tracing_appender::non_blocking(io::stdout());
-            let _ = non_blocking;
-            Ok(LoggingGuard::new(guard))
+            Ok(LoggingGuard::empty())
         }
         Environment::Production => {
             let directory = log_directory.as_ref();
