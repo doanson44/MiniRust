@@ -34,7 +34,9 @@ static INIT_TRACING: Once = Once::new();
 fn init_test_tracing() {
     INIT_TRACING.call_once(|| {
         let _ = tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::ERROR.into()))
+            .with_env_filter(
+                EnvFilter::from_default_env().add_directive(tracing::Level::ERROR.into()),
+            )
             .with_test_writer()
             .try_init();
     });
