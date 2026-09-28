@@ -192,7 +192,7 @@ async fn me_without_session_is_unauthorized() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
-async fn admin_cookie(app: &TestApp) -> String {
+async fn admin_cookie(app: &TestApp) -> (String, String) {
     let request_response = app
         .router()
         .oneshot(
@@ -219,7 +219,7 @@ async fn admin_cookie(app: &TestApp) -> String {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
-    response
+    let cookie = response
         .headers()
         .get("set-cookie")
         .expect("admin login must set a session cookie")
@@ -228,13 +228,21 @@ async fn admin_cookie(app: &TestApp) -> String {
         .split(';')
         .next()
         .unwrap()
-        .to_owned()
+        .to_owned();
+
+    let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let user_id = body["data"]["user"]["id"].as_str().unwrap().to_owned();
+
+    (cookie, user_id)
 }
 
 #[tokio::test]
 async fn authenticated_user_can_update_profile() {
     let app = test_app().await;
-    let cookie = admin_cookie(&app).await;
+    let (cookie, admin_id) = admin_cookie(&app).await;
 
     let response = app.router()
         .oneshot(
@@ -479,7 +487,7 @@ async fn admin_user_crud_and_role_assignment() {
     let protected_delete = app
         .router()
         .oneshot(
-            Request::delete(format!("/api/v1/admin/users/{}","01900000-0000-7000-8000-000000000000"))
+            Request::delete(format!("/api/v1/admin/users/{admin_id}"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
