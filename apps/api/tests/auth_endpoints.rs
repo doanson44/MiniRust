@@ -356,10 +356,16 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(create.status(), StatusCode::CREATED);
 
+    let body = axum::body::to_bytes(create.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let user_id = body["data"]["id"].as_str().unwrap().to_owned();
+
     let get = app
         .router()
         .oneshot(
-            Request::get("/api/v1/admin/users/crud@example.com")
+            Request::get(format!("/api/v1/admin/users/{user_id}"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -371,7 +377,7 @@ async fn admin_user_crud_and_role_assignment() {
     let update = app
         .router()
         .oneshot(
-            Request::patch("/api/v1/admin/users/crud@example.com")
+            Request::patch(format!("/api/v1/admin/users/{user_id}"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(r#"{"email":"updated@example.com"}"#))
@@ -384,7 +390,7 @@ async fn admin_user_crud_and_role_assignment() {
     let assign = app
         .router()
         .oneshot(
-            Request::put("/api/v1/admin/users/updated@example.com/role")
+            Request::put(format!("/api/v1/admin/users/{user_id}/role"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(r#"{"role":"admin"}"#))
@@ -397,7 +403,7 @@ async fn admin_user_crud_and_role_assignment() {
     let premium_get = app
         .router()
         .oneshot(
-            Request::get("/api/v1/admin/users/updated@example.com/entitlements/premium")
+            Request::get(format!("/api/v1/admin/users/{user_id}/entitlements/premium"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -409,7 +415,7 @@ async fn admin_user_crud_and_role_assignment() {
     let premium = app
         .router()
         .oneshot(
-            Request::put("/api/v1/admin/users/updated@example.com/entitlements/premium")
+            Request::put(format!("/api/v1/admin/users/{user_id}/entitlements/premium"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(r#"{"active":true,"expires_at":null}"#))
@@ -448,7 +454,7 @@ async fn admin_user_crud_and_role_assignment() {
     let premium_delete = app
         .router()
         .oneshot(
-            Request::delete("/api/v1/admin/users/updated@example.com/entitlements/premium")
+            Request::delete(format!("/api/v1/admin/users/{user_id}/entitlements/premium"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -473,7 +479,7 @@ async fn admin_user_crud_and_role_assignment() {
     let protected_delete = app
         .router()
         .oneshot(
-            Request::delete("/api/v1/admin/users/admin@minirust.local")
+            Request::delete(format!("/api/v1/admin/users/{}","01900000-0000-7000-8000-000000000000"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -485,7 +491,7 @@ async fn admin_user_crud_and_role_assignment() {
     let delete = app
         .router()
         .oneshot(
-            Request::delete("/api/v1/admin/users/updated@example.com")
+            Request::delete(format!("/api/v1/admin/users/{user_id}"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -497,7 +503,7 @@ async fn admin_user_crud_and_role_assignment() {
     let missing = app
         .router()
         .oneshot(
-            Request::get("/api/v1/admin/users/updated@example.com")
+            Request::get(format!("/api/v1/admin/users/{user_id}"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
