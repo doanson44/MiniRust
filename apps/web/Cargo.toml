@@ -25,7 +25,7 @@ tracing-subscriber = { workspace = true, optional = true }
 [dev-dependencies]
 tower.workspace = true
 
-[target."cfg(target_arch = "wasm32")".dependencies]
+[target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-net.workspace = true
 web-sys.workspace = true
 wasm-bindgen.workspace = true
