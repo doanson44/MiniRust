@@ -26,7 +26,7 @@ async fn database_connects_to_mariadb_running_in_docker() -> Result<(), Box<dyn 
     let database = loop {
         match Database::connect(&url).await {
             Ok(db) => break db,
-            Err(e) if retries > 0 => {
+            Err(_e) if retries > 0 => {
                 retries -= 1;
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             }
