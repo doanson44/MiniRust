@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Once;
 use std::time::Duration;
 
 use axum::{
@@ -15,6 +16,7 @@ use testcontainers::{
 };
 use tokio::time::sleep;
 use tower::ServiceExt;
+use tracing_subscriber::EnvFilter;
 
 struct TestApp {
     router: Router,
@@ -27,12 +29,25 @@ impl TestApp {
     }
 }
 
+static INIT_TRACING: Once = Once::new();
+
+fn init_test_tracing() {
+    INIT_TRACING.call_once(|| {
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::ERROR.into()))
+            .with_test_writer()
+            .try_init();
+    });
+}
+
 struct TestDatabase {
     _database: Database,
     _container: testcontainers::ContainerAsync<GenericImage>,
 }
 
 async fn test_app() -> TestApp {
+    init_test_tracing();
+
     let container = GenericImage::new("mariadb", "11")
         .with_wait_for(WaitFor::message_on_stderr("ready for connections"))
         .with_exposed_port(3306.tcp())
