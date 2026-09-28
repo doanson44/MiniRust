@@ -218,21 +218,10 @@ async fn admin_cookie(app: &TestApp) -> (String, String) {
         .await
         .unwrap();
     let status = response.status();
-    let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
-        .await
-        .unwrap();
-    assert_eq!(
-        status,
-        StatusCode::OK,
-        "admin login verify response: {}",
-        String::from_utf8_lossy(&body)
-    );
-
-    let response_body = serde_json::from_slice::<serde_json::Value>(&body).unwrap();
-    let cookie = response_body
-        .get("data")
-        .and_then(|_| None::<String>);
-    let _ = cookie;
+    let cookie = response.headers().get("set-cookie").and_then(|v| v.to_str().ok()).map(|v| v.split(';').next().unwrap_or_default().to_owned());
+    let body = axum::body::to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    assert_eq!(status, StatusCode::OK, "admin login verify response: {}", String::from_utf8_lossy(&body));
+    let cookie = cookie.expect("admin login must set a session cookie");
 
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let user_id = body["data"]["user"]["id"].as_str().unwrap().to_owned();
