@@ -2139,7 +2139,6 @@ dependencies = [
  "tower",
  "tower-http",
  "tracing",
- "tracing-subscriber",
  "wasm-bindgen",
  "web-sys",
 ]
