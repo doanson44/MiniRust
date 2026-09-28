@@ -8,7 +8,7 @@ description = "MariaDB database adapter for MiniRust"
 [dependencies]
 minirust-core.workspace = true
 minirust-services.workspace = true
-sqlx.workspace = true
+sqlx = { workspace = true, features = ["macros", "migrate"] }
 uuid.workspace = true
 hmac.workspace = true
 sha2.workspace = true
