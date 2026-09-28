@@ -3,19 +3,9 @@ use leptos::config::{Env as LeptosEnv, LeptosOptions};
 #[cfg(feature = "ssr")]
 use minirust_config::{Config, ServerKind};
 #[cfg(feature = "ssr")]
+use minirust_observability::init as init_logging;
+#[cfg(feature = "ssr")]
 use minirust_web::{router, AppState};
-#[cfg(feature = "ssr")]
-use tracing_subscriber::EnvFilter;
-
-#[cfg(feature = "ssr")]
-fn init_tracing(log_filter: &str) {
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_filter));
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_target(true)
-        .compact()
-        .init();
-}
 
 #[cfg(feature = "ssr")]
 async fn shutdown_signal() {
@@ -28,7 +18,12 @@ async fn shutdown_signal() {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::load()?;
-    init_tracing(&config.log_filter);
+    let _logging_guard = init_logging(
+        config.environment,
+        &config.log_filter,
+        &config.log_directory,
+        "minirust-web",
+    )?;
 
     let bind = config.server_bind(ServerKind::Web)?;
     let addr = bind.socket_addr()?;
