@@ -35,6 +35,7 @@ Do not put business rules, repository calls, or SQL in the Axum handler.
 | GET | `/health` | Infrastructure health check |
 | GET | `/api/v1/hello` | Query |
 | POST | `/api/v1/echo` | Command |
+| POST | `/api/v1/search` | Search query |
 
 ## Response contract
 
@@ -61,6 +62,7 @@ See `docs/architecture/api-response.md` for the complete contract and status map
 - Map transport input into a typed command/query.
 - Map application errors to the standardized HTTP response contract at the transport boundary.
 - JSON responses for `/api/*` routes.
+- Search endpoints MUST use `POST`, including read-only search queries. Search criteria belong in the request body; do not use `GET` query parameters for search endpoints.
 - Use `TraceLayer` for request tracing.
 - Keep graceful shutdown in the binary.
 
