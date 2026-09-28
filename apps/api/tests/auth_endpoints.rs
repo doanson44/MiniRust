@@ -249,7 +249,7 @@ async fn authenticated_user_can_update_profile() {
             Request::patch("/api/v1/users/me")
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
-            .body(Body::from(r#"{"full_name":"MiniRust Admin","avatar_url":"https://example.com/avatar.png"}"#))
+                .body(Body::from(r#"{"full_name":"MiniRust Admin","avatar_url":"https://example.com/avatar.png"}"#))
                 .unwrap(),
         )
         .await
@@ -262,8 +262,8 @@ async fn authenticated_user_can_update_profile() {
         .oneshot(
             Request::get("/api/v1/auth/me")
                 .header("cookie", &cookie)
-            .body(Body::empty())
-            .unwrap(),
+                .body(Body::empty())
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -286,7 +286,7 @@ async fn self_service_account_actions_require_authentication() {
         .oneshot(
             Request::post("/api/v1/users/me/lock")
                 .body(Body::empty())
-            .unwrap(),
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -297,7 +297,7 @@ async fn self_service_account_actions_require_authentication() {
         .oneshot(
             Request::delete("/api/v1/users/me")
                 .body(Body::empty())
-            .unwrap(),
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -314,8 +314,8 @@ async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
         .oneshot(
             Request::post("/api/v1/users/me/lock")
                 .header("cookie", &cookie)
-            .body(Body::empty())
-            .unwrap(),
+                .body(Body::empty())
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -326,8 +326,8 @@ async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
         .oneshot(
             Request::delete("/api/v1/users/me")
                 .header("cookie", &cookie)
-            .body(Body::empty())
-            .unwrap(),
+                .body(Body::empty())
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -344,8 +344,8 @@ async fn admin_user_crud_and_role_assignment() {
         .oneshot(
             Request::get("/api/v1/admin/users")
                 .header("cookie", &cookie)
-            .body(Body::empty())
-            .unwrap(),
+                .body(Body::empty())
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -357,7 +357,7 @@ async fn admin_user_crud_and_role_assignment() {
             Request::post("/api/v1/admin/users")
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
-            .body(Body::from(r#"{"email":"crud@example.com"}"#))
+                .body(Body::from(r#"{"email":"crud@example.com"}"#))
                 .unwrap(),
         )
         .await
@@ -524,7 +524,7 @@ async fn admin_user_crud_and_role_assignment() {
             Request::get(format!("/api/v1/admin/users/{user_id}"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
-            .unwrap(),
+                .unwrap(),
         )
         .await
         .unwrap();
