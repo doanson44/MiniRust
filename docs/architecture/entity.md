@@ -61,3 +61,14 @@ These concerns are added only where a specific domain or concurrency requirement
 ## Evolution
 
 UUIDv7 keeps identity generation independent of the current single-MariaDB deployment model. If persistence or infrastructure changes later, domain identity does not need to become database-generated.
+
+## Enum persistence
+
+Persisted domain enums use explicit string values in MariaDB.
+
+- Never persist an enum as a numeric discriminant, ordinal, or declaration index.
+- Each persisted variant must have a stable string representation independent of Rust variant ordering.
+- Use a string-compatible MariaDB column such as `VARCHAR` for persisted enum values.
+- The infrastructure/persistence layer maps between domain enums and stored strings; domain code must not depend on SQLx or MariaDB.
+- Reading an unknown stored value is a persistence error, not an implicit fallback.
+- Changes to persisted enum values require backward-compatible handling or an explicit database migration.
