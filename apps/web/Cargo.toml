@@ -17,6 +17,7 @@ serde.workspace = true
 serde_json.workspace = true
 minirust-config = { workspace = true, optional = true }
 minirust-core.workspace = true
+minirust-observability = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tower-http = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
@@ -30,7 +31,7 @@ tower.workspace = true
 
 [features]
 default = ["ssr"]
-ssr = ["dep:axum", "dep:leptos_axum", "dep:minirust-config", "dep:tokio", "dep:tower-http", "dep:tracing", "dep:tracing-subscriber", "leptos/ssr", "leptos_axum/default", "leptos_router/ssr"]
+ssr = ["dep:axum", "dep:leptos_axum", "dep:minirust-config", "dep:minirust-observability", "dep:tokio", "dep:tower-http", "dep:tracing", "dep:tracing-subscriber", "leptos/ssr", "leptos_axum/default", "leptos_router/ssr"]
 hydrate = ["leptos/hydrate"]
 
 [package.metadata.leptos]
