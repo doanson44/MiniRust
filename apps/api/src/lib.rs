@@ -434,8 +434,8 @@ async fn auth_register_verify_code(
                 expires_at: session.expires_at,
             };
             (
-                jar.add(session_cookie(&session.token, state.secure_cookies)),
                 StatusCode::OK,
+                jar.add(session_cookie(&session.token, state.secure_cookies)),
                 Json(ApiResponse::new(response)),
             )
                 .into_response()
@@ -470,8 +470,8 @@ async fn auth_login_verify_code(
                 expires_at: session.expires_at,
             };
             (
-                jar.add(session_cookie(&session.token, state.secure_cookies)),
                 StatusCode::OK,
+                jar.add(session_cookie(&session.token, state.secure_cookies)),
                 Json(ApiResponse::new(response)),
             )
                 .into_response()
@@ -574,6 +574,7 @@ async fn admin_users_list(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -606,6 +607,7 @@ async fn admin_users_create(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -633,6 +635,7 @@ async fn admin_user_get(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -667,6 +670,7 @@ async fn admin_user_update(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -694,6 +698,7 @@ async fn admin_user_unlock(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -717,6 +722,7 @@ async fn admin_user_delete(
     {
         Ok(UserAdminCommandResult::Deleted) => StatusCode::NO_CONTENT.into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -747,6 +753,7 @@ async fn admin_user_get_premium(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -774,6 +781,7 @@ async fn admin_user_revoke_premium(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -809,6 +817,7 @@ async fn admin_user_set_premium(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -848,6 +857,7 @@ async fn admin_user_assign_role(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -883,6 +893,7 @@ async fn user_profile_update(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -909,6 +920,7 @@ async fn user_lock(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -935,6 +947,7 @@ async fn user_delete(
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
