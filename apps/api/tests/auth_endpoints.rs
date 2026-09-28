@@ -170,7 +170,7 @@ async fn logout_without_session_is_successful_and_clears_cookie() {
         .oneshot(
             Request::post("/api/v1/auth/logout")
                 .body(Body::empty())
-            .unwrap(),
+                .unwrap(),
         )
         .await
         .unwrap();
