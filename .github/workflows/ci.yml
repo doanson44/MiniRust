@@ -50,7 +50,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Test workspace
-        run: cargo test --workspace --all-targets
+        run: cargo test --workspace --all-targets -- --test-threads=1
 
       - name: Install cargo-leptos
         run: cargo install cargo-leptos --locked

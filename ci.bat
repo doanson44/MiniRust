@@ -53,7 +53,7 @@ echo [4/5] Running tests...
 echo (Make sure Docker Desktop is running for the database integration tests)
 if /i "%~1"=="--internal" (
     echo [4/5] Running tests...> "%CI_STEP_LOG%"
-    cargo test --workspace --locked --all-targets >> "%CI_STEP_LOG%" 2>&1
+    cargo test --workspace --locked --all-targets -- --test-threads=1 >> "%CI_STEP_LOG%" 2>&1
     set "CI_STEP_EXIT=!errorlevel!"
     type "%CI_STEP_LOG%"
 ) else (
