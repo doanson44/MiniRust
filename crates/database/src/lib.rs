@@ -880,7 +880,7 @@ impl AuthRepository for Database {
         let bootstrap_admin = row
             .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| AuthError::Persistence)?;
-        if !bootstrap_admin {
+        if bootstrap_admin == 0 {
             consume_challenge(&mut tx, challenge_id, now).await?;
         }
         insert_session(
