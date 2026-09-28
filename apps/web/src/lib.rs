@@ -197,12 +197,6 @@ struct ApiEnvelope<T> { data: T }
 struct AdminUsers { users: Vec<UserResponse> }
 
 #[derive(Clone, Debug, Deserialize)]
-struct PremiumResponse {
-    active: bool,
-    expires_at: Option<i64>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
 struct ApiProblem { detail: String }
 
 #[derive(Clone, Debug, Serialize)]
@@ -606,7 +600,7 @@ fn AdminPage() -> impl IntoView {
         let email = edit_email.get();
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            let path = format!("/api/v1/admin/users/{}", urlencoding::encode(&current));
+            let path = format!("/api/v1/admin/users/{}", current));
             match api_json::<UserResponse>(gloo_net::http::Method::PATCH, &path, Some(serde_json::to_string(&AdminEmailRequest { email }).unwrap_or_default())).await {
                 Ok(_) => { set_selected.set(None); refresh(); }
                 Err(error) => set_status.set(error),
@@ -617,7 +611,7 @@ fn AdminPage() -> impl IntoView {
     let action_user = move |email: String, action: &'static str| {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            let path = format!("/api/v1/admin/users/{}", urlencoding::encode(&email));
+            let path = format!("/api/v1/admin/users/{}", email));
             let result = match action {
                 "unlock" => api_json::<UserResponse>(gloo_net::http::Method::POST, &format!("{path}/unlock"), None).await.map(|_| ()),
                 "delete" => api_empty(gloo_net::http::Method::DELETE, &path, None).await,
@@ -630,7 +624,7 @@ fn AdminPage() -> impl IntoView {
     let role_user = move |email: String, role: String| {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            let path = format!("/api/v1/admin/users/{}/role", urlencoding::encode(&email));
+            let path = format!("/api/v1/admin/users/{}/role", email));
             match api_json::<UserResponse>(gloo_net::http::Method::PUT, &path, Some(serde_json::to_string(&AdminRoleRequest { role }).unwrap_or_default())).await {
                 Ok(_) => refresh(),
                 Err(error) => set_status.set(error),
@@ -641,7 +635,7 @@ fn AdminPage() -> impl IntoView {
     let premium_user = move |email: String, active: bool, expires_at: Option<i64>| {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            let path = format!("/api/v1/admin/users/{}/entitlements/premium", urlencoding::encode(&email));
+            let path = format!("/api/v1/admin/users/{}/entitlements/premium", email));
             let result = if active {
                 api_json::<UserResponse>(gloo_net::http::Method::PUT, &path, Some(serde_json::to_string(&PremiumRequest { active, expires_at }).unwrap_or_default())).await.map(|_| ())
             } else {
@@ -695,7 +689,7 @@ fn AdminPage() -> impl IntoView {
                                     <td class="px-4 py-4 text-sm text-slate-400">
                                         <div>{if user.is_premium {"Active"} else {"Inactive"}}</div>
                                         <div class="mt-2 flex gap-2">
-                                            <input type="datetime-local" placeholder="Expiry" class="w-44 rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-xs text-white"
+                                            <input type="datetime-local" placeholder="Unix expiry timestamp (optional)" class="w-44 rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-xs text-white"
                                                 on:input=move |ev| set_premium_expires.set(event_target_value(&ev))/>
                                             <button on:click=move |_| {
                                                 let value = premium_expires.get();
