@@ -26,8 +26,8 @@ use minirust_services::{
 use minirust_services::{EchoCommand, EchoCommandHandler, GreetingQuery, GreetingQueryHandler};
 use response::{ApiResponse, Locale, ProblemDetails};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use tower_http::trace::TraceLayer;
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -621,8 +621,7 @@ fn parse_user_id(value: &str, locale: Locale) -> Result<EntityId, axum::response
         Err(_) => return Err(ProblemDetails::bad_request(locale).into_response()),
     };
 
-    EntityId::from_uuid(uuid)
-        .ok_or_else(|| ProblemDetails::bad_request(locale).into_response())
+    EntityId::from_uuid(uuid).ok_or_else(|| ProblemDetails::bad_request(locale).into_response())
 }
 
 async fn admin_user_get(
