@@ -68,6 +68,8 @@ Do not introduce Redis unless project direction is explicitly changed.
 Successful JSON responses use:
 {"data": {}}
 
+Search endpoints always use HTTP `POST`, including read-only CQRS queries. Search criteria must be supplied in the request body; do not design search endpoints as `GET` requests with query parameters.
+
 Errors use RFC 9457 Problem Details with media type application/problem+json. Never expose SQL errors, stack traces, connection strings, secrets, or internal infrastructure details. Follow docs/architecture/api-response.md.
 
 ## 9. Web and Deployment
