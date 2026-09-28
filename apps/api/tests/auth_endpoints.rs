@@ -376,7 +376,7 @@ async fn admin_user_crud_and_role_assignment() {
             Request::get(format!("/api/v1/admin/users/{user_id}"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
-            .unwrap(),
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -388,7 +388,7 @@ async fn admin_user_crud_and_role_assignment() {
             Request::patch(format!("/api/v1/admin/users/{user_id}"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
-            .body(Body::from(r#"{"email":"updated@example.com"}"#))
+                .body(Body::from(r#"{"email":"updated@example.com"}"#))
                 .unwrap(),
         )
         .await
@@ -429,7 +429,7 @@ async fn admin_user_crud_and_role_assignment() {
                 "/api/v1/admin/users/{user_id}/entitlements/premium"
             ))
             .header("content-type", "application/json")
-                .header("cookie", &cookie)
+            .header("cookie", &cookie)
             .body(Body::from(r#"{"active":true,"expires_at":null}"#))
             .unwrap(),
         )
@@ -444,7 +444,7 @@ async fn admin_user_crud_and_role_assignment() {
                 "/api/v1/admin/users/{user_id}/entitlements/premium"
             ))
             .header("content-type", "application/json")
-                .header("cookie", &cookie)
+            .header("cookie", &cookie)
             .body(Body::from(r#"{"active":false,"expires_at":null}"#))
             .unwrap(),
         )
@@ -459,7 +459,7 @@ async fn admin_user_crud_and_role_assignment() {
                 "/api/v1/admin/users/{user_id}/entitlements/premium"
             ))
             .header("content-type", "application/json")
-                .header("cookie", &cookie)
+            .header("cookie", &cookie)
             .body(Body::from(r#"{"active":true,"expires_at":1}"#))
             .unwrap(),
         )
@@ -500,7 +500,7 @@ async fn admin_user_crud_and_role_assignment() {
             Request::delete(format!("/api/v1/admin/users/{admin_id}"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
-            .unwrap(),
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -512,7 +512,7 @@ async fn admin_user_crud_and_role_assignment() {
             Request::delete(format!("/api/v1/admin/users/{user_id}"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
-            .unwrap(),
+                .unwrap(),
         )
         .await
         .unwrap();
