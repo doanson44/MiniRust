@@ -70,7 +70,7 @@ impl Database {
             }
             None => {
                 sqlx::query("INSERT INTO users (id, email, bootstrap_admin, created_at) VALUES (?, ?, 1, ?)")
-                    .bind(user_id.as_uuid().as_bytes())
+                    .bind(user_id.as_uuid().as_bytes().as_slice())
                     .bind(&email)
                     .bind(now)
                     .execute(&mut *tx)
@@ -81,7 +81,7 @@ impl Database {
         };
 
         sqlx::query("UPDATE users SET bootstrap_admin = 1 WHERE id = ?")
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
             .await
             .map_err(|_| AuthError::Persistence)?;
@@ -91,7 +91,7 @@ impl Database {
              VALUES (?, 'admin')
              ON DUPLICATE KEY UPDATE role = VALUES(role)",
         )
-        .bind(user_id.as_uuid().as_bytes())
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .execute(&mut *tx)
         .await
         .map_err(|_| AuthError::Persistence)?;
@@ -115,7 +115,7 @@ impl Database {
                 (id, email, purpose, code_hash, attempts, max_attempts, expires_at, created_at)
              VALUES (?, ?, 'login', ?, 0, 5, ?, ?)",
         )
-        .bind(challenge_id.as_uuid().as_bytes())
+        .bind(challenge_id.as_uuid().as_bytes().as_slice())
         .bind(&email)
         .bind(code_hash.as_slice())
         .bind(now + 365 * 24 * 60 * 60)
@@ -168,7 +168,7 @@ impl Database {
     ) -> Result<UserAccess, AuthError> {
         let row = sqlx::query(Self::user_query())
             .bind(now)
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .fetch_one(&mut **tx)
             .await
             .map_err(|_| AuthError::Persistence)?;
@@ -194,7 +194,7 @@ impl UserAdminRepository for Database {
             "INSERT INTO users (id, email, bootstrap_admin, created_at)
              VALUES (?, ?, 0, ?)",
         )
-        .bind(id.as_uuid().as_bytes())
+        .bind(id.as_uuid().as_bytes().as_slice())
         .bind(email)
         .bind(now)
         .execute(&mut *tx)
@@ -262,7 +262,7 @@ impl UserAdminRepository for Database {
             "#,
         )
         .bind(now)
-        .bind(user_id.as_uuid().as_bytes())
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .fetch_optional(&self.pool)
         .await
         .map_err(|_| UserAdminError::Persistence)?;
@@ -340,7 +340,7 @@ impl UserAdminRepository for Database {
 
         let result = sqlx::query("UPDATE users SET email = ? WHERE id = ?")
             .bind(new_email)
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
             .await;
 
@@ -409,7 +409,7 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?;
 
         sqlx::query("DELETE FROM users WHERE id = ?")
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?;
@@ -457,7 +457,7 @@ impl UserAdminRepository for Database {
                      VALUES (?, 'admin')
                      ON DUPLICATE KEY UPDATE role = VALUES(role)",
                 )
-                .bind(user_id.as_uuid().as_bytes())
+                .bind(user_id.as_uuid().as_bytes().as_slice())
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| UserAdminError::Persistence)?;
@@ -467,7 +467,7 @@ impl UserAdminRepository for Database {
                     "DELETE FROM user_roles
                      WHERE user_id = ? AND role = 'admin'",
                 )
-                .bind(user_id.as_uuid().as_bytes())
+                .bind(user_id.as_uuid().as_bytes().as_slice())
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| UserAdminError::Persistence)?;
@@ -546,7 +546,7 @@ impl UserAdminRepository for Database {
                  active = VALUES(active),
                  expires_at = VALUES(expires_at)",
         )
-        .bind(user_id.as_uuid().as_bytes())
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .bind(if active { 1_i64 } else { 0_i64 })
         .bind(expires_at)
         .execute(&mut *tx)
@@ -573,7 +573,7 @@ impl UserAdminRepository for Database {
             .await
             .map_err(|_| UserAdminError::Persistence)?;
         let exists = sqlx::query("SELECT id FROM users WHERE id = ? FOR UPDATE")
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .fetch_optional(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?
@@ -585,7 +585,7 @@ impl UserAdminRepository for Database {
         sqlx::query("UPDATE users SET full_name = ?, avatar_url = ? WHERE id = ?")
             .bind(full_name)
             .bind(avatar_url)
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?;
@@ -605,7 +605,7 @@ impl UserAdminRepository for Database {
             .await
             .map_err(|_| UserAdminError::Persistence)?;
         let row = sqlx::query("SELECT bootstrap_admin FROM users WHERE id = ? FOR UPDATE")
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .fetch_optional(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?
@@ -622,7 +622,7 @@ impl UserAdminRepository for Database {
         let now = current_epoch();
         sqlx::query("UPDATE users SET locked_at = ? WHERE id = ?")
             .bind(now)
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?;
@@ -631,7 +631,7 @@ impl UserAdminRepository for Database {
             "UPDATE auth_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL",
         )
         .bind(now)
-        .bind(user_id.as_uuid().as_bytes())
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .execute(&mut *tx)
         .await
         .map_err(|_| UserAdminError::Persistence)?;
@@ -654,7 +654,7 @@ impl UserAdminRepository for Database {
         let user_id = row_to_id(&row).map_err(|_| UserAdminError::Persistence)?;
 
         sqlx::query("UPDATE users SET locked_at = NULL WHERE id = ?")
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?;
@@ -674,7 +674,7 @@ impl UserAdminRepository for Database {
             .await
             .map_err(|_| UserAdminError::Persistence)?;
         let row = sqlx::query("SELECT bootstrap_admin FROM users WHERE id = ? FOR UPDATE")
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .fetch_optional(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?
@@ -691,13 +691,13 @@ impl UserAdminRepository for Database {
         sqlx::query(
             "DELETE FROM auth_challenges WHERE email = (SELECT email FROM users WHERE id = ?)",
         )
-        .bind(user_id.as_uuid().as_bytes())
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .execute(&mut *tx)
         .await
         .map_err(|_| UserAdminError::Persistence)?;
 
         sqlx::query("DELETE FROM users WHERE id = ?")
-            .bind(user_id.as_uuid().as_bytes())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?;
@@ -772,7 +772,7 @@ impl AuthRepository for Database {
                 (id, email, purpose, code_hash, attempts, max_attempts, expires_at, created_at)
              VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
         )
-        .bind(challenge.id.as_uuid().as_bytes())
+        .bind(challenge.id.as_uuid().as_bytes().as_slice())
         .bind(email)
         .bind(purpose.as_str())
         .bind(code_hash.as_slice())
@@ -845,7 +845,7 @@ impl AuthRepository for Database {
         let insert = sqlx::query(
             "INSERT INTO users (id, email, bootstrap_admin, created_at) VALUES (?, ?, 0, ?)",
         )
-        .bind(user_id.as_uuid().as_bytes())
+        .bind(user_id.as_uuid().as_bytes().as_slice())
         .bind(email)
         .bind(now)
         .execute(&mut *tx)
@@ -997,7 +997,7 @@ impl AuthRepository for Database {
 
     async fn discard_challenge(&self, challenge_id: EntityId) -> Result<(), AuthError> {
         sqlx::query("DELETE FROM auth_challenges WHERE id = ?")
-            .bind(challenge_id.as_uuid().as_bytes())
+            .bind(challenge_id.as_uuid().as_bytes().as_slice())
             .execute(&self.pool)
             .await
             .map(|_| ())
@@ -1024,7 +1024,7 @@ async fn lock_challenge(
          WHERE id = ? AND consumed_at IS NULL
          FOR UPDATE",
     )
-    .bind(challenge_id.as_uuid().as_bytes())
+    .bind(challenge_id.as_uuid().as_bytes().as_slice())
     .fetch_optional(&mut **tx)
     .await
     .map_err(|_| AuthError::Persistence)?
@@ -1078,7 +1078,7 @@ async fn record_failed_attempt(
     let next = attempts.saturating_add(1);
     sqlx::query("UPDATE auth_challenges SET attempts = ? WHERE id = ?")
         .bind(next)
-        .bind(challenge_id.as_uuid().as_bytes())
+        .bind(challenge_id.as_uuid().as_bytes().as_slice())
         .execute(&mut **tx)
         .await
         .map_err(|_| AuthError::Persistence)?;
@@ -1099,7 +1099,7 @@ async fn consume_challenge(
 ) -> Result<(), AuthError> {
     sqlx::query("UPDATE auth_challenges SET consumed_at = ? WHERE id = ?")
         .bind(now)
-        .bind(challenge_id.as_uuid().as_bytes())
+        .bind(challenge_id.as_uuid().as_bytes().as_slice())
         .execute(&mut **tx)
         .await
         .map(|_| ())
@@ -1119,8 +1119,8 @@ async fn insert_session(
             (id, user_id, token_hash, created_at, expires_at)
          VALUES (?, ?, ?, ?, ?)",
     )
-    .bind(session_id.as_uuid().as_bytes())
-    .bind(user_id.as_uuid().as_bytes())
+    .bind(session_id.as_uuid().as_bytes().as_slice())
+    .bind(user_id.as_uuid().as_bytes().as_slice())
     .bind(token_hash.as_slice())
     .bind(created_at)
     .bind(expires_at)
@@ -1182,12 +1182,12 @@ fn seed_otp_hash(
     email: &str,
     otp: &str,
 ) -> Result<[u8; 32], AuthError> {
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     use sha2::Sha256;
 
     type HmacSha256 = Hmac<Sha256>;
     let mut mac = HmacSha256::new_from_slice(secret).map_err(|_| AuthError::InvalidSecret)?;
-    mac.update(challenge_id.as_uuid().as_bytes());
+    mac.update(challenge_id.as_uuid().as_bytes().as_slice());
     mac.update(b"login");
     mac.update(email.as_bytes());
     mac.update(otp.as_bytes());
