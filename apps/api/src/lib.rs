@@ -917,7 +917,6 @@ async fn user_lock(
     {
         Ok(UserAdminCommandResult::Locked) => (
             StatusCode::OK,
-
             jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
             Json(ApiResponse::new(AccountActionResponse { success: true })),
         )
@@ -945,7 +944,6 @@ async fn user_delete(
     {
         Ok(UserAdminCommandResult::Deleted) => (
             StatusCode::OK,
-
             jar.remove(Cookie::build(SESSION_COOKIE).path("/").removal().build()),
             Json(ApiResponse::new(AccountActionResponse { success: true })),
         )
