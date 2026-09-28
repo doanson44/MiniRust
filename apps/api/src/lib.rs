@@ -1029,7 +1029,7 @@ async fn auth_logout(
         }
     }
 
-    let removal = Cookie::build(SESSION_COOKIE).path("/").build();
+    let removal = Cookie::build(SESSION_COOKIE).path("/").removal().build();
 
     (
         StatusCode::OK,
