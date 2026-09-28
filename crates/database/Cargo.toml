@@ -10,6 +10,7 @@ minirust-core.workspace = true
 minirust-services.workspace = true
 sqlx = { workspace = true, features = ["macros", "migrate"] }
 uuid.workspace = true
+tracing.workspace = true
 hmac.workspace = true
 sha2.workspace = true
 
