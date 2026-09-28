@@ -321,7 +321,9 @@ async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
         )
         .await
         .unwrap();
-    assert_eq!(lock.status(), StatusCode::CONFLICT);
+    let lock_status = lock.status();
+    let lock_body = axum::body::to_bytes(lock.into_body(), 1024 * 1024).await.unwrap();
+    assert_eq!(lock_status, StatusCode::CONFLICT, "self lock response: {}", String::from_utf8_lossy(&lock_body));
 
     let delete = app
         .router()
@@ -408,7 +410,9 @@ async fn admin_user_crud_and_role_assignment() {
         )
         .await
         .unwrap();
-    assert_eq!(assign.status(), StatusCode::OK);
+    let assign_status = assign.status();
+    let assign_body = axum::body::to_bytes(assign.into_body(), 1024 * 1024).await.unwrap();
+    assert_eq!(assign_status, StatusCode::OK, "assign role response: {}", String::from_utf8_lossy(&assign_body));
 
     let premium_get = app
         .router()
