@@ -1033,7 +1033,7 @@ async fn auth_logout(
 
     (
         StatusCode::OK,
-        jar.remove(removal),
+        jar.add(removal),
         Json(ApiResponse::new(LogoutResponse { success: true })),
     )
         .into_response()
