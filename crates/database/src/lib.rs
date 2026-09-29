@@ -144,6 +144,7 @@ impl Database {
                 u.email,
                 u.full_name,
                 u.avatar_url,
+                u.locale,
                 CAST(u.locked_at IS NOT NULL AS SIGNED) AS is_locked,
                 CAST(EXISTS(
                     SELECT 1
@@ -221,6 +222,13 @@ pub(crate) fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, Aut
             error!(%error, "failed to decode user projection field avatar_url");
             AuthError::Persistence
         })?;
+    let locale = minirust_services::UserLocale::parse(
+        &row.try_get::<String, _>("locale").map_err(|error| {
+            error!(%error, "failed to decode user projection field locale");
+            AuthError::Persistence
+        })?,
+    )
+    .ok_or(AuthError::Persistence)?;
     let is_locked = row.try_get::<i64, _>("is_locked").map_err(|error| {
         error!(%error, "failed to decode user projection field is_locked");
         AuthError::Persistence
@@ -240,6 +248,7 @@ pub(crate) fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, Aut
         full_name,
         avatar_url,
         is_locked,
+        locale,
         is_admin,
         is_premium,
     })
