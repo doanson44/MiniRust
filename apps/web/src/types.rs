@@ -9,6 +9,7 @@ pub struct UserResponse {
     pub full_name: Option<String>,
     pub avatar_url: Option<String>,
     pub is_locked: bool,
+    pub locale: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -53,4 +54,10 @@ pub struct AdminRoleRequest {
 pub struct PremiumRequest {
     pub active: bool,
     pub expires_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
+pub struct LanguageRequest {
+    pub locale: String,
 }
