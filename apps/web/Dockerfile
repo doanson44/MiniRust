@@ -4,7 +4,7 @@ COPY apps/web/package.json apps/web/tailwind.css ./apps/web/
 COPY apps/web/src ./apps/web/src
 RUN cd apps/web && npm install --no-audit --no-fund && npm run build:css
 
-FROM rust:1.90-bookworm AS builder
+FROM rust:1.95-bookworm AS builder
 WORKDIR /app
 RUN cargo install cargo-leptos --version 0.3.6 --locked
 RUN rustup target add wasm32-unknown-unknown
