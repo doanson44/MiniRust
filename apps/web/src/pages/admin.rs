@@ -179,12 +179,6 @@ pub fn AdminPage() -> impl IntoView {
 
     view! {
         <div class="min-h-screen">
-            <header class="border-b border-white/10">
-                <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
-                    <a href="/app" class="font-black text-white">"MiniRust"</a>
-                    <a href="/app" class="text-sm text-cyan-300">"Back to workspace"</a>
-                </nav>
-            </header>
             <main class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
                 <section>
                     <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Administration"</p>
