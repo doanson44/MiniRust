@@ -177,8 +177,12 @@ mod tests {
                 assert!(body.contains("Rust-first platform foundation"));
             }
 
-            if path == "/login" || path == "/register" {
-                assert!(body.contains("min-h-screen"));
+            if path == "/login" {
+                assert!(body.contains("Access your account"));
+            }
+
+            if path == "/register" {
+                assert!(body.contains("Start with your email"));
             }
         }
     }
