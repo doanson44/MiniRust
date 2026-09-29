@@ -8,6 +8,7 @@ use crate::api::{api_empty, api_json};
 #[component]
 pub fn AppLayout() -> impl IntoView {
     let (locale, set_locale) = signal("vi".to_owned());
+    let (user, set_user) = signal(None::<UserResponse>);
 
     #[cfg(feature = "hydrate")]
     {
@@ -18,7 +19,8 @@ pub fn AppLayout() -> impl IntoView {
                 None,
             )
             .await {
-                set_locale.set(user.locale);
+                set_locale.set(user.locale.clone());
+                set_user.set(Some(user));
             }
         });
     }
@@ -58,7 +60,9 @@ pub fn AppLayout() -> impl IntoView {
                     <a href="/app" class="font-black text-white">"MiniRust"</a>
                     <div class="flex items-center gap-4">
                         <a href="/app" class="text-sm text-slate-400 transition hover:text-white">{move || if locale.get() == "vi" { "Không gian làm việc" } else { "Workspace" }}</a>
-                        <a href="/admin" class="text-sm text-slate-400 transition hover:text-white">{move || if locale.get() == "vi" { "Quản trị" } else { "Admin" }}</a>
+                        <Show when=move || user.get().is_some_and(|user| user.is_admin)>
+                            <a href="/admin" class="text-sm text-slate-400 transition hover:text-white">{move || if locale.get() == "vi" { "Quản trị" } else { "Admin" }}</a>
+                        </Show>
                         <button
                             type="button"
                             on:click=sign_out
