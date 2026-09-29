@@ -7,7 +7,7 @@ use axum::{
 };
 use minirust_api::{router, AppState};
 use minirust_database::Database;
-use sqlx::{Executor, MySqlConnection};
+use sqlx::{Connection, Executor, MySqlConnection};
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
