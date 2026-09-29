@@ -42,6 +42,32 @@ impl ChallengePurpose {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserLocale {
+    Vi,
+    En,
+}
+
+impl UserLocale {
+    pub const DEFAULT: Self = Self::Vi;
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "vi" => Some(Self::Vi),
+            "en" => Some(Self::En),
+            _ => None,
+        }
+    }
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Vi => "vi",
+            Self::En => "en",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserAccess {
     pub id: EntityId,
     pub email: String,
@@ -50,6 +76,7 @@ pub struct UserAccess {
     pub full_name: Option<String>,
     pub avatar_url: Option<String>,
     pub is_locked: bool,
+    pub locale: UserLocale,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
