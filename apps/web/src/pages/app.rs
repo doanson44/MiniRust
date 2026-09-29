@@ -73,7 +73,7 @@ pub fn AppPage() -> impl IntoView {
     };
 
     view! {
-        <main class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
+        <div class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
                 <section>
                     <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Workspace"</p>
                     <h1 class="mt-3 text-4xl font-black text-white">"Your account"</h1>
@@ -117,6 +117,6 @@ pub fn AppPage() -> impl IntoView {
                         <button on:click=lock_account class="rounded-xl bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-200">"Lock my account"</button>
                     </div>
                 </section>
-        </main>
+        </div>
     }
 }
