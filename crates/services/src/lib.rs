@@ -16,7 +16,7 @@ pub use auth::{
     AuthCommand, AuthCommandHandler, AuthCommandResult, AuthError, AuthQueryHandler,
     AuthRepository, AuthService, Challenge, ChallengePurpose, ChallengeRef, CodeRequestAccepted,
     CurrentSessionQuery, EmailSender, RequireAdminQuery, Session, UnavailableEmailSender,
-    UserAccess,
+    UserAccess, UserLocale,
 };
 
 pub use user_admin::{
