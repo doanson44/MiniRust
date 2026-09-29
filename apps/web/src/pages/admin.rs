@@ -2,6 +2,8 @@ use leptos::prelude::*;
 
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json};
+#[cfg(feature = "hydrate")]
+use crate::types::UserListResponse;
 use crate::types::UserResponse;
 
 #[component]
