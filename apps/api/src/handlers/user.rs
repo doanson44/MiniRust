@@ -18,6 +18,11 @@ pub(crate) struct UserProfileUpdateRequest {
     avatar_url: Option<String>,
 }
 
+#[derive(Deserialize)]
+pub(crate) struct UserLanguageUpdateRequest {
+    locale: String,
+}
+
 #[derive(Serialize)]
 pub(crate) struct AccountActionResponse {
     success: bool,
