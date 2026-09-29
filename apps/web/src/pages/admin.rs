@@ -178,7 +178,7 @@ pub fn AdminPage() -> impl IntoView {
     };
 
     view! {
-        <main class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
+        <div class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
                 <section>
                     <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Administration"</p>
                     <h1 class="mt-3 text-4xl font-black text-white">"Users"</h1>
@@ -264,6 +264,6 @@ pub fn AdminPage() -> impl IntoView {
                         </form>
                     </section>
                 </Show>
-        </main>
+        </div>
     }
 }
