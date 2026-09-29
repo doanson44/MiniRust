@@ -97,8 +97,9 @@ async fn test_app() -> TestApp {
     let mut maintenance = MySqlConnection::connect(&maintenance_url)
         .await
         .expect("test MariaDB maintenance connection must succeed");
+    let create_database = format!("CREATE DATABASE `{database_name}`");
     maintenance
-        .execute(format!("CREATE DATABASE `{database_name}`"))
+        .execute(create_database.as_str())
         .await
         .expect("test database must be created");
 
