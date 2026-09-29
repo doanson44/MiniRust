@@ -2,7 +2,7 @@ use leptos::prelude::*;
 
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json};
-use crate::types::{UserListResponse, UserResponse};
+use crate::types::UserResponse;
 
 #[component]
 #[allow(unused_variables)]
