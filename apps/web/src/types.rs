@@ -55,9 +55,3 @@ pub struct PremiumRequest {
     pub active: bool,
     pub expires_at: Option<i64>,
 }
-
-#[derive(Clone, Debug, Serialize)]
-#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
-pub struct LanguageRequest {
-    pub locale: String,
-}
