@@ -614,8 +614,6 @@ async fn admin_user_endpoints_require_authentication() {
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
 }
-
-
 #[tokio::test]
 async fn authenticated_user_can_update_and_read_locale() {
     let app = test_app().await;
