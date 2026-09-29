@@ -73,7 +73,7 @@ async fn test_mariadb() -> &'static TestMariaDb {
 
             TestMariaDb {
                 _container: container,
-                host,
+                host: host.to_string(),
                 port,
             }
         })
