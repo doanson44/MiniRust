@@ -29,11 +29,12 @@ pub async fn profile_update(
     jar: CookieJar,
     body: Result<Json<UserProfileUpdateRequest>, JsonRejection>,
 ) -> impl IntoResponse {
-    let locale = Locale::from_accept_language(&headers);
-    let user = match current_authenticated_user(&state, &jar, locale).await {
+    let request_locale = Locale::from_accept_language(&headers);
+    let user = match current_authenticated_user(&state, &jar, request_locale).await {
         Ok(user) => user,
         Err(response) => return response,
     };
+    let locale = Locale::from_user_locale(user.locale);
 
     let Json(body) = match body {
         Ok(body) => body,
@@ -107,11 +108,12 @@ pub async fn lock(
     State(state): State<AppState>,
     jar: CookieJar,
 ) -> impl IntoResponse {
-    let locale = Locale::from_accept_language(&headers);
-    let user = match current_authenticated_user(&state, &jar, locale).await {
+    let request_locale = Locale::from_accept_language(&headers);
+    let user = match current_authenticated_user(&state, &jar, request_locale).await {
         Ok(user) => user,
         Err(response) => return response,
     };
+    let locale = Locale::from_user_locale(user.locale);
 
     match state
         .user_commands
@@ -134,11 +136,12 @@ pub async fn delete(
     State(state): State<AppState>,
     jar: CookieJar,
 ) -> impl IntoResponse {
-    let locale = Locale::from_accept_language(&headers);
-    let user = match current_authenticated_user(&state, &jar, locale).await {
+    let request_locale = Locale::from_accept_language(&headers);
+    let user = match current_authenticated_user(&state, &jar, request_locale).await {
         Ok(user) => user,
         Err(response) => return response,
     };
+    let locale = Locale::from_user_locale(user.locale);
 
     match state
         .user_commands
