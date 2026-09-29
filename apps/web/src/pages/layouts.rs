@@ -31,7 +31,7 @@ pub fn AppLayout() -> impl IntoView {
             let _ = api_json::<UserResponse>(
                 gloo_net::http::Method::PUT,
                 "/api/v1/users/me/language",
-                Some(serde_json::to_string(&LanguageRequest { locale: next_locale }).unwrap()),
+                Some(serde_json::json!({ "locale": next_locale }).to_string()),
             )
             .await;
         });
