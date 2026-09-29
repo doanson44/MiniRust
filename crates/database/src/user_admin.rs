@@ -1,6 +1,6 @@
 use minirust_core::EntityId;
 use minirust_services::{
-    AdminUserRole, PremiumEntitlement, UserAccess, UserAdminError, UserAdminRepository,
+    AdminUserRole, PremiumEntitlement, UserAccess, UserAdminError, UserAdminRepository, UserLocale,
 };
 use sqlx::Row;
 use tracing::error;
@@ -397,6 +397,44 @@ impl UserAdminRepository for Database {
             .await
             .map_err(|error| {
                 error!(%error, "failed to update user profile");
+                UserAdminError::Persistence
+            })?;
+
+        tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
+        self.find_user_by_id(user_id)
+            .await?
+            .ok_or(UserAdminError::NotFound)
+    }
+
+    async fn update_locale(
+        &self,
+        user_id: EntityId,
+        locale: UserLocale,
+    ) -> Result<UserAccess, UserAdminError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        let exists = sqlx::query("SELECT 1 FROM users WHERE id = ? FOR UPDATE")
+            .bind(user_id.as_uuid().as_bytes().as_slice())
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?
+            .is_some();
+
+        if !exists {
+            return Err(UserAdminError::NotFound);
+        }
+
+        sqlx::query("UPDATE users SET locale = ? WHERE id = ?")
+            .bind(locale.as_str())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
+            .execute(&mut *tx)
+            .await
+            .map_err(|error| {
+                error!(%error, "failed to update user locale");
                 UserAdminError::Persistence
             })?;
 
