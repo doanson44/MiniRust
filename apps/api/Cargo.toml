@@ -24,3 +24,4 @@ tracing-subscriber.workspace = true
 [dev-dependencies]
 testcontainers.workspace = true
 tower.workspace = true
+sqlx.workspace = true
