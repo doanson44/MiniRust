@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 use leptos_router::components::Outlet;
-use crate::types::{LanguageRequest, UserResponse};
+use crate::types::UserResponse;
 
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json};
