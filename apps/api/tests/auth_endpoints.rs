@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::sync::Once;
 use std::time::Duration;
 
@@ -20,7 +19,6 @@ use tracing_subscriber::EnvFilter;
 
 struct TestApp {
     router: Router,
-    _database: Arc<TestDatabase>,
 }
 
 impl TestApp {
@@ -30,6 +28,7 @@ impl TestApp {
 }
 
 static INIT_TRACING: Once = Once::new();
+static TEST_MARIADB: OnceCell<TestMariaDb> = OnceCell::const_new();
 
 fn init_test_tracing() {
     INIT_TRACING.call_once(|| {
@@ -42,45 +41,61 @@ fn init_test_tracing() {
     });
 }
 
-struct TestDatabase {
-    _database: Database,
+struct TestMariaDb {
     _container: testcontainers::ContainerAsync<GenericImage>,
+    host: String,
+    port: u16,
+}
+
+async fn test_mariadb() -> &'static TestMariaDb {
+    TEST_MARIADB
+        .get_or_init(|| async {
+            let container = GenericImage::new("mariadb", "11")
+                .with_wait_for(WaitFor::message_on_stderr("ready for connections"))
+                .with_exposed_port(3306.tcp())
+                .with_env_var("MARIADB_DATABASE", "minirust_test")
+                .with_env_var("MARIADB_USER", "minirust_test")
+                .with_env_var("MARIADB_PASSWORD", "minirust_test")
+                .with_env_var("MARIADB_ROOT_PASSWORD", "minirust_test_root")
+                .start()
+                .await
+                .expect("test MariaDB container must start");
+
+            let host = container
+                .get_host()
+                .await
+                .expect("test container host must be available");
+            let port = container
+                .get_host_port_ipv4(3306)
+                .await
+                .expect("test MariaDB port must be available");
+
+            TestMariaDb {
+                _container: container,
+                host,
+                port,
+            }
+        })
+        .await
 }
 
 async fn test_app() -> TestApp {
     init_test_tracing();
 
-    let container = GenericImage::new("mariadb", "11")
-        .with_wait_for(WaitFor::message_on_stderr("ready for connections"))
-        .with_exposed_port(3306.tcp())
-        .with_env_var("MARIADB_DATABASE", "minirust_test")
-        .with_env_var("MARIADB_USER", "minirust_test")
-        .with_env_var("MARIADB_PASSWORD", "minirust_test")
-        .with_env_var("MARIADB_ROOT_PASSWORD", "minirust_test_root")
-        .start()
-        .await
-        .expect("test MariaDB container must start");
+    let mariadb = test_mariadb().await;
+    let database_name = format!("minirust_test_{}", Uuid::now_v7().simple());
+    let url = format!(
+        "mysql://root:minirust_test_root@{}:{}/{}",
+        mariadb.host, mariadb.port, database_name
+    );
 
-    let host = container
-        .get_host()
+    MySql::create_database(&url)
         .await
-        .expect("test container host must be available");
-    let port = container
-        .get_host_port_ipv4(3306)
+        .expect("test database must be created");
+
+    let database = Database::connect(&url)
         .await
-        .expect("test MariaDB port must be available");
-    let url = format!("mysql://minirust_test:minirust_test@{host}:{port}/minirust_test");
-
-    let mut database = None;
-    for _ in 0..30 {
-        if let Ok(candidate) = Database::connect(&url).await {
-            database = Some(candidate);
-            break;
-        }
-        sleep(Duration::from_millis(200)).await;
-    }
-    let database = database.expect("test MariaDB must accept connections");
-
+        .expect("test MariaDB must accept connections");
     database
         .migrate()
         .await
@@ -90,15 +105,11 @@ async fn test_app() -> TestApp {
         .await
         .expect("bootstrap admin seed must succeed");
 
-    let state = AppState::new(database.clone(), vec![b'a'; 32], false)
+    let state = AppState::new(database, vec![b'a'; 32], false)
         .expect("test authentication secret must be valid");
 
     TestApp {
         router: router(state),
-        _database: Arc::new(TestDatabase {
-            _database: database,
-            _container: container,
-        }),
     }
 }
 
