@@ -599,6 +599,10 @@ async fn admin_user_endpoints_require_authentication() {
             .header("content-type", "application/json")
             .body(Body::from(r#"{"role":"admin"}"#))
             .unwrap(),
+        Request::put("/api/v1/users/me/language")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"locale":"en"}"#))
+            .unwrap(),
         Request::put("/api/v1/admin/users/user@example.com/entitlements/premium")
             .header("content-type", "application/json")
             .body(Body::from(r#"{"active":true,"expires_at":null}"#))
