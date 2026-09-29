@@ -170,6 +170,16 @@ mod tests {
             let body = body_string(response).await;
             assert!(body.contains("MiniRust"));
             assert!(body.contains("pkg"));
+
+            if path == "/app" || path == "/admin" {
+                assert!(body.contains("Application navigation"));
+                assert!(body.contains("Sign out"));
+                assert!(body.contains("Rust-first platform foundation"));
+            }
+
+            if path == "/login" || path == "/register" {
+                assert!(body.contains("min-h-screen"));
+            }
         }
     }
 
