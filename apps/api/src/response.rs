@@ -2,7 +2,7 @@ use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use minirust_core::ValidationError;
-use minirust_services::{AuthError, UserAdminError};
+use minirust_services::{AuthError, UserAdminError, UserLocale};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,6 +44,13 @@ impl Locale {
         match self {
             Self::Vi => "vi",
             Self::En => "en",
+        }
+    }
+
+    pub const fn from_user_locale(locale: UserLocale) -> Self {
+        match locale {
+            UserLocale::Vi => Self::Vi,
+            UserLocale::En => Self::En,
         }
     }
 }
