@@ -1,3 +1,4 @@
+use crate::pages::AuthLayout;
 use leptos::prelude::*;
 
 #[cfg(feature = "hydrate")]
@@ -44,7 +45,7 @@ pub fn LoginPage() -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-12">
+        <AuthLayout>
             <a href="/" class="mb-8 text-sm font-bold text-cyan-300">"<- MiniRust"</a>
             <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
                 <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Sign in"</p>
@@ -64,7 +65,7 @@ pub fn LoginPage() -> impl IntoView {
                 <p class="mt-4 text-sm text-slate-400">{status}</p>
                 <p class="mt-8 text-sm text-slate-500">"New here? " <a href="/register" class="font-semibold text-cyan-300">"Create an account"</a></p>
             </section>
-        </div>
+        </AuthLayout>
     }
 }
 
