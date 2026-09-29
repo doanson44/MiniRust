@@ -7,7 +7,7 @@ use axum::{
 };
 use minirust_api::{router, AppState};
 use minirust_database::Database;
-use sqlx::{migrate::MigrateDatabase, MySql};
+use sqlx::{Executor, MySqlConnection};
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
@@ -90,7 +90,15 @@ async fn test_app() -> TestApp {
         mariadb.host, mariadb.port, database_name
     );
 
-    MySql::create_database(&url)
+    let maintenance_url = format!(
+        "mysql://root:minirust_test_root@{}:{}/minirust_test",
+        mariadb.host, mariadb.port
+    );
+    let mut maintenance = MySqlConnection::connect(&maintenance_url)
+        .await
+        .expect("test MariaDB maintenance connection must succeed");
+    maintenance
+        .execute(format!("CREATE DATABASE `{database_name}`"))
         .await
         .expect("test database must be created");
 
