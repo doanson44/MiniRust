@@ -38,9 +38,7 @@ pub async fn profile_update(
 
     let Json(body) = match body {
         Ok(body) => body,
-        Err(rejection) => {
-            return json_rejection_response(rejection, locale).into_response()
-        }
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
     match state
