@@ -175,7 +175,7 @@ mod tests {
 
                     if path == "/app" || path == "/admin" {
                         assert!(body.contains("Application navigation"));
-                        assert!(body.contains("Sign out"));
+                        assert!(body.contains("Đăng xuất"));
                         assert!(body.contains("Rust-first platform foundation"));
                     }
 
