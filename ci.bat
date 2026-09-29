@@ -1,9 +1,14 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
+set "CI_IGNORE_TESTS=0"
+if /i "%~1"=="--ignore-test" set "CI_IGNORE_TESTS=1"
+if /i "%~1"=="--ignore-tests" set "CI_IGNORE_TESTS=1"
+if /i "%~2"=="--ignore-test" set "CI_IGNORE_TESTS=1"
+if /i "%~2"=="--ignore-tests" set "CI_IGNORE_TESTS=1"
+
 if /i "%~1"=="--clip" goto :clip
 if /i "%~1"=="--internal" goto :run
-if /i "%~1"=="--ignore-test" goto :run
 
 :run
 if /i "%~1"=="--internal" if not defined CI_STEP_LOG (
@@ -51,23 +56,22 @@ if /i "%~1"=="--internal" (
 if not "!CI_STEP_EXIT!"=="0" goto :error
 
 echo.
-call :cleanup_docker
-echo.
-echo [4/5] Running tests...
-echo (Make sure Docker Desktop is running for database integration tests)
-if /i "%~1"=="--ignore-test" (
-    echo Skipping integration test targets.
-    cargo test --workspace --locked --lib --bins --examples -- --test-threads=1 --nocapture
-    set "CI_STEP_EXIT=!errorlevel!"
-) else if /i "%~1"=="--internal" (
+if "!CI_IGNORE_TESTS!"=="1" (
+    echo [4/5] Skipping tests...
+    set "CI_STEP_EXIT=0"
+) else (
+    echo [4/5] Running tests...
+    echo (Make sure Docker Desktop is running for database integration tests)
+    if /i "%~1"=="--internal" (
     cargo test --workspace --locked --all-targets -- --test-threads=1 --nocapture > "%CI_STEP_LOG%" 2>&1
     set "CI_STEP_EXIT=!errorlevel!"
     type "%CI_STEP_LOG%"
 ) else (
-    cargo test --workspace --locked --all-targets -- --test-threads=1 --nocapture
-    set "CI_STEP_EXIT=!errorlevel!"
+        cargo test --workspace --locked --all-targets -- --test-threads=1 --nocapture
+        set "CI_STEP_EXIT=!errorlevel!"
+    )
+    call :cleanup_docker
 )
-call :cleanup_docker
 if not "!CI_STEP_EXIT!"=="0" goto :error
 
 echo.
@@ -93,7 +97,11 @@ exit /b 0
 
 :clip
 set "CI_STEP_LOG=%TEMP%\minirust-ci-step-%RANDOM%.log"
-call "%~f0" --internal
+if "!CI_IGNORE_TESTS!"=="1" (
+    call "%~f0" --internal --ignore-tests
+) else (
+    call "%~f0" --internal
+)
 set "CI_EXIT=%errorlevel%"
 
 if "%CI_EXIT%"=="0" (
