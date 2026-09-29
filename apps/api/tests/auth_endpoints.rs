@@ -1,5 +1,4 @@
 use std::sync::Once;
-use std::time::Duration;
 
 use axum::{
     body::Body,
@@ -8,14 +7,16 @@ use axum::{
 };
 use minirust_api::{router, AppState};
 use minirust_database::Database;
+use sqlx::{migrate::MigrateDatabase, MySql};
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
     GenericImage, ImageExt,
 };
-use tokio::time::sleep;
+use tokio::sync::OnceCell;
 use tower::ServiceExt;
 use tracing_subscriber::EnvFilter;
+use uuid::Uuid;
 
 struct TestApp {
     router: Router,
