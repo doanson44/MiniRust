@@ -90,7 +90,7 @@ pub fn AppPage() -> impl IntoView {
                             <dl class="mt-4 space-y-2 text-sm">
                                 <div class="flex gap-4"><dt class="w-28 text-slate-500">"Email"</dt><dd class="text-white">{u.email.clone()}</dd></div>
                                 <div class="flex gap-4"><dt class="w-28 text-slate-500">{move || if locale.get() == "vi" { "Vai trò" } else { "Role" }}</dt><dd class="text-white">{if u.is_admin { "Admin" } else { "User" }}</dd></div>
-                                <div class="flex gap-4"><dt class="w-28 text-slate-500">{move || if locale.get() == "vi" { "Premium" } else { "Premium" }}</dt><dd class="text-white">{if u.is_premium { "Active" } else { "Inactive" }}</dd></div>
+                                <div class="flex gap-4"><dt class="w-28 text-slate-500">"Premium"</dt><dd class="text-white">{if u.is_premium { "Active" } else { "Inactive" }}</dd></div>
                                 <div class="flex gap-4"><dt class="w-28 text-slate-500">{move || if locale.get() == "vi" { "Trạng thái" } else { "Status" }}</dt><dd class="text-white">{if u.is_locked { "Locked" } else { "Active" }}</dd></div>
                             </dl>
                         </section>
@@ -104,7 +104,7 @@ pub fn AppPage() -> impl IntoView {
                         <label class="block text-sm font-semibold text-slate-200">{move || if locale.get() == "vi" { "Họ tên" } else { "Full name" }}
                             <input type="text" prop:value=full_name on:input=move |ev| set_full_name.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
                         </label>
-                        <label class="block text-sm font-semibold text-slate-200">{move || if locale.get() == "vi" { "Avatar URL" } else { "Avatar URL" }}
+                        <label class="block text-sm font-semibold text-slate-200">"Avatar URL"
                             <input type="url" prop:value=avatar_url on:input=move |ev| set_avatar_url.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
                         </label>
                         <button class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950" type="submit">{move || if locale.get() == "vi" { "Lưu hồ sơ" } else { "Save profile" }}</button>
