@@ -33,7 +33,7 @@ async fn database_connects_to_mariadb_running_in_docker() -> Result<(), Box<dyn 
             Err(e) => return Err(e.into()),
         }
     };
-    
+
     database.health().await?;
 
     Ok(())
