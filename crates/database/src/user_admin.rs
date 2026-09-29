@@ -90,6 +90,7 @@ impl UserAdminRepository for Database {
                     u.email,
                     u.full_name,
                     u.avatar_url,
+                    u.locale,
                     CAST(u.locked_at IS NOT NULL AS SIGNED) AS is_locked,
                     CAST(EXISTS(
                         SELECT 1 FROM user_roles ur
