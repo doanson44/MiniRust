@@ -32,7 +32,7 @@ mod api;
 mod pages;
 pub mod types;
 
-use pages::{AdminPage, AppLayout, AppPage, AuthLayout, HomePage, LoginPage, RegisterPage};
+use pages::{AdminPage, AppLayout, AppPage, HomePage, LoginPage, RegisterPage};
 
 const CSS: &str = include_str!("generated.css");
 
