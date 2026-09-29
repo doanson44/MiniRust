@@ -1,0 +1,2 @@
+ALTER TABLE users
+    ADD COLUMN locale VARCHAR(5) NOT NULL DEFAULT 'vi' AFTER avatar_url;
