@@ -57,6 +57,15 @@ pub fn AppLayout() -> impl IntoView {
                 <nav class="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10" aria-label="Application navigation">
                     <a href="/app" class="font-black text-white">"MiniRust"</a>
                     <div class="flex items-center gap-4">
+                        <select
+                            prop:value=move || locale.get()
+                            on:change=change_locale
+                            class="rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-sm text-slate-300"
+                            aria-label="Language"
+                        >
+                            <option value="vi">"Tiếng Việt"</option>
+                            <option value="en">"English"</option>
+                        </select>
                         <a href="/app" class="text-sm text-slate-400 transition hover:text-white">{move || if locale.get() == "vi" { "Không gian làm việc" } else { "Workspace" }}</a>
                         <Show when=move || user.get().is_some_and(|user| user.is_admin)>
                             <a href="/admin" class="text-sm text-slate-400 transition hover:text-white">{move || if locale.get() == "vi" { "Quản trị" } else { "Admin" }}</a>
