@@ -94,9 +94,18 @@ async fn test_app() -> TestApp {
         "mysql://root:minirust_test_root@{}:{}/minirust_test",
         mariadb.host, mariadb.port
     );
-    let mut maintenance = MySqlConnection::connect(&maintenance_url)
-        .await
-        .expect("test MariaDB maintenance connection must succeed");
+    let mut retries = 5;
+    let mut maintenance = loop {
+        match MySqlConnection::connect(&maintenance_url).await {
+            Ok(connection) => break connection,
+            Err(_error) if retries > 0 => {
+                retries -= 1;
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            }
+            Err(error) => panic!("test MariaDB maintenance connection failed: {error}"),
+        }
+    };
+
     let create_database = format!("CREATE DATABASE `{database_name}`");
     maintenance
         .execute(create_database.as_str())
