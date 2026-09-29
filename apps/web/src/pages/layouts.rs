@@ -1,6 +1,6 @@
+use crate::types::UserResponse;
 use leptos::prelude::*;
 use leptos_router::components::Outlet;
-use crate::types::UserResponse;
 
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json};
@@ -18,7 +18,8 @@ pub fn AppLayout() -> impl IntoView {
                 "/api/v1/auth/me",
                 None,
             )
-            .await {
+            .await
+            {
                 set_locale.set(user.locale.clone());
                 set_user.set(Some(user));
             }
