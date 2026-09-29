@@ -159,32 +159,36 @@ mod tests {
     #[cfg(feature = "ssr")]
     #[tokio::test]
     async fn account_pages_are_server_rendered() {
-        let app = router(AppState::new());
-        for path in ["/", "/login", "/register", "/app", "/admin"] {
-            let response = app
-                .clone()
-                .oneshot(Request::get(path).body(Body::empty()).unwrap())
-                .await
-                .unwrap();
-            assert_eq!(response.status(), StatusCode::OK);
-            let body = body_string(response).await;
-            assert!(body.contains("MiniRust"));
-            assert!(body.contains("pkg"));
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let app = router(AppState::new());
+                for path in ["/", "/login", "/register", "/app", "/admin"] {
+                    let response = app
+                        .clone()
+                        .oneshot(Request::get(path).body(Body::empty()).unwrap())
+                        .await
+                        .unwrap();
+                    assert_eq!(response.status(), StatusCode::OK);
+                    let body = body_string(response).await;
+                    assert!(body.contains("MiniRust"));
+                    assert!(body.contains("pkg"));
 
-            if path == "/app" || path == "/admin" {
-                assert!(body.contains("Application navigation"));
-                assert!(body.contains("Sign out"));
-                assert!(body.contains("Rust-first platform foundation"));
-            }
+                    if path == "/app" || path == "/admin" {
+                        assert!(body.contains("Application navigation"));
+                        assert!(body.contains("Sign out"));
+                        assert!(body.contains("Rust-first platform foundation"));
+                    }
 
-            if path == "/login" {
-                assert!(body.contains("Access your account"));
-            }
+                    if path == "/login" {
+                        assert!(body.contains("Access your account"));
+                    }
 
-            if path == "/register" {
-                assert!(body.contains("Start with your email"));
-            }
-        }
+                    if path == "/register" {
+                        assert!(body.contains("Start with your email"));
+                    }
+                }
+            })
+            .await;
     }
 
     #[cfg(feature = "ssr")]
