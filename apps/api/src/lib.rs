@@ -106,6 +106,7 @@ pub(crate) struct AuthUserResponse {
     pub full_name: Option<String>,
     pub avatar_url: Option<String>,
     pub is_locked: bool,
+    pub locale: &'static str,
 }
 
 #[derive(Serialize)]
@@ -123,6 +124,7 @@ pub(crate) fn auth_user_response(user: minirust_services::UserAccess) -> AuthUse
         full_name: user.full_name,
         avatar_url: user.avatar_url,
         is_locked: user.is_locked,
+        locale: user.locale.as_str(),
     }
 }
 
