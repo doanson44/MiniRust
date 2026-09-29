@@ -2,7 +2,7 @@
 
 use minirust_core::EntityId;
 
-use crate::UserAccess;
+use crate::{UserAccess, UserLocale};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AdminUserRole {
@@ -37,6 +37,7 @@ pub enum UserAdminError {
     ProtectedUser,
     InvalidFullName,
     InvalidAvatarUrl,
+    InvalidLocale,
     Persistence,
 }
 
@@ -51,6 +52,7 @@ impl std::fmt::Display for UserAdminError {
             Self::ProtectedUser => f.write_str("user is protected"),
             Self::InvalidFullName => f.write_str("full name is invalid"),
             Self::InvalidAvatarUrl => f.write_str("avatar URL is invalid"),
+            Self::InvalidLocale => f.write_str("locale is invalid"),
             Self::Persistence => f.write_str("user persistence failed"),
         }
     }
@@ -105,6 +107,12 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
         user_id: EntityId,
         full_name: Option<&str>,
         avatar_url: Option<&str>,
+    ) -> Result<UserAccess, UserAdminError>;
+
+    async fn update_locale(
+        &self,
+        user_id: EntityId,
+        locale: UserLocale,
     ) -> Result<UserAccess, UserAdminError>;
     async fn lock_user(&self, user_id: EntityId) -> Result<(), UserAdminError>;
     async fn unlock_user(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError>;
@@ -225,6 +233,14 @@ where
             .await
     }
 
+    pub async fn update_locale(
+        &self,
+        user_id: EntityId,
+        locale: UserLocale,
+    ) -> Result<UserAccess, UserAdminError> {
+        self.repository.update_locale(user_id, locale).await
+    }
+
     pub async fn lock(&self, user_id: EntityId) -> Result<(), UserAdminError> {
         self.repository.lock_user(user_id).await
     }
@@ -308,6 +324,10 @@ pub enum UserAdminCommand {
         user_id: EntityId,
         full_name: Option<String>,
         avatar_url: Option<String>,
+    },
+    SetLocale {
+        user_id: EntityId,
+        locale: UserLocale,
     },
     LockUser {
         user_id: EntityId,
@@ -395,6 +415,11 @@ where
             } => self
                 .service
                 .update_profile(user_id, full_name.as_deref(), avatar_url.as_deref())
+                .await
+                .map(UserAdminCommandResult::User),
+            UserAdminCommand::SetLocale { user_id, locale } => self
+                .service
+                .update_locale(user_id, locale)
                 .await
                 .map(UserAdminCommandResult::User),
             UserAdminCommand::LockUser { user_id } => self
