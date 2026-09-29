@@ -42,6 +42,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/auth/logout", post(auth::logout))
         .route("/api/v1/auth/me", get(auth::me))
         .route("/api/v1/users/me", patch(user::profile_update))
+        .route("/api/v1/users/me/language", put(user::language_update))
         .route("/api/v1/users/me/lock", post(user::lock))
         .route("/api/v1/users/me", delete(user::delete))
         .route("/api/v1/admin/users", get(admin::list).post(admin::create))
