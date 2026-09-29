@@ -264,6 +264,15 @@ impl ProblemDetails {
                     Locale::En => "The full name is invalid.".to_owned(),
                 },
             ),
+            UserAdminError::InvalidLocale => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_LOCALE",
+                "errors.user.invalid_locale",
+                match locale {
+                    Locale::Vi => "Ngôn ngữ không được hỗ trợ.".to_owned(),
+                    Locale::En => "The language is not supported.".to_owned(),
+                },
+            ),
             UserAdminError::InvalidAvatarUrl => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_AVATAR_URL",
