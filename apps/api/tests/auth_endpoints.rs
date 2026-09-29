@@ -611,6 +611,70 @@ async fn admin_user_endpoints_require_authentication() {
     }
 }
 
+
+#[tokio::test]
+async fn authenticated_user_can_update_and_read_locale() {
+    let app = test_app().await;
+    let (cookie, _) = admin_cookie(&app).await;
+
+    let update = app
+        .router()
+        .oneshot(
+            Request::put("/api/v1/users/me/language")
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(r#"{"locale":"en"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(update.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(update.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["data"]["locale"], "en");
+
+    let me = app
+        .router()
+        .oneshot(
+            Request::get("/api/v1/auth/me")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(me.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(me.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["data"]["locale"], "en");
+}
+
+#[tokio::test]
+async fn locale_update_rejects_unsupported_language() {
+    let app = test_app().await;
+    let (cookie, _) = admin_cookie(&app).await;
+
+    let response = app
+        .router()
+        .oneshot(
+            Request::put("/api/v1/users/me/language")
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(r#"{"locale":"fr"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
 #[tokio::test]
 async fn auth_code_requests_are_rate_limited() {
     let app = test_app().await;
