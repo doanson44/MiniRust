@@ -13,12 +13,8 @@ pub fn AppLayout() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     {
         leptos::task::spawn_local(async move {
-            if let Ok(user) = api_json::<UserResponse>(
-                gloo_net::http::Method::GET,
-                "/api/v1/auth/me",
-                None,
-            )
-            .await
+            if let Ok(user) =
+                api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None).await
             {
                 set_locale.set(user.locale.clone());
                 set_user.set(Some(user));
@@ -36,7 +32,8 @@ pub fn AppLayout() -> impl IntoView {
                 "/api/v1/users/me/language",
                 Some(serde_json::json!({ "locale": next_locale }).to_string()),
             )
-            .await {
+            .await
+            {
                 set_locale.set(user.locale);
             }
         });
