@@ -19,7 +19,7 @@ use leptos::prelude::*;
 #[cfg(feature = "ssr")]
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use leptos_router::{
-    components::{Route, Router as LeptosRouter, Routes},
+    components::{ParentRoute, Route, Router as LeptosRouter, Routes},
     path,
 };
 use minirust_core::APP_NAME;
@@ -32,7 +32,7 @@ mod api;
 mod pages;
 pub mod types;
 
-use pages::{AdminPage, AppPage, HomePage, LoginPage, RegisterPage};
+use pages::{AdminPage, AppLayout, AppPage, HomePage, LoginPage, RegisterPage};
 
 const CSS: &str = include_str!("generated.css");
 
@@ -87,8 +87,12 @@ fn App() -> impl IntoView {
                 <Route path=path!("") view=|| view! { <HomePage message="Hello from MiniRust".to_owned()/> }/>
                 <Route path=path!("/login") view=LoginPage/>
                 <Route path=path!("/register") view=RegisterPage/>
-                <Route path=path!("/app") view=AppPage/>
-                <Route path=path!("/admin") view=AdminPage/>
+                <ParentRoute path=path!("/app") view=AppLayout>
+                    <Route path=path!("") view=AppPage/>
+                </ParentRoute>
+                <ParentRoute path=path!("/admin") view=AppLayout>
+                    <Route path=path!("") view=AdminPage/>
+                </ParentRoute>
             </Routes>
         </LeptosRouter>
     }
@@ -166,6 +170,20 @@ mod tests {
             let body = body_string(response).await;
             assert!(body.contains("MiniRust"));
             assert!(body.contains("pkg"));
+
+            if path == "/app" || path == "/admin" {
+                assert!(body.contains("Application navigation"));
+                assert!(body.contains("Sign out"));
+                assert!(body.contains("Rust-first platform foundation"));
+            }
+
+            if path == "/login" {
+                assert!(body.contains("Access your account"));
+            }
+
+            if path == "/register" {
+                assert!(body.contains("Start with your email"));
+            }
         }
     }
 
