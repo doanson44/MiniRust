@@ -38,7 +38,9 @@ pub async fn profile_update(
 
     let Json(body) = match body {
         Ok(body) => body,
-        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+        Err(rejection) => {
+            return json_rejection_response(rejection, locale).into_response()
+        }
     };
 
     match state
@@ -74,7 +76,9 @@ pub async fn language_update(
 
     let Json(body) = match body {
         Ok(body) => body,
-        Err(rejection) => return json_rejection_response(rejection, request_locale).into_response(),
+        Err(rejection) => {
+            return json_rejection_response(rejection, request_locale).into_response()
+        }
     };
 
     let Some(locale) = UserLocale::parse(&body.locale) else {
