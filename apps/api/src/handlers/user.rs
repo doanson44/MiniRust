@@ -4,7 +4,7 @@ use axum::response::IntoResponse;
 use axum::Json;
 use axum_extra::extract::cookie::{Cookie, CookieJar};
 use minirust_services::cqrs::AsyncCommandHandler;
-use minirust_services::{UserAdminCommand, UserAdminCommandResult};
+use minirust_services::{UserAdminCommand, UserAdminCommandResult, UserLocale};
 use serde::{Deserialize, Serialize};
 
 use crate::handlers::auth::{current_authenticated_user, SESSION_COOKIE};
@@ -56,6 +56,49 @@ pub async fn profile_update(
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
         Ok(_) => ProblemDetails::internal(locale).into_response(),
+    }
+}
+
+pub async fn language_update(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    body: Result<Json<UserLanguageUpdateRequest>, JsonRejection>,
+) -> impl IntoResponse {
+    let request_locale = Locale::from_accept_language(&headers);
+    let user = match current_authenticated_user(&state, &jar, request_locale).await {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, request_locale).into_response(),
+    };
+
+    let Some(locale) = UserLocale::parse(&body.locale) else {
+        return ProblemDetails::user_admin(
+            &minirust_services::UserAdminError::InvalidLocale,
+            request_locale,
+        )
+        .into_response();
+    };
+
+    match state
+        .user_commands
+        .handle(UserAdminCommand::SetLocale {
+            user_id: user.id,
+            locale,
+        })
+        .await
+    {
+        Ok(UserAdminCommandResult::User(user)) => (
+            StatusCode::OK,
+            Json(ApiResponse::new(auth_user_response(user))),
+        )
+            .into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, request_locale).into_response(),
+        Ok(_) => ProblemDetails::internal(request_locale).into_response(),
     }
 }
 
