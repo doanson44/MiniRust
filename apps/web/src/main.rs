@@ -64,7 +64,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "starting MiniRust web"
     );
 
-    let app_state = AppState::new().with_auth(auth).with_leptos_options(leptos_options);
+    let app_state = AppState::new()
+        .with_auth(auth)
+        .with_leptos_options(leptos_options);
 
     axum::serve(listener, router(app_state))
         .with_graceful_shutdown(shutdown_signal())
