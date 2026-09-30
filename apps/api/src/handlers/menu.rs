@@ -50,7 +50,7 @@ pub async fn list_for_user(
     let locale = Locale::from_accept_language(&headers);
     let actor = match current_authenticated_user(&state, &jar, locale).await {
         Ok(actor) => actor,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
 
     match state
@@ -243,17 +243,17 @@ pub async fn delete_menu(
 async fn parse_request(
     body: MenuRequest,
     locale: Locale,
-) -> Result<UpdateMenu, axum::response::Response> {
+) -> Result<UpdateMenu, Box<axum::response::Response>> {
     let parent_id = match body.parent_id.as_deref() {
         Some(value) => match parse_user_id(value, locale) {
             Ok(id) => Some(id),
-            Err(error) => return Err(error.into_response()),
+            Err(error) => return Err(Box::new(error.into_response())),
         },
         None => None,
     };
     let required_role = match MenuRole::parse(&body.required_role) {
         Ok(role) => role,
-        Err(error) => return Err(ProblemDetails::menu(&error, locale).into_response()),
+        Err(error) => return Err(Box::new(ProblemDetails::menu(&error, locale).into_response())),
     };
 
     Ok(UpdateMenu {
