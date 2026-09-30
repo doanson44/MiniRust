@@ -156,7 +156,11 @@ async fn auth_guard(
     let path = request.uri().path();
     let is_auth_page = matches!(path, "/login" | "/register");
     let is_root = path == "/";
-    let is_protected = is_root || path == "/app" || path.starts_with("/profile") || path == "/admin" || path.starts_with("/admin/");
+    let is_protected = is_root
+        || path == "/app"
+        || path.starts_with("/profile")
+        || path == "/admin"
+        || path.starts_with("/admin/");
 
     if !is_auth_page && !is_root && !is_protected {
         return next.run(request).await;
