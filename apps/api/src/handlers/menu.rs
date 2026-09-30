@@ -3,7 +3,6 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 use axum_extra::extract::cookie::CookieJar;
-use minirust_core::EntityId;
 use minirust_services::cqrs::{AsyncCommandHandler, AsyncQueryHandler};
 use minirust_services::{
     CreateMenu, Menu, MenuCommand, MenuCommandResult, MenuQuery, MenuQueryResult, MenuRole,
@@ -149,7 +148,18 @@ pub async fn create(
 
     match state
         .menu_commands
-        .handle(MenuCommand::Create { actor, input })
+        .handle(MenuCommand::Create {
+            actor,
+            input: CreateMenu {
+                parent_id: input.parent_id,
+                name: input.name,
+                path: input.path,
+                icon: input.icon,
+                required_role: input.required_role,
+                sort_order: input.sort_order,
+                is_active: input.is_active,
+            },
+        })
         .await
     {
         Ok(MenuCommandResult::Menu(menu)) => (
@@ -274,17 +284,3 @@ fn menu_response(menu: Menu) -> MenuResponse {
     }
 }
 
-fn _update_input(input: CreateMenu) -> UpdateMenu {
-    UpdateMenu {
-        parent_id: input.parent_id,
-        name: input.name,
-        path: input.path,
-        icon: input.icon,
-        required_role: input.required_role,
-        sort_order: input.sort_order,
-        is_active: input.is_active,
-    }
-}
-
-#[allow(dead_code)]
-fn _entity_id(_: EntityId) {}
