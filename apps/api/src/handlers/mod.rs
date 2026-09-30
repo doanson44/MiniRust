@@ -15,6 +15,7 @@ use crate::{app_error_response, json_rejection_response, AppState};
 mod admin;
 pub(crate) mod auth;
 mod health;
+mod menu;
 mod openapi;
 mod user;
 
@@ -41,6 +42,12 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/auth/logout", post(auth::logout))
         .route("/api/v1/auth/me", get(auth::me))
+        .route("/api/v1/menus", get(menu::list_for_user))
+        .route("/api/v1/admin/menus", get(menu::list_admin).post(menu::create))
+        .route(
+            "/api/v1/admin/menus/{menu_id}",
+            get(menu::get).patch(menu::update).delete(menu::delete_menu),
+        )
         .route("/api/v1/users/me", patch(user::profile_update))
         .route("/api/v1/users/me/language", put(user::language_update))
         .route("/api/v1/users/me/lock", post(user::lock))
