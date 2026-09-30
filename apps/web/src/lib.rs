@@ -8,11 +8,15 @@ use axum::extract::FromRef;
 #[cfg(feature = "ssr")]
 use axum::http::StatusCode;
 #[cfg(feature = "ssr")]
-use axum::response::IntoResponse;
+use axum::middleware;
+#[cfg(feature = "ssr")]
+use axum::response::{IntoResponse, Redirect};
 #[cfg(feature = "ssr")]
 use axum::routing::get;
 #[cfg(feature = "ssr")]
-use axum::Router;
+use axum::{Router, RequestExt};
+#[cfg(feature = "ssr")]
+use axum_extra::extract::cookie::CookieJar;
 #[cfg(feature = "ssr")]
 use leptos::config::LeptosOptions;
 use leptos::prelude::*;
@@ -24,6 +28,10 @@ use leptos_router::{
 };
 use minirust_core::APP_NAME;
 #[cfg(feature = "ssr")]
+use minirust_database::Database;
+#[cfg(feature = "ssr")]
+use minirust_services::{AuthService, UnavailableEmailSender};
+#[cfg(feature = "ssr")]
 use std::net::SocketAddr;
 #[cfg(feature = "ssr")]
 use tower_http::trace::TraceLayer;
@@ -32,15 +40,19 @@ mod api;
 mod pages;
 pub mod types;
 
-use pages::{AdminPage, AppLayout, AppPage, HomePage, LoginPage, RegisterPage};
+use pages::{AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, ProfilePage, RegisterPage};
 
 const CSS: &str = include_str!("generated.css");
+
+#[cfg(feature = "ssr")]
+type WebAuthService = AuthService<Database, UnavailableEmailSender>;
 
 /// Shared web application state.
 #[cfg(feature = "ssr")]
 #[derive(Clone)]
 pub struct AppState {
     pub leptos_options: LeptosOptions,
+    pub auth: Option<WebAuthService>,
 }
 
 #[cfg(feature = "ssr")]
@@ -53,7 +65,13 @@ impl AppState {
                 .site_pkg_dir("pkg")
                 .site_addr(SocketAddr::from(([127, 0, 0, 1], 3001)))
                 .build(),
+            auth: None,
         }
+    }
+
+    pub fn with_auth(mut self, auth: WebAuthService) -> Self {
+        self.auth = Some(auth);
+        self
     }
 }
 
@@ -84,11 +102,14 @@ fn App() -> impl IntoView {
     view! {
         <LeptosRouter>
             <Routes fallback=|| view! { <main class="min-h-screen bg-slate-950 p-10 text-white"><h1>"Not found"</h1></main> }>
-                <Route path=path!("") view=|| view! { <HomePage message="Hello from MiniRust".to_owned()/> }/>
+                <Route path=path!("") view=|| view! { <AuthLayout><p class="text-center text-slate-400">"Redirecting to sign in…"</p></AuthLayout> }/>
                 <Route path=path!("/login") view=LoginPage/>
                 <Route path=path!("/register") view=RegisterPage/>
                 <ParentRoute path=path!("/app") view=AppLayout>
                     <Route path=path!("") view=AppPage/>
+                </ParentRoute>
+                <ParentRoute path=path!("/profile") view=AppLayout>
+                    <Route path=path!("") view=ProfilePage/>
                 </ParentRoute>
                 <ParentRoute path=path!("/admin") view=AppLayout>
                     <Route path=path!("") view=AdminPage/>
@@ -101,20 +122,13 @@ fn App() -> impl IntoView {
 #[cfg(feature = "ssr")]
 fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
-        <html lang="en" class="scroll-smooth bg-slate-950 text-slate-100"><head>
+        <html lang="vi" class="scroll-smooth bg-slate-950 text-slate-100"><head>
             <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-            <meta name="description" content="MiniRust is a Rust-first full-stack platform foundation built for long-term growth."/>
+            <meta name="description" content="MiniRust closed application."/>
             <meta name="theme-color" content="#020617"/><style>{CSS}</style>
-            <leptos::hydration::HydrationScripts options=options.clone()/><title>{APP_NAME} {" - Rust-first platform foundation"}</title>
+            <leptos::hydration::HydrationScripts options=options.clone()/><title>{APP_NAME} {" - Application"}</title>
         </head><body class="min-h-screen overflow-x-hidden bg-slate-950 antialiased"><App/></body></html>
     }
-}
-
-/// Render the MiniRust landing page to an HTML string.
-#[cfg(feature = "ssr")]
-pub fn render_home_page(message: &str) -> String {
-    let html = view! { <HomePage message=message.to_owned()/> }.to_html();
-    format!("<!DOCTYPE html>{html}")
 }
 
 #[cfg(feature = "ssr")]
@@ -127,8 +141,67 @@ pub fn router(state: AppState) -> Router {
             move || shell(options.clone())
         })
         .fallback(leptos_axum::file_and_error_handler::<AppState, _>(shell))
+        .layer(middleware::from_fn_with_state(state.clone(), auth_guard))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+#[cfg(feature = "ssr")]
+async fn auth_guard(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    jar: CookieJar,
+    request: axum::extract::Request,
+    next: middleware::Next,
+) -> impl IntoResponse {
+    let path = request.uri().path();
+    let is_auth_page = matches!(path, "/login" | "/register");
+    let is_root = path == "/";
+    let is_protected = is_root || path == "/app" || path.starts_with("/profile") || path == "/admin" || path.starts_with("/admin/");
+
+    if !is_auth_page && !is_root && !is_protected {
+        return next.run(request).await;
+    }
+
+    let authenticated = match (state.auth.as_ref(), jar.get("minirust_session")) {
+        (Some(auth), Some(cookie)) => auth.current_session(cookie.value()).await.is_ok(),
+        _ => false,
+    };
+
+    if is_auth_page {
+        if authenticated {
+            return Redirect::to("/app").into_response();
+        }
+        return next.run(request).await;
+    }
+
+    if is_root {
+        return if authenticated {
+            Redirect::to("/app").into_response()
+        } else {
+            Redirect::to("/login").into_response()
+        };
+    }
+
+    if !authenticated {
+        return Redirect::to("/login").into_response();
+    }
+
+    if path == "/admin" || path.starts_with("/admin/") {
+        let is_admin = match (state.auth.as_ref(), jar.get("minirust_session")) {
+            (Some(auth), Some(cookie)) => auth
+                .current_session(cookie.value())
+                .await
+                .map(|user| user.is_admin)
+                .unwrap_or(false),
+            _ => false,
+        };
+
+        if !is_admin {
+            return Redirect::to("/app").into_response();
+        }
+    }
+
+    next.run(request).await
 }
 
 #[cfg(feature = "ssr")]
@@ -156,42 +229,52 @@ mod tests {
         String::from_utf8(bytes.to_vec()).unwrap()
     }
 
-    #[cfg(feature = "ssr")]
     #[tokio::test]
-    async fn account_pages_are_server_rendered() {
-        tokio::task::LocalSet::new()
-            .run_until(async {
-                let app = router(AppState::new());
-                for path in ["/", "/login", "/register", "/app", "/admin"] {
-                    let response = app
-                        .clone()
-                        .oneshot(Request::get(path).body(Body::empty()).unwrap())
-                        .await
-                        .unwrap();
-                    assert_eq!(response.status(), StatusCode::OK);
-                    let body = body_string(response).await;
-                    assert!(body.contains("MiniRust"));
-                    assert!(body.contains("pkg"));
+    async fn unauthenticated_root_redirects_to_login() {
+        let response = router(AppState::new())
+            .oneshot(Request::get("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
 
-                    if path == "/app" || path == "/admin" {
-                        assert!(body.contains("Application navigation"));
-                        assert!(body.contains("Đăng xuất"));
-                        assert!(body.contains("Rust-first platform foundation"));
-                    }
-
-                    if path == "/login" {
-                        assert!(body.contains("Access your account"));
-                    }
-
-                    if path == "/register" {
-                        assert!(body.contains("Start with your email"));
-                    }
-                }
-            })
-            .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(response.headers().get("location").unwrap(), "/login");
     }
 
-    #[cfg(feature = "ssr")]
+    #[tokio::test]
+    async fn unauthenticated_app_redirects_to_login() {
+        let response = router(AppState::new())
+            .oneshot(Request::get("/app").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(response.headers().get("location").unwrap(), "/login");
+    }
+
+    #[tokio::test]
+    async fn login_page_is_server_rendered() {
+        let response = router(AppState::new())
+            .oneshot(Request::get("/login").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = body_string(response).await;
+        assert!(body.contains("Access your account"));
+    }
+
+    #[tokio::test]
+    async fn register_page_is_server_rendered() {
+        let response = router(AppState::new())
+            .oneshot(Request::get("/register").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = body_string(response).await;
+        assert!(body.contains("Start with your email"));
+    }
+
     #[tokio::test]
     async fn get_health_returns_ok() {
         let response = router(AppState::new())
