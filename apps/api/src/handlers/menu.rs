@@ -50,7 +50,7 @@ pub async fn list_for_user(
     let locale = Locale::from_accept_language(&headers);
     let actor = match current_authenticated_user(&state, &jar, locale).await {
         Ok(actor) => actor,
-        Err(response) => return *response,
+        Err(response) => return response,
     };
 
     match state
@@ -141,7 +141,7 @@ pub async fn create(
 
     let input = match parse_request(body, locale).await {
         Ok(input) => input,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
 
     match state
@@ -193,7 +193,7 @@ pub async fn update(
 
     let input = match parse_request(body, locale).await {
         Ok(input) => input,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
 
     match state
