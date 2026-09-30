@@ -34,11 +34,11 @@ if not "!CI_STEP_EXIT!"=="0" goto :error
 echo.
 echo [2/5] Running cargo check...
 if /i "%~1"=="--internal" (
-    cargo check --workspace --locked > "%CI_STEP_LOG%" 2>&1
+    cargo check --workspace > "%CI_STEP_LOG%" 2>&1
     set "CI_STEP_EXIT=!errorlevel!"
     type "%CI_STEP_LOG%"
 ) else (
-    cargo check --workspace --locked
+    cargo check --workspace
     set "CI_STEP_EXIT=!errorlevel!"
 )
 if not "!CI_STEP_EXIT!"=="0" goto :error
@@ -46,11 +46,11 @@ if not "!CI_STEP_EXIT!"=="0" goto :error
 echo.
 echo [3/5] Running clippy...
 if /i "%~1"=="--internal" (
-    cargo clippy --workspace --all-targets --all-features --locked -- -D warnings > "%CI_STEP_LOG%" 2>&1
+    cargo clippy --workspace --all-targets --all-features -- -D warnings > "%CI_STEP_LOG%" 2>&1
     set "CI_STEP_EXIT=!errorlevel!"
     type "%CI_STEP_LOG%"
 ) else (
-    cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
     set "CI_STEP_EXIT=!errorlevel!"
 )
 if not "!CI_STEP_EXIT!"=="0" goto :error
@@ -63,11 +63,11 @@ if "!CI_IGNORE_TESTS!"=="1" (
     echo [4/5] Running tests...
     echo (Make sure Docker Desktop is running for database integration tests)
     if /i "%~1"=="--internal" (
-    cargo test --workspace --locked --all-targets -- --test-threads=1 --nocapture > "%CI_STEP_LOG%" 2>&1
+    cargo test --workspace --all-targets -- --test-threads=1 --nocapture > "%CI_STEP_LOG%" 2>&1
     set "CI_STEP_EXIT=!errorlevel!"
     type "%CI_STEP_LOG%"
 ) else (
-        cargo test --workspace --locked --all-targets -- --test-threads=1 --nocapture
+        cargo test --workspace --all-targets -- --test-threads=1 --nocapture
         set "CI_STEP_EXIT=!errorlevel!"
     )
     call :cleanup_docker
@@ -77,11 +77,11 @@ if not "!CI_STEP_EXIT!"=="0" goto :error
 echo.
 echo [5/5] Building workspace...
 if /i "%~1"=="--internal" (
-    cargo build --workspace --locked > "%CI_STEP_LOG%" 2>&1
+    cargo build --workspace > "%CI_STEP_LOG%" 2>&1
     set "CI_STEP_EXIT=!errorlevel!"
     type "%CI_STEP_LOG%"
 ) else (
-    cargo build --workspace --locked
+    cargo build --workspace
     set "CI_STEP_EXIT=!errorlevel!"
 )
 if not "!CI_STEP_EXIT!"=="0" goto :error
