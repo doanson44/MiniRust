@@ -1,6 +1,15 @@
 ﻿# Rust build artifacts - never send to Docker
 target/
 
+# Local build and package-manager artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+apps/web/src/generated.css
+
 # Git
 .git/
 .gitignore
