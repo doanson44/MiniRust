@@ -708,3 +708,165 @@ async fn auth_code_requests_are_rate_limited() {
 
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
 }
+
+
+#[tokio::test]
+async fn menu_user_endpoint_requires_authentication() {
+    let app = test_app().await;
+
+    let response = app
+        .router()
+        .oneshot(
+            Request::get("/api/v1/menus")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn admin_menu_crud_and_role_filtering_contract() {
+    let app = test_app().await;
+    let (cookie, _) = admin_cookie(&app).await;
+
+    let list = app
+        .router()
+        .oneshot(
+            Request::get("/api/v1/admin/menus")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(list.status(), StatusCode::OK);
+
+    let create = app
+        .router()
+        .oneshot(
+            Request::post("/api/v1/admin/menus")
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(
+                    r#"{"parent_id":null,"name":"Admin Menu","path":"/admin/menu","icon":"menu","required_role":"admin","sort_order":90,"is_active":true}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(create.status(), StatusCode::CREATED);
+
+    let body = axum::body::to_bytes(create.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let menu_id = body["data"]["id"].as_str().unwrap().to_owned();
+
+    let get = app
+        .router()
+        .oneshot(
+            Request::get(format!("/api/v1/admin/menus/{menu_id}"))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(get.status(), StatusCode::OK);
+
+    let update = app
+        .router()
+        .oneshot(
+            Request::patch(format!("/api/v1/admin/menus/{menu_id}"))
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(
+                    r#"{"parent_id":null,"name":"Updated Admin Menu","path":"/admin/menus","icon":"shield","required_role":"admin","sort_order":100,"is_active":true}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(update.status(), StatusCode::OK);
+
+    let user_menus = app
+        .router()
+        .oneshot(
+            Request::get("/api/v1/menus")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(user_menus.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(user_menus.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert!(body["data"]["menus"].as_array().unwrap().iter().any(|menu| {
+        menu["id"].as_str() == Some(menu_id.as_str())
+            && menu["required_role"].as_str() == Some("admin")
+    }));
+
+    let delete = app
+        .router()
+        .oneshot(
+            Request::delete(format!("/api/v1/admin/menus/{menu_id}"))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(delete.status(), StatusCode::NO_CONTENT);
+
+    let missing = app
+        .router()
+        .oneshot(
+            Request::get(format!("/api/v1/admin/menus/{menu_id}"))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn admin_menu_crud_requires_admin_authentication() {
+    let app = test_app().await;
+
+    let requests = [
+        Request::get("/api/v1/admin/menus")
+            .body(Body::empty())
+            .unwrap(),
+        Request::post("/api/v1/admin/menus")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"parent_id":null,"name":"Unauthorized","path":"/unauthorized","icon":null,"required_role":"user","sort_order":1,"is_active":true}"#,
+            ))
+            .unwrap(),
+        Request::get("/api/v1/admin/menus/00000000-0000-7000-8000-000000000001")
+            .body(Body::empty())
+            .unwrap(),
+        Request::patch("/api/v1/admin/menus/00000000-0000-7000-8000-000000000001")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"parent_id":null,"name":"Unauthorized","path":"/unauthorized","icon":null,"required_role":"user","sort_order":1,"is_active":true}"#,
+            ))
+            .unwrap(),
+        Request::delete("/api/v1/admin/menus/00000000-0000-7000-8000-000000000001")
+            .body(Body::empty())
+            .unwrap(),
+    ];
+
+    for request in requests {
+        let response = app.router().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+}
