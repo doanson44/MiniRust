@@ -247,7 +247,7 @@ pub async fn delete_menu(
 async fn parse_request(
     body: MenuRequest,
     locale: Locale,
-) -> Result<CreateMenu, axum::response::Response> {
+) -> Result<UpdateMenu, axum::response::Response> {
     let parent_id = match body.parent_id.as_deref() {
         Some(value) => match parse_user_id(value, locale) {
             Ok(id) => Some(id),
@@ -260,7 +260,7 @@ async fn parse_request(
         Err(error) => return Err(ProblemDetails::menu(&error, locale).into_response()),
     };
 
-    Ok(CreateMenu {
+    Ok(UpdateMenu {
         parent_id,
         name: body.name,
         path: body.path,
