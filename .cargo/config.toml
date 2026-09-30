@@ -1,0 +1,4 @@
+[cache]
+# Periodically remove stale Cargo global cache entries.
+# This complements the non-incremental dev profile; it does not touch target/.
+auto-clean-frequency = "1 day"
