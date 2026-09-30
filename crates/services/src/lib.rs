@@ -5,6 +5,7 @@
 
 pub mod auth;
 pub mod commands;
+pub mod menu;
 pub mod cqrs;
 pub mod queries;
 pub mod user_admin;
@@ -17,6 +18,11 @@ pub use auth::{
     AuthRepository, AuthService, Challenge, ChallengePurpose, ChallengeRef, CodeRequestAccepted,
     CurrentSessionQuery, EmailSender, RequireAdminQuery, Session, UnavailableEmailSender,
     UserAccess, UserLocale,
+};
+
+pub use menu::{
+    CreateMenu, Menu, MenuCommand, MenuCommandHandler, MenuCommandResult, MenuError,
+    MenuQuery, MenuQueryHandler, MenuQueryResult, MenuRepository, MenuRole, MenuService, UpdateMenu,
 };
 
 pub use user_admin::{
