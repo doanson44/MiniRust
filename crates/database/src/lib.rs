@@ -11,6 +11,7 @@ use tracing::error;
 use uuid::Uuid;
 
 mod auth;
+mod menu;
 mod user_admin;
 
 use auth::seed_otp_hash;
