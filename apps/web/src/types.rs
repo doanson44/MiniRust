@@ -20,6 +20,25 @@ pub struct ApiEnvelope<T> {
 
 #[derive(Clone, Debug, Deserialize)]
 #[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
+pub struct MenuResponse {
+    pub id: String,
+    pub parent_id: Option<String>,
+    pub name: String,
+    pub path: String,
+    pub icon: Option<String>,
+    pub required_role: String,
+    pub sort_order: i32,
+    pub is_active: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
+pub struct MenuListResponse {
+    pub menus: Vec<MenuResponse>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
 pub struct UserListResponse {
     pub users: Vec<UserResponse>,
 }
