@@ -76,6 +76,12 @@ API (`http://127.0.0.1:3000`):
 - `GET /api/v1/hello` — greeting query.
 - `POST /api/v1/echo` — echo command.
 - `GET /api/v1/auth/me` — current authenticated user and profile.
+- `GET /api/v1/menus` — active menus filtered by the authenticated user's role.
+- `GET /api/v1/admin/menus` — list all menus; admin only.
+- `POST /api/v1/admin/menus` — create menu; admin only.
+- `GET /api/v1/admin/menus/{menu_id}` — read menu; admin only.
+- `PATCH /api/v1/admin/menus/{menu_id}` — update menu; admin only.
+- `DELETE /api/v1/admin/menus/{menu_id}` — delete menu; admin only.
 - `PATCH /api/v1/users/me` — update full name and avatar URL.
 - `POST /api/v1/users/me/lock` — lock current account.
 - `DELETE /api/v1/users/me` — permanently delete current account.
@@ -96,6 +102,7 @@ Web (`http://127.0.0.1:3001`):
 
 - `GET /` — SSR index page.
 - `GET /health` — web process health.
+- The authenticated application sidebar is populated from `/api/v1/menus`, so server-side role filtering remains authoritative for visible navigation.
 
 ## Database
 
