@@ -1,5 +1,6 @@
 use crate::types::UserResponse;
 use leptos::prelude::*;
+use leptos_router::Outlet;
 
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json};
