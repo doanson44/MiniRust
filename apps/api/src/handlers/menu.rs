@@ -253,7 +253,11 @@ async fn parse_request(
     };
     let required_role = match MenuRole::parse(&body.required_role) {
         Ok(role) => role,
-        Err(error) => return Err(Box::new(ProblemDetails::menu(&error, locale).into_response())),
+        Err(error) => {
+            return Err(Box::new(
+                ProblemDetails::menu(&error, locale).into_response(),
+            ))
+        }
     };
 
     Ok(UpdateMenu {
