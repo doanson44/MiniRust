@@ -14,7 +14,8 @@ use minirust_core::{AppError, EntityId};
 use minirust_database::Database;
 use minirust_services::{
     AuthCommandHandler, AuthError, AuthQueryHandler, AuthService, UnavailableEmailSender,
-    UserAdminCommandHandler, UserAdminQueryHandler, UserAdminService,
+    MenuCommandHandler, MenuQueryHandler, MenuService, UserAdminCommandHandler,
+    UserAdminQueryHandler, UserAdminService,
 };
 use minirust_services::{EchoCommandHandler, GreetingQueryHandler};
 use response::{Locale, ProblemDetails};
@@ -31,7 +32,9 @@ pub struct AppState {
     pub auth_commands: AuthCommandHandler<Database, UnavailableEmailSender>,
     pub auth_queries: AuthQueryHandler<Database, UnavailableEmailSender>,
     pub user_commands: UserAdminCommandHandler<Database>,
+    pub menu_commands: MenuCommandHandler<Database>,
     pub user_queries: UserAdminQueryHandler<Database>,
+    pub menu_queries: MenuQueryHandler<Database>,
     pub auth_rate_limiter: AuthRateLimiter,
     pub secure_cookies: bool,
 }
@@ -79,6 +82,7 @@ impl AppState {
     ) -> Result<Self, AuthError> {
         let auth = AuthService::new(database.clone(), UnavailableEmailSender, auth_secret)?;
         let users = UserAdminService::new(database.clone());
+        let menus = MenuService::new(database.clone());
         Ok(Self {
             echo: EchoCommandHandler,
             greeting: GreetingQueryHandler,
@@ -86,7 +90,9 @@ impl AppState {
             auth_commands: AuthCommandHandler::new(auth.clone()),
             auth_queries: AuthQueryHandler::new(auth),
             user_commands: UserAdminCommandHandler::new(users.clone()),
+            menu_commands: MenuCommandHandler::new(menus.clone()),
             user_queries: UserAdminQueryHandler::new(users),
+            menu_queries: MenuQueryHandler::new(menus),
             auth_rate_limiter: AuthRateLimiter::default(),
             secure_cookies,
         })
