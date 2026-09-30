@@ -3,7 +3,11 @@ use leptos::config::{Env as LeptosEnv, LeptosOptions};
 #[cfg(feature = "ssr")]
 use minirust_config::{Config, ServerKind};
 #[cfg(feature = "ssr")]
+use minirust_database::Database;
+#[cfg(feature = "ssr")]
 use minirust_observability::init as init_logging;
+#[cfg(feature = "ssr")]
+use minirust_services::{AuthService, UnavailableEmailSender};
 #[cfg(feature = "ssr")]
 use minirust_web::{router, AppState};
 
@@ -43,21 +47,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .env(leptos_environment)
         .build();
 
+    let database_url = config.database_url()?;
+    let database = Database::connect(database_url).await?;
+    let auth = AuthService::new(
+        database,
+        UnavailableEmailSender,
+        config.auth_secret()?.as_bytes().to_vec(),
+    )?;
+
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
     tracing::info!(
         environment = %config.environment,
         address = %addr,
-        database_configured = config.database_url.is_some(),
+        database_configured = true,
         "starting MiniRust web"
     );
 
-    axum::serve(
-        listener,
-        router(AppState::new().with_leptos_options(leptos_options)),
-    )
-    .with_graceful_shutdown(shutdown_signal())
-    .await?;
+    let app_state = AppState::new().with_auth(auth).with_leptos_options(leptos_options);
+
+    axum::serve(listener, router(app_state))
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
 
     tracing::info!("MiniRust web stopped");
     Ok(())
