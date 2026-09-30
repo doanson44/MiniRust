@@ -206,9 +206,10 @@ where
     }
 
     async fn validate_new(&self, input: CreateMenu) -> Result<Menu, MenuError> {
+        let id = EntityId::new();
         let validated = self
             .validate_fields(
-                EntityId::new(),
+                id,
                 input.parent_id,
                 &input.name,
                 &input.path,
@@ -218,7 +219,7 @@ where
             .await?;
 
         Ok(Menu {
-            id: EntityId::new(),
+            id,
             parent_id: validated.parent_id,
             name: validated.name,
             path: validated.path,
