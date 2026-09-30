@@ -69,7 +69,6 @@ pub async fn list_for_user(
         Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
-
 pub async fn list_admin(
     headers: HeaderMap,
     State(state): State<AppState>,
@@ -115,11 +114,9 @@ pub async fn get(
         .handle(MenuQuery::Get { actor, menu_id })
         .await
     {
-        Ok(MenuQueryResult::Menu(menu)) => (
-            StatusCode::OK,
-            Json(ApiResponse::new(menu_response(menu))),
-        )
-            .into_response(),
+        Ok(MenuQueryResult::Menu(menu)) => {
+            (StatusCode::OK, Json(ApiResponse::new(menu_response(menu)))).into_response()
+        }
         Err(error) => ProblemDetails::menu(&error, locale).into_response(),
         Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
@@ -207,11 +204,9 @@ pub async fn update(
         })
         .await
     {
-        Ok(MenuCommandResult::Menu(menu)) => (
-            StatusCode::OK,
-            Json(ApiResponse::new(menu_response(menu))),
-        )
-            .into_response(),
+        Ok(MenuCommandResult::Menu(menu)) => {
+            (StatusCode::OK, Json(ApiResponse::new(menu_response(menu)))).into_response()
+        }
         Err(error) => ProblemDetails::menu(&error, locale).into_response(),
         Ok(_) => ProblemDetails::internal(locale).into_response(),
     }

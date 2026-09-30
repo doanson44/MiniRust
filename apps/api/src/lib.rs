@@ -13,8 +13,8 @@ use axum::http::StatusCode;
 use minirust_core::{AppError, EntityId};
 use minirust_database::Database;
 use minirust_services::{
-    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService, UnavailableEmailSender,
-    MenuCommandHandler, MenuQueryHandler, MenuService, UserAdminCommandHandler,
+    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService, MenuCommandHandler,
+    MenuQueryHandler, MenuService, UnavailableEmailSender, UserAdminCommandHandler,
     UserAdminQueryHandler, UserAdminService,
 };
 use minirust_services::{EchoCommandHandler, GreetingQueryHandler};

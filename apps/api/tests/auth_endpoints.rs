@@ -709,18 +709,13 @@ async fn auth_code_requests_are_rate_limited() {
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
 }
 
-
 #[tokio::test]
 async fn menu_user_endpoint_requires_authentication() {
     let app = test_app().await;
 
     let response = app
         .router()
-        .oneshot(
-            Request::get("/api/v1/menus")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::get("/api/v1/menus").body(Body::empty()).unwrap())
         .await
         .unwrap();
 
@@ -807,10 +802,14 @@ async fn admin_menu_crud_and_role_filtering_contract() {
         .await
         .unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert!(body["data"]["menus"].as_array().unwrap().iter().any(|menu| {
-        menu["id"].as_str() == Some(menu_id.as_str())
-            && menu["required_role"].as_str() == Some("admin")
-    }));
+    assert!(body["data"]["menus"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|menu| {
+            menu["id"].as_str() == Some(menu_id.as_str())
+                && menu["required_role"].as_str() == Some("admin")
+        }));
 
     let delete = app
         .router()

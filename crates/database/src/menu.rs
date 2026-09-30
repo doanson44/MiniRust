@@ -30,9 +30,7 @@ impl MenuRepository for Database {
             MenuError::Persistence
         })?;
 
-        self.find_menu(menu.id)
-            .await?
-            .ok_or(MenuError::NotFound)
+        self.find_menu(menu.id).await?.ok_or(MenuError::NotFound)
     }
 
     async fn find_menu(&self, menu_id: EntityId) -> Result<Option<Menu>, MenuError> {
@@ -97,9 +95,7 @@ impl MenuRepository for Database {
             return Err(MenuError::NotFound);
         }
 
-        self.find_menu(menu.id)
-            .await?
-            .ok_or(MenuError::NotFound)
+        self.find_menu(menu.id).await?.ok_or(MenuError::NotFound)
     }
 
     async fn delete_menu(&self, menu_id: EntityId) -> Result<(), MenuError> {
@@ -172,15 +168,9 @@ fn row_to_menu(row: &sqlx::mysql::MySqlRow) -> Result<Menu, MenuError> {
     Ok(Menu {
         id,
         parent_id,
-        name: row
-            .try_get("name")
-            .map_err(|_| MenuError::Persistence)?,
-        path: row
-            .try_get("path")
-            .map_err(|_| MenuError::Persistence)?,
-        icon: row
-            .try_get("icon")
-            .map_err(|_| MenuError::Persistence)?,
+        name: row.try_get("name").map_err(|_| MenuError::Persistence)?,
+        path: row.try_get("path").map_err(|_| MenuError::Persistence)?,
+        icon: row.try_get("icon").map_err(|_| MenuError::Persistence)?,
         required_role,
         sort_order: row
             .try_get("sort_order")

@@ -5,8 +5,8 @@
 
 pub mod auth;
 pub mod commands;
-pub mod menu;
 pub mod cqrs;
+pub mod menu;
 pub mod queries;
 pub mod user_admin;
 
@@ -21,8 +21,8 @@ pub use auth::{
 };
 
 pub use menu::{
-    CreateMenu, Menu, MenuCommand, MenuCommandHandler, MenuCommandResult, MenuError,
-    MenuQuery, MenuQueryHandler, MenuQueryResult, MenuRepository, MenuRole, MenuService, UpdateMenu,
+    CreateMenu, Menu, MenuCommand, MenuCommandHandler, MenuCommandResult, MenuError, MenuQuery,
+    MenuQueryHandler, MenuQueryResult, MenuRepository, MenuRole, MenuService, UpdateMenu,
 };
 
 pub use user_admin::{

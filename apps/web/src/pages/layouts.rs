@@ -23,7 +23,8 @@ pub fn AppLayout() -> impl IntoView {
                 set_user.set(Some(current_user));
 
                 if let Ok(menu_response) =
-                    api_json::<MenuListResponse>(gloo_net::http::Method::GET, "/api/v1/menus", None).await
+                    api_json::<MenuListResponse>(gloo_net::http::Method::GET, "/api/v1/menus", None)
+                        .await
                 {
                     set_menus.set(menu_response.menus);
                 }

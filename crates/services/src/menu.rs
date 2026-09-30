@@ -123,21 +123,13 @@ where
         Self { repository }
     }
 
-    pub async fn create(
-        &self,
-        actor: &UserAccess,
-        input: CreateMenu,
-    ) -> Result<Menu, MenuError> {
+    pub async fn create(&self, actor: &UserAccess, input: CreateMenu) -> Result<Menu, MenuError> {
         require_admin(actor)?;
         let menu = self.validate_new(input).await?;
         self.repository.create_menu(&menu).await
     }
 
-    pub async fn get(
-        &self,
-        actor: &UserAccess,
-        menu_id: EntityId,
-    ) -> Result<Menu, MenuError> {
+    pub async fn get(&self, actor: &UserAccess, menu_id: EntityId) -> Result<Menu, MenuError> {
         require_admin(actor)?;
         self.repository
             .find_menu(menu_id)
@@ -171,15 +163,16 @@ where
             .await?
             .ok_or(MenuError::NotFound)?;
 
-        let validated = self.validate_fields(
-            menu_id,
-            input.parent_id,
-            &input.name,
-            &input.path,
-            input.icon.as_deref(),
-            input.required_role,
-        )
-        .await?;
+        let validated = self
+            .validate_fields(
+                menu_id,
+                input.parent_id,
+                &input.name,
+                &input.path,
+                input.icon.as_deref(),
+                input.required_role,
+            )
+            .await?;
 
         menu.parent_id = validated.parent_id;
         menu.name = validated.name;
@@ -192,11 +185,7 @@ where
         self.repository.update_menu(&menu).await
     }
 
-    pub async fn delete(
-        &self,
-        actor: &UserAccess,
-        menu_id: EntityId,
-    ) -> Result<(), MenuError> {
+    pub async fn delete(&self, actor: &UserAccess, menu_id: EntityId) -> Result<(), MenuError> {
         require_admin(actor)?;
         self.repository
             .find_menu(menu_id)
@@ -287,13 +276,19 @@ fn require_admin(actor: &UserAccess) -> Result<(), MenuError> {
 }
 
 pub enum MenuCommand {
-    Create { actor: UserAccess, input: CreateMenu },
+    Create {
+        actor: UserAccess,
+        input: CreateMenu,
+    },
     Update {
         actor: UserAccess,
         menu_id: EntityId,
         input: UpdateMenu,
     },
-    Delete { actor: UserAccess, menu_id: EntityId },
+    Delete {
+        actor: UserAccess,
+        menu_id: EntityId,
+    },
 }
 
 pub enum MenuCommandResult {
@@ -353,9 +348,16 @@ where
 }
 
 pub enum MenuQuery {
-    Get { actor: UserAccess, menu_id: EntityId },
-    List { actor: UserAccess },
-    ListForUser { actor: UserAccess },
+    Get {
+        actor: UserAccess,
+        menu_id: EntityId,
+    },
+    List {
+        actor: UserAccess,
+    },
+    ListForUser {
+        actor: UserAccess,
+    },
 }
 
 pub enum MenuQueryResult {
@@ -390,9 +392,19 @@ where
 {
     async fn handle(&self, query: MenuQuery) -> Result<MenuQueryResult, MenuError> {
         match query {
-            MenuQuery::Get { actor, menu_id } => self.service.get(&actor, menu_id).await.map(MenuQueryResult::Menu),
-            MenuQuery::List { actor } => self.service.list(&actor).await.map(MenuQueryResult::Menus),
-            MenuQuery::ListForUser { actor } => self.service.list_for_user(&actor).await.map(MenuQueryResult::Menus),
+            MenuQuery::Get { actor, menu_id } => self
+                .service
+                .get(&actor, menu_id)
+                .await
+                .map(MenuQueryResult::Menu),
+            MenuQuery::List { actor } => {
+                self.service.list(&actor).await.map(MenuQueryResult::Menus)
+            }
+            MenuQuery::ListForUser { actor } => self
+                .service
+                .list_for_user(&actor)
+                .await
+                .map(MenuQueryResult::Menus),
         }
     }
 }
