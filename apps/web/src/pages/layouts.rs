@@ -1,6 +1,6 @@
-use crate::types::{MenuResponse, UserResponse};
 #[cfg(feature = "hydrate")]
 use crate::types::MenuListResponse;
+use crate::types::{MenuResponse, UserResponse};
 use leptos::prelude::*;
 use leptos_router::components::Outlet;
 
