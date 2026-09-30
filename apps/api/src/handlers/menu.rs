@@ -279,4 +279,3 @@ fn menu_response(menu: Menu) -> MenuResponse {
         is_active: menu.is_active,
     }
 }
-
