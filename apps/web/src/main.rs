@@ -7,7 +7,7 @@ use minirust_database::Database;
 #[cfg(feature = "ssr")]
 use minirust_observability::init as init_logging;
 #[cfg(feature = "ssr")]
-use minirust_services::{AuthService, UnavailableEmailSender};
+use minirust_services::{AuthService, MenuService, UnavailableEmailSender};
 #[cfg(feature = "ssr")]
 use minirust_web::{router, AppState};
 
@@ -50,10 +50,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = config.database_url()?;
     let database = Database::connect(database_url).await?;
     let auth = AuthService::new(
-        database,
+        database.clone(),
         UnavailableEmailSender,
         config.auth_secret()?.as_bytes().to_vec(),
     )?;
+    let menus = MenuService::new(database);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
@@ -66,6 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app_state = AppState::new()
         .with_auth(auth)
+        .with_menus(menus)
         .with_leptos_options(leptos_options);
 
     axum::serve(listener, router(app_state))

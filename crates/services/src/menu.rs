@@ -5,33 +5,45 @@ use minirust_core::EntityId;
 use crate::auth::UserAccess;
 use crate::cqrs::{AsyncCommandHandler, AsyncQueryHandler, Command, Query};
 
+/// Which account tiers may open a menu.
+///
+/// The flags are matched exactly against the caller: a normal account needs
+/// `user`, a premium account needs `premium`. A system admin always has full
+/// access, so admin-only menus simply leave both flags clear.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MenuRole {
-    User,
-    Admin,
+pub struct MenuAccess {
+    pub user: bool,
+    pub premium: bool,
 }
 
-impl MenuRole {
-    pub fn parse(value: &str) -> Result<Self, MenuError> {
-        match value.trim().to_ascii_lowercase().as_str() {
-            "user" => Ok(Self::User),
-            "admin" => Ok(Self::Admin),
-            _ => Err(MenuError::InvalidRole),
-        }
-    }
+impl MenuAccess {
+    /// Visible to normal and premium accounts.
+    pub const ALL: Self = Self {
+        user: true,
+        premium: true,
+    };
 
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::User => "user",
-            Self::Admin => "admin",
-        }
-    }
+    /// Only system admins may open the menu.
+    pub const ADMIN_ONLY: Self = Self {
+        user: false,
+        premium: false,
+    };
 
     pub const fn is_allowed_for(self, user: &UserAccess) -> bool {
-        match self {
-            Self::User => true,
-            Self::Admin => user.is_admin,
+        if user.is_admin {
+            return true;
         }
+        if user.is_premium {
+            self.premium
+        } else {
+            self.user
+        }
+    }
+}
+
+impl Default for MenuAccess {
+    fn default() -> Self {
+        Self::ALL
     }
 }
 
@@ -42,18 +54,7 @@ pub struct Menu {
     pub name: String,
     pub path: String,
     pub icon: Option<String>,
-    pub required_role: MenuRole,
-    pub sort_order: i32,
-    pub is_active: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CreateMenu {
-    pub parent_id: Option<EntityId>,
-    pub name: String,
-    pub path: String,
-    pub icon: Option<String>,
-    pub required_role: MenuRole,
+    pub access: MenuAccess,
     pub sort_order: i32,
     pub is_active: bool,
 }
@@ -64,7 +65,7 @@ pub struct UpdateMenu {
     pub name: String,
     pub path: String,
     pub icon: Option<String>,
-    pub required_role: MenuRole,
+    pub access: MenuAccess,
     pub sort_order: i32,
     pub is_active: bool,
 }
@@ -76,7 +77,6 @@ pub enum MenuError {
     InvalidName,
     InvalidPath,
     InvalidIcon,
-    InvalidRole,
     InvalidParent,
     Persistence,
 }
@@ -89,7 +89,6 @@ impl std::fmt::Display for MenuError {
             Self::InvalidName => "menu name is invalid",
             Self::InvalidPath => "menu path is invalid",
             Self::InvalidIcon => "menu icon is invalid",
-            Self::InvalidRole => "menu role is invalid",
             Self::InvalidParent => "menu parent is invalid",
             Self::Persistence => "menu persistence failed",
         };
@@ -101,13 +100,11 @@ impl std::error::Error for MenuError {}
 
 #[allow(async_fn_in_trait)]
 pub trait MenuRepository: Clone + Send + Sync + 'static {
-    async fn create_menu(&self, menu: &Menu) -> Result<Menu, MenuError>;
     async fn find_menu(&self, menu_id: EntityId) -> Result<Option<Menu>, MenuError>;
     async fn list_menus(&self) -> Result<Vec<Menu>, MenuError>;
     async fn list_active_menus(&self) -> Result<Vec<Menu>, MenuError>;
     async fn parent_exists(&self, parent_id: EntityId) -> Result<bool, MenuError>;
     async fn update_menu(&self, menu: &Menu) -> Result<Menu, MenuError>;
-    async fn delete_menu(&self, menu_id: EntityId) -> Result<(), MenuError>;
 }
 
 #[derive(Clone)]
@@ -123,20 +120,6 @@ where
         Self { repository }
     }
 
-    pub async fn create(&self, actor: &UserAccess, input: CreateMenu) -> Result<Menu, MenuError> {
-        require_admin(actor)?;
-        let menu = self.validate_new(input).await?;
-        self.repository.create_menu(&menu).await
-    }
-
-    pub async fn get(&self, actor: &UserAccess, menu_id: EntityId) -> Result<Menu, MenuError> {
-        require_admin(actor)?;
-        self.repository
-            .find_menu(menu_id)
-            .await?
-            .ok_or(MenuError::NotFound)
-    }
-
     pub async fn list(&self, actor: &UserAccess) -> Result<Vec<Menu>, MenuError> {
         require_admin(actor)?;
         self.repository.list_menus().await
@@ -146,8 +129,35 @@ where
         let menus = self.repository.list_active_menus().await?;
         Ok(menus
             .into_iter()
-            .filter(|menu| menu.required_role.is_allowed_for(actor))
+            .filter(|menu| menu.access.is_allowed_for(actor))
             .collect())
+    }
+
+    /// Decides whether `actor` may open `path` based on the menu registry.
+    ///
+    /// Paths that are not registered as an active menu are not managed here.
+    /// When access is denied, the first menu the actor may open is returned so
+    /// the caller can redirect instead of looping on the same path.
+    pub async fn decide_access(
+        &self,
+        actor: &UserAccess,
+        path: &str,
+    ) -> Result<MenuAccessDecision, MenuError> {
+        let menus = self.repository.list_active_menus().await?;
+        let Some(menu) = menus.iter().find(|menu| menu.path == path) else {
+            return Ok(MenuAccessDecision::Unmanaged);
+        };
+
+        if menu.access.is_allowed_for(actor) {
+            return Ok(MenuAccessDecision::Allowed);
+        }
+
+        Ok(MenuAccessDecision::Denied {
+            fallback: menus
+                .iter()
+                .find(|menu| menu.access.is_allowed_for(actor))
+                .map(|menu| menu.path.clone()),
+        })
     }
 
     pub async fn update(
@@ -170,7 +180,6 @@ where
                 &input.name,
                 &input.path,
                 input.icon.as_deref(),
-                input.required_role,
             )
             .await?;
 
@@ -178,45 +187,11 @@ where
         menu.name = validated.name;
         menu.path = validated.path;
         menu.icon = validated.icon;
-        menu.required_role = validated.required_role;
+        menu.access = input.access;
         menu.sort_order = input.sort_order;
         menu.is_active = input.is_active;
 
         self.repository.update_menu(&menu).await
-    }
-
-    pub async fn delete(&self, actor: &UserAccess, menu_id: EntityId) -> Result<(), MenuError> {
-        require_admin(actor)?;
-        self.repository
-            .find_menu(menu_id)
-            .await?
-            .ok_or(MenuError::NotFound)?;
-        self.repository.delete_menu(menu_id).await
-    }
-
-    async fn validate_new(&self, input: CreateMenu) -> Result<Menu, MenuError> {
-        let id = EntityId::new();
-        let validated = self
-            .validate_fields(
-                id,
-                input.parent_id,
-                &input.name,
-                &input.path,
-                input.icon.as_deref(),
-                input.required_role,
-            )
-            .await?;
-
-        Ok(Menu {
-            id,
-            parent_id: validated.parent_id,
-            name: validated.name,
-            path: validated.path,
-            icon: validated.icon,
-            required_role: validated.required_role,
-            sort_order: input.sort_order,
-            is_active: input.is_active,
-        })
     }
 
     async fn validate_fields(
@@ -226,7 +201,6 @@ where
         name: &str,
         path: &str,
         icon: Option<&str>,
-        required_role: MenuRole,
     ) -> Result<ValidatedMenuFields, MenuError> {
         let name = name.trim();
         if name.is_empty() || name.chars().count() > 200 {
@@ -258,9 +232,20 @@ where
             name: name.to_owned(),
             path: path.to_owned(),
             icon: icon.map(ToOwned::to_owned),
-            required_role,
         })
     }
+}
+
+/// Outcome of evaluating the menu policy for a request path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MenuAccessDecision {
+    /// The path is not registered as an active menu.
+    Unmanaged,
+    /// The actor may open the path.
+    Allowed,
+    /// The path is a menu the actor may not open; `fallback` is the first
+    /// accessible menu path when one exists.
+    Denied { fallback: Option<String> },
 }
 
 struct ValidatedMenuFields {
@@ -268,7 +253,6 @@ struct ValidatedMenuFields {
     name: String,
     path: String,
     icon: Option<String>,
-    required_role: MenuRole,
 }
 
 fn require_admin(actor: &UserAccess) -> Result<(), MenuError> {
@@ -276,28 +260,15 @@ fn require_admin(actor: &UserAccess) -> Result<(), MenuError> {
 }
 
 pub enum MenuCommand {
-    Create {
-        actor: UserAccess,
-        input: CreateMenu,
-    },
     Update {
         actor: UserAccess,
         menu_id: EntityId,
         input: UpdateMenu,
     },
-    Delete {
-        actor: UserAccess,
-        menu_id: EntityId,
-    },
-}
-
-pub enum MenuCommandResult {
-    Menu(Menu),
-    Deleted,
 }
 
 impl Command for MenuCommand {
-    type Output = MenuCommandResult;
+    type Output = Menu;
     type Error = MenuError;
 }
 
@@ -322,51 +293,24 @@ impl<R> AsyncCommandHandler<MenuCommand> for MenuCommandHandler<R>
 where
     R: MenuRepository,
 {
-    async fn handle(&self, command: MenuCommand) -> Result<MenuCommandResult, MenuError> {
+    async fn handle(&self, command: MenuCommand) -> Result<Menu, MenuError> {
         match command {
-            MenuCommand::Create { actor, input } => self
-                .service
-                .create(&actor, input)
-                .await
-                .map(MenuCommandResult::Menu),
             MenuCommand::Update {
                 actor,
                 menu_id,
                 input,
-            } => self
-                .service
-                .update(&actor, menu_id, input)
-                .await
-                .map(MenuCommandResult::Menu),
-            MenuCommand::Delete { actor, menu_id } => self
-                .service
-                .delete(&actor, menu_id)
-                .await
-                .map(|_| MenuCommandResult::Deleted),
+            } => self.service.update(&actor, menu_id, input).await,
         }
     }
 }
 
 pub enum MenuQuery {
-    Get {
-        actor: UserAccess,
-        menu_id: EntityId,
-    },
-    List {
-        actor: UserAccess,
-    },
-    ListForUser {
-        actor: UserAccess,
-    },
-}
-
-pub enum MenuQueryResult {
-    Menu(Menu),
-    Menus(Vec<Menu>),
+    List { actor: UserAccess },
+    ListForUser { actor: UserAccess },
 }
 
 impl Query for MenuQuery {
-    type Output = Result<MenuQueryResult, MenuError>;
+    type Output = Result<Vec<Menu>, MenuError>;
 }
 
 #[derive(Clone)]
@@ -390,21 +334,199 @@ impl<R> AsyncQueryHandler<MenuQuery> for MenuQueryHandler<R>
 where
     R: MenuRepository,
 {
-    async fn handle(&self, query: MenuQuery) -> Result<MenuQueryResult, MenuError> {
+    async fn handle(&self, query: MenuQuery) -> Result<Vec<Menu>, MenuError> {
         match query {
-            MenuQuery::Get { actor, menu_id } => self
-                .service
-                .get(&actor, menu_id)
-                .await
-                .map(MenuQueryResult::Menu),
-            MenuQuery::List { actor } => {
-                self.service.list(&actor).await.map(MenuQueryResult::Menus)
-            }
-            MenuQuery::ListForUser { actor } => self
-                .service
-                .list_for_user(&actor)
-                .await
-                .map(MenuQueryResult::Menus),
+            MenuQuery::List { actor } => self.service.list(&actor).await,
+            MenuQuery::ListForUser { actor } => self.service.list_for_user(&actor).await,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::UserLocale;
+
+    fn actor(is_admin: bool, is_premium: bool) -> UserAccess {
+        UserAccess {
+            id: EntityId::new(),
+            email: "user@example.com".to_owned(),
+            is_admin,
+            is_premium,
+            full_name: None,
+            avatar_url: None,
+            is_locked: false,
+            locale: UserLocale::Vi,
+        }
+    }
+
+    fn menu(path: &str, access: MenuAccess, is_active: bool) -> Menu {
+        Menu {
+            id: EntityId::new(),
+            parent_id: None,
+            name: path.trim_start_matches('/').to_owned(),
+            path: path.to_owned(),
+            icon: None,
+            access,
+            sort_order: 0,
+            is_active,
+        }
+    }
+
+    #[derive(Clone)]
+    struct FakeMenus {
+        menus: Vec<Menu>,
+    }
+
+    impl MenuRepository for FakeMenus {
+        async fn find_menu(&self, menu_id: EntityId) -> Result<Option<Menu>, MenuError> {
+            Ok(self.menus.iter().find(|menu| menu.id == menu_id).cloned())
+        }
+
+        async fn list_menus(&self) -> Result<Vec<Menu>, MenuError> {
+            Ok(self.menus.clone())
+        }
+
+        async fn list_active_menus(&self) -> Result<Vec<Menu>, MenuError> {
+            Ok(self
+                .menus
+                .iter()
+                .filter(|menu| menu.is_active)
+                .cloned()
+                .collect())
+        }
+
+        async fn parent_exists(&self, parent_id: EntityId) -> Result<bool, MenuError> {
+            Ok(self.menus.iter().any(|menu| menu.id == parent_id))
+        }
+
+        async fn update_menu(&self, menu: &Menu) -> Result<Menu, MenuError> {
+            Ok(menu.clone())
+        }
+    }
+
+    fn service(menus: Vec<Menu>) -> MenuService<FakeMenus> {
+        MenuService::new(FakeMenus { menus })
+    }
+
+    #[test]
+    fn access_flags_match_the_account_tier_exactly() {
+        let normal = actor(false, false);
+        let premium = actor(false, true);
+        let admin = actor(true, false);
+        let premium_admin = actor(true, true);
+
+        for user in [&normal, &premium, &admin, &premium_admin] {
+            assert!(MenuAccess::ALL.is_allowed_for(user));
+            assert_eq!(MenuAccess::ADMIN_ONLY.is_allowed_for(user), user.is_admin);
+        }
+
+        let premium_only = MenuAccess {
+            user: false,
+            premium: true,
+        };
+        assert!(!premium_only.is_allowed_for(&normal));
+        assert!(premium_only.is_allowed_for(&premium));
+
+        let normal_only = MenuAccess {
+            user: true,
+            premium: false,
+        };
+        assert!(normal_only.is_allowed_for(&normal));
+        assert!(!normal_only.is_allowed_for(&premium));
+    }
+
+    #[tokio::test]
+    async fn list_for_user_returns_only_the_menus_matching_the_tier() {
+        let service = service(vec![
+            menu("/app", MenuAccess::ALL, true),
+            menu(
+                "/premium",
+                MenuAccess {
+                    user: false,
+                    premium: true,
+                },
+                true,
+            ),
+            menu("/admin", MenuAccess::ADMIN_ONLY, true),
+            menu("/hidden", MenuAccess::ALL, false),
+        ]);
+
+        let paths = |menus: Vec<Menu>| {
+            menus
+                .into_iter()
+                .map(|menu| menu.path)
+                .collect::<Vec<String>>()
+        };
+
+        assert_eq!(
+            paths(service.list_for_user(&actor(false, false)).await.unwrap()),
+            vec!["/app".to_owned()]
+        );
+        assert_eq!(
+            paths(service.list_for_user(&actor(false, true)).await.unwrap()),
+            vec!["/app".to_owned(), "/premium".to_owned()]
+        );
+        assert_eq!(
+            paths(service.list_for_user(&actor(true, false)).await.unwrap()),
+            vec![
+                "/app".to_owned(),
+                "/premium".to_owned(),
+                "/admin".to_owned()
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn inactive_or_unregistered_paths_are_unmanaged() {
+        let service = service(vec![
+            menu("/app", MenuAccess::ALL, true),
+            menu("/hidden", MenuAccess::ALL, false),
+        ]);
+        let normal = actor(false, false);
+
+        assert_eq!(
+            service.decide_access(&normal, "/other").await.unwrap(),
+            MenuAccessDecision::Unmanaged
+        );
+        assert_eq!(
+            service.decide_access(&normal, "/hidden").await.unwrap(),
+            MenuAccessDecision::Unmanaged
+        );
+        assert_eq!(
+            service.decide_access(&normal, "/app").await.unwrap(),
+            MenuAccessDecision::Allowed
+        );
+    }
+
+    #[tokio::test]
+    async fn denied_paths_redirect_to_the_first_accessible_menu() {
+        let service = service(vec![
+            menu("/app", MenuAccess::ADMIN_ONLY, true),
+            menu("/premium", MenuAccess::ALL, true),
+        ]);
+
+        assert_eq!(
+            service
+                .decide_access(&actor(false, false), "/app")
+                .await
+                .unwrap(),
+            MenuAccessDecision::Denied {
+                fallback: Some("/premium".to_owned())
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn denied_paths_without_an_accessible_menu_have_no_fallback() {
+        let service = service(vec![menu("/app", MenuAccess::ADMIN_ONLY, true)]);
+
+        assert_eq!(
+            service
+                .decide_access(&actor(false, false), "/app")
+                .await
+                .unwrap(),
+            MenuAccessDecision::Denied { fallback: None }
+        );
     }
 }

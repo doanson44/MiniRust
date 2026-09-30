@@ -26,7 +26,8 @@ pub struct MenuResponse {
     pub name: String,
     pub path: String,
     pub icon: Option<String>,
-    pub required_role: String,
+    pub allow_user: bool,
+    pub allow_premium: bool,
     pub sort_order: i32,
     pub is_active: bool,
 }

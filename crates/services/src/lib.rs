@@ -21,8 +21,8 @@ pub use auth::{
 };
 
 pub use menu::{
-    CreateMenu, Menu, MenuCommand, MenuCommandHandler, MenuCommandResult, MenuError, MenuQuery,
-    MenuQueryHandler, MenuQueryResult, MenuRepository, MenuRole, MenuService, UpdateMenu,
+    Menu, MenuAccess, MenuAccessDecision, MenuCommand, MenuCommandHandler, MenuError, MenuQuery,
+    MenuQueryHandler, MenuRepository, MenuService, UpdateMenu,
 };
 
 pub use user_admin::{

@@ -723,7 +723,7 @@ async fn menu_user_endpoint_requires_authentication() {
 }
 
 #[tokio::test]
-async fn admin_menu_crud_and_role_filtering_contract() {
+async fn admin_menu_access_update_contract() {
     let app = test_app().await;
     let (cookie, _) = admin_cookie(&app).await;
 
@@ -739,39 +739,21 @@ async fn admin_menu_crud_and_role_filtering_contract() {
         .unwrap();
     assert_eq!(list.status(), StatusCode::OK);
 
-    let create = app
-        .router()
-        .oneshot(
-            Request::post("/api/v1/admin/menus")
-                .header("content-type", "application/json")
-                .header("cookie", &cookie)
-                .body(Body::from(
-                    r#"{"parent_id":null,"name":"Admin Menu","path":"/admin/menu","icon":"menu","required_role":"admin","sort_order":90,"is_active":true}"#,
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(create.status(), StatusCode::CREATED);
-
-    let body = axum::body::to_bytes(create.into_body(), 1024 * 1024)
+    let body = axum::body::to_bytes(list.into_body(), 1024 * 1024)
         .await
         .unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    let menu_id = body["data"]["id"].as_str().unwrap().to_owned();
+    let dashboard = body["data"]["menus"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|menu| menu["path"].as_str() == Some("/app"))
+        .expect("the seeded dashboard menu must be listed");
+    let menu_id = dashboard["id"].as_str().unwrap().to_owned();
+    assert_eq!(dashboard["allow_user"], serde_json::Value::Bool(true));
+    assert_eq!(dashboard["allow_premium"], serde_json::Value::Bool(true));
 
-    let get = app
-        .router()
-        .oneshot(
-            Request::get(format!("/api/v1/admin/menus/{menu_id}"))
-                .header("cookie", &cookie)
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(get.status(), StatusCode::OK);
-
+    // Restricting the menu to premium accounts keeps the registry entry intact.
     let update = app
         .router()
         .oneshot(
@@ -779,7 +761,7 @@ async fn admin_menu_crud_and_role_filtering_contract() {
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(
-                    r#"{"parent_id":null,"name":"Updated Admin Menu","path":"/admin/menus","icon":"shield","required_role":"admin","sort_order":100,"is_active":true}"#,
+                    r#"{"parent_id":null,"name":"Dashboard","path":"/app","icon":"layout-dashboard","allow_user":false,"allow_premium":true,"sort_order":10,"is_active":true}"#,
                 ))
                 .unwrap(),
         )
@@ -787,7 +769,15 @@ async fn admin_menu_crud_and_role_filtering_contract() {
         .unwrap();
     assert_eq!(update.status(), StatusCode::OK);
 
-    let user_menus = app
+    let body = axum::body::to_bytes(update.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["data"]["allow_user"], serde_json::Value::Bool(false));
+    assert_eq!(body["data"]["allow_premium"], serde_json::Value::Bool(true));
+
+    // An admin always has full access, so the menu stays visible to the session.
+    let visible = app
         .router()
         .oneshot(
             Request::get("/api/v1/menus")
@@ -797,8 +787,8 @@ async fn admin_menu_crud_and_role_filtering_contract() {
         )
         .await
         .unwrap();
-    assert_eq!(user_menus.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(user_menus.into_body(), 1024 * 1024)
+    assert_eq!(visible.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(visible.into_body(), 1024 * 1024)
         .await
         .unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
@@ -806,29 +796,32 @@ async fn admin_menu_crud_and_role_filtering_contract() {
         .as_array()
         .unwrap()
         .iter()
-        .any(|menu| {
-            menu["id"].as_str() == Some(menu_id.as_str())
-                && menu["required_role"].as_str() == Some("admin")
-        }));
+        .any(|menu| menu["id"].as_str() == Some(menu_id.as_str())));
 
-    let delete = app
+    let invalid_path = app
         .router()
         .oneshot(
-            Request::delete(format!("/api/v1/admin/menus/{menu_id}"))
+            Request::patch(format!("/api/v1/admin/menus/{menu_id}"))
+                .header("content-type", "application/json")
                 .header("cookie", &cookie)
-                .body(Body::empty())
+                .body(Body::from(
+                    r#"{"parent_id":null,"name":"Dashboard","path":"app","icon":null,"allow_user":true,"allow_premium":true,"sort_order":10,"is_active":true}"#,
+                ))
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(delete.status(), StatusCode::NO_CONTENT);
+    assert_eq!(invalid_path.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
     let missing = app
         .router()
         .oneshot(
-            Request::get(format!("/api/v1/admin/menus/{menu_id}"))
+            Request::patch("/api/v1/admin/menus/00000000-0000-7000-8000-000000000001")
+                .header("content-type", "application/json")
                 .header("cookie", &cookie)
-                .body(Body::empty())
+                .body(Body::from(
+                    r#"{"parent_id":null,"name":"Missing","path":"/missing","icon":null,"allow_user":true,"allow_premium":false,"sort_order":1,"is_active":true}"#,
+                ))
                 .unwrap(),
         )
         .await
@@ -837,30 +830,18 @@ async fn admin_menu_crud_and_role_filtering_contract() {
 }
 
 #[tokio::test]
-async fn admin_menu_crud_requires_admin_authentication() {
+async fn admin_menu_endpoints_require_admin_authentication() {
     let app = test_app().await;
 
     let requests = [
         Request::get("/api/v1/admin/menus")
             .body(Body::empty())
             .unwrap(),
-        Request::post("/api/v1/admin/menus")
-            .header("content-type", "application/json")
-            .body(Body::from(
-                r#"{"parent_id":null,"name":"Unauthorized","path":"/unauthorized","icon":null,"required_role":"user","sort_order":1,"is_active":true}"#,
-            ))
-            .unwrap(),
-        Request::get("/api/v1/admin/menus/00000000-0000-7000-8000-000000000001")
-            .body(Body::empty())
-            .unwrap(),
         Request::patch("/api/v1/admin/menus/00000000-0000-7000-8000-000000000001")
             .header("content-type", "application/json")
             .body(Body::from(
-                r#"{"parent_id":null,"name":"Unauthorized","path":"/unauthorized","icon":null,"required_role":"user","sort_order":1,"is_active":true}"#,
+                r#"{"parent_id":null,"name":"Unauthorized","path":"/unauthorized","icon":null,"allow_user":true,"allow_premium":false,"sort_order":1,"is_active":true}"#,
             ))
-            .unwrap(),
-        Request::delete("/api/v1/admin/menus/00000000-0000-7000-8000-000000000001")
-            .body(Body::empty())
             .unwrap(),
     ];
 

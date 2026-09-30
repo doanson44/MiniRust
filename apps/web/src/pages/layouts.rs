@@ -135,6 +135,11 @@ pub fn AppLayout() -> impl IntoView {
                                 <a href="/profile" class="mt-1 block rounded-xl px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
                                     {move || if locale.get() == "vi" { "Thông tin tài khoản" } else { "Account information" }}
                                 </a>
+                                <Show when=move || user.get().map(|u| u.is_admin).unwrap_or(false)>
+                                    <a href="/admin/menus" class="mt-1 block rounded-xl px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
+                                        {move || if locale.get() == "vi" { "Phân quyền menu" } else { "Menu permissions" }}
+                                    </a>
+                                </Show>
                                 <button
                                     type="button"
                                     on:click=sign_out

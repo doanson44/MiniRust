@@ -68,6 +68,14 @@ The first migration creates:
 
 MariaDB remains the only persistence dependency. SQLx's MySQL driver supports MariaDB, and SQLx migrations can be embedded and executed during application startup.
 
+Later migrations add the navigation registry used by the web transport:
+
+- `0005_menus.sql` creates `menus`, the menu registry behind the sidebar.
+- `0006_menu_access.sql` replaces the single `required_role` column with the `allow_user`
+  and `allow_premium` access flags described in Menu access control.
+- `0007_menu_permissions_entry.sql` registers the admin-only `/admin/menus` entry so the
+  permission grid is reachable from the sidebar.
+
 ## Current boundary
 
 The application layer owns the authentication workflow and exposes AuthRepository and EmailSender ports. The database crate implements AuthRepository; an external email provider will implement EmailSender.
@@ -115,6 +123,43 @@ Premium entitlement administration:
 - `active: true` assigns Premium; `active: false` revokes it
 - `expires_at` is an optional Unix timestamp; when present it must be in the future
 - Premium remains an entitlement in `user_entitlements`, not a system role
+
+
+## Menu access control
+
+The `menus` table is the system menu registry: every navigation entry is a row with a name, a
+path, and two access flags. The account dimensions described above (normal, premium, admin) are
+the tiers those flags are matched against.
+
+- `allow_user` — a normal account (no Premium entitlement, no admin role) may open the menu
+- `allow_premium` — an account with an active Premium entitlement may open the menu
+- a system admin always has full access, so an admin-only menu leaves both flags clear
+
+The flags are matched exactly against the account and are not a hierarchy: an active Premium
+entitlement does not implicitly grant menus marked for normal users. To make a menu visible to
+both tiers the administrator marks both columns.
+
+Enforcement has two layers:
+
+1. `GET /api/v1/menus` returns only the menus the current account may open; this drives the
+   navigation sidebar.
+2. The web middleware resolves the requested path against the same registry, so an account
+   cannot reach an ungranted menu by typing its URL. The request is redirected to the first
+   menu the account may open, or answered with 403 when no menu is granted at all.
+
+Administrators edit the flags on `/admin/menus`. The menu registry is part of the system
+definition, so that page only edits access; creating, renaming, or deleting menus is done
+through migrations.
+
+Endpoints:
+
+- GET /api/v1/menus — menus the current account may open
+- GET /api/v1/admin/menus — list all menus (admin only)
+- PATCH /api/v1/admin/menus/{menu_id} — update a menu, including both access flags (admin only)
+
+The registry has no create and no delete endpoint: menus are part of the system definition, so
+they are added or removed through migrations, and the HTTP surface only lists them and updates
+their access flags.
 
 
 ## Self-service profile and account lifecycle

@@ -397,15 +397,7 @@ impl ProblemDetails {
                     Locale::En => "The menu icon is invalid.".to_owned(),
                 },
             ),
-            MenuError::InvalidRole => (
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "INVALID_MENU_ROLE",
-                "errors.menu.invalid_role",
-                match locale {
-                    Locale::Vi => "Role của menu không hợp lệ.".to_owned(),
-                    Locale::En => "The menu role is invalid.".to_owned(),
-                },
-            ),
+
             MenuError::InvalidParent => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_MENU_PARENT",

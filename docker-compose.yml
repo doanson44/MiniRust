@@ -56,6 +56,10 @@ services:
       MINIRUST_LOG_DIR: /var/log/minirust
       MINIRUST_WEB_HOST: 0.0.0.0
       MINIRUST_WEB_PORT: 3001
+      MINIRUST_DATABASE_URL: mysql://${MARIADB_USER:-minirust}:${MARIADB_PASSWORD:-minirust}@mariadb:3306/${MARIADB_DATABASE:-minirust}
+      MINIRUST_AUTH_SECRET: ${MINIRUST_AUTH_SECRET:?MINIRUST_AUTH_SECRET must be set}
+      MINIRUST_ADMIN_EMAIL: ${MINIRUST_ADMIN_EMAIL:?MINIRUST_ADMIN_EMAIL must be set}
+      MINIRUST_ADMIN_OTP: ${MINIRUST_ADMIN_OTP:?MINIRUST_ADMIN_OTP must be set}
     ports:
       - "3001:3001"
     volumes:
@@ -70,6 +74,25 @@ services:
       retries: 10
       start_period: 10s
 
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      MINIRUST_DOMAIN: ":80"
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
 volumes:
   mariadb_data:
   minirust_logs:
+  caddy_data:
+  caddy_config:

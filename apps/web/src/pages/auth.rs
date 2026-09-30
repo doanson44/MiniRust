@@ -46,7 +46,7 @@ pub fn LoginPage() -> impl IntoView {
 
     view! {
         <AuthLayout>
-            <a href="/" class="mb-8 text-sm font-bold text-cyan-300">"<- MiniRust"</a>
+            <a href="/login" class="mb-8 text-sm font-bold text-cyan-300">"<- MiniRust"</a>
             <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
                 <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Sign in"</p>
                 <h1 class="mt-3 text-3xl font-black text-white">"Access your account"</h1>

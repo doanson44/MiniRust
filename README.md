@@ -68,6 +68,16 @@ The current baseline demonstrates both sides of CQRS:
 - Tailwind CSS is the only CSS framework.
 - Bootstrap must not be introduced or preserved as a compatibility layer.
 
+## Accounts and menu access
+
+Three account dimensions are distinguished. See [`docs/architecture/authentication.md`](docs/architecture/authentication.md) for the full model:
+
+- normal — registered account without the Premium entitlement and without the admin role
+- premium — account with an active Premium entitlement
+- admin — account with the admin system role; administrators always have full access
+
+Every menu row carries two access flags, `allow_user` and `allow_premium`. The flags are matched exactly against the account, so an active Premium entitlement does not implicitly grant menus marked for normal users. Administrators manage the flags on `/admin/menus`; that page only edits access, because the menu registry is part of the system definition and menus are added or removed through migrations.
+
 ## API endpoints
 
 API (`http://127.0.0.1:3000`):
@@ -76,12 +86,9 @@ API (`http://127.0.0.1:3000`):
 - `GET /api/v1/hello` — greeting query.
 - `POST /api/v1/echo` — echo command.
 - `GET /api/v1/auth/me` — current authenticated user and profile.
-- `GET /api/v1/menus` — active menus filtered by the authenticated user's role.
-- `GET /api/v1/admin/menus` — list all menus; admin only.
-- `POST /api/v1/admin/menus` — create menu; admin only.
-- `GET /api/v1/admin/menus/{menu_id}` — read menu; admin only.
-- `PATCH /api/v1/admin/menus/{menu_id}` — update menu; admin only.
-- `DELETE /api/v1/admin/menus/{menu_id}` — delete menu; admin only.
+- `GET /api/v1/menus` — active menus the authenticated account may open.
+- `GET /api/v1/admin/menus` — list all system menus; admin only.
+- `PATCH /api/v1/admin/menus/{menu_id}` — update a menu row, including its access flags; admin only.
 - `PATCH /api/v1/users/me` — update full name and avatar URL.
 - `POST /api/v1/users/me/lock` — lock current account.
 - `DELETE /api/v1/users/me` — permanently delete current account.
@@ -100,9 +107,16 @@ API (`http://127.0.0.1:3000`):
 
 Web (`http://127.0.0.1:3001`):
 
-- `GET /` — SSR index page.
 - `GET /health` — web process health.
-- The authenticated application sidebar is populated from `/api/v1/menus`, so server-side role filtering remains authoritative for visible navigation.
+- `GET /` — redirects to `/app` when authenticated and to `/login` otherwise.
+- `GET /login` — passwordless sign-in page.
+- `GET /register` — passwordless registration page.
+- `GET /app` — landing page introducing the platform.
+- `GET /profile` — account information, profile editing, and account lifecycle actions.
+- `GET /admin` — user administration; admin only.
+- `GET /admin/menus` — menu permission grid; admin only.
+
+The authenticated sidebar is populated from `/api/v1/menus`, so server-side filtering is authoritative for visible navigation. The same menu registry is enforced by the web middleware, so an account cannot reach an ungranted page by typing its URL. Because the sidebar is rendered from that registry, a page appears in the navigation only when a migration registers it.
 
 ## Database
 

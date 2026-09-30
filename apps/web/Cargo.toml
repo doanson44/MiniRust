@@ -50,6 +50,10 @@ ssr = [
 ]
 hydrate = ["leptos/hydrate"]
 
+# uuid needs a WASM-compatible randomness source when building the hydrate bundle
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { workspace = true, features = ["js"] }
+
 [package.metadata.leptos]
 output-name = "minirust-web"
 site-root = "target/site"

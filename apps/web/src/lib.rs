@@ -10,7 +10,7 @@ use axum::http::StatusCode;
 #[cfg(feature = "ssr")]
 use axum::middleware;
 #[cfg(feature = "ssr")]
-use axum::response::{IntoResponse, Redirect};
+use axum::response::{Html, IntoResponse, Redirect};
 #[cfg(feature = "ssr")]
 use axum::routing::get;
 #[cfg(feature = "ssr")]
@@ -26,11 +26,12 @@ use leptos_router::{
     components::{ParentRoute, Route, Router as LeptosRouter, Routes},
     path,
 };
+#[cfg(feature = "ssr")]
 use minirust_core::APP_NAME;
 #[cfg(feature = "ssr")]
 use minirust_database::Database;
 #[cfg(feature = "ssr")]
-use minirust_services::{AuthService, UnavailableEmailSender};
+use minirust_services::{AuthService, MenuAccessDecision, MenuService, UnavailableEmailSender};
 #[cfg(feature = "ssr")]
 use std::net::SocketAddr;
 #[cfg(feature = "ssr")]
@@ -40,12 +41,18 @@ mod api;
 mod pages;
 pub mod types;
 
-use pages::{AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, ProfilePage, RegisterPage};
+use pages::{
+    AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, MenuAdminPage, ProfilePage, RegisterPage,
+};
 
+#[cfg(feature = "ssr")]
 const CSS: &str = include_str!("generated.css");
 
 #[cfg(feature = "ssr")]
 type WebAuthService = AuthService<Database, UnavailableEmailSender>;
+
+#[cfg(feature = "ssr")]
+type WebMenuService = MenuService<Database>;
 
 /// Shared web application state.
 #[cfg(feature = "ssr")]
@@ -53,6 +60,7 @@ type WebAuthService = AuthService<Database, UnavailableEmailSender>;
 pub struct AppState {
     pub leptos_options: LeptosOptions,
     pub auth: Option<WebAuthService>,
+    pub menus: Option<WebMenuService>,
 }
 
 #[cfg(feature = "ssr")]
@@ -66,11 +74,17 @@ impl AppState {
                 .site_addr(SocketAddr::from(([127, 0, 0, 1], 3001)))
                 .build(),
             auth: None,
+            menus: None,
         }
     }
 
     pub fn with_auth(mut self, auth: WebAuthService) -> Self {
         self.auth = Some(auth);
+        self
+    }
+
+    pub fn with_menus(mut self, menus: WebMenuService) -> Self {
+        self.menus = Some(menus);
         self
     }
 }
@@ -102,7 +116,13 @@ fn App() -> impl IntoView {
     view! {
         <LeptosRouter>
             <Routes fallback=|| view! { <main class="min-h-screen bg-slate-950 p-10 text-white"><h1>"Not found"</h1></main> }>
-                <Route path=path!("") view=|| view! { <AuthLayout><p class="text-center text-slate-400">"Redirecting to sign in…"</p></AuthLayout> }/>
+                <Route path=path!("") view=|| {
+                    #[cfg(feature = "hydrate")]
+                    if let Some(w) = web_sys::window() {
+                        let _ = w.location().set_href("/login");
+                    }
+                    view! { <AuthLayout><p class="text-center text-slate-400">"Redirecting to sign in…"</p></AuthLayout> }
+                }/>
                 <Route path=path!("/login") view=LoginPage/>
                 <Route path=path!("/register") view=RegisterPage/>
                 <ParentRoute path=path!("/app") view=AppLayout>
@@ -113,6 +133,9 @@ fn App() -> impl IntoView {
                 </ParentRoute>
                 <ParentRoute path=path!("/admin") view=AppLayout>
                     <Route path=path!("") view=AdminPage/>
+                </ParentRoute>
+                <ParentRoute path=path!("/admin/menus") view=AppLayout>
+                    <Route path=path!("") view=MenuAdminPage/>
                 </ParentRoute>
             </Routes>
         </LeptosRouter>
@@ -147,29 +170,36 @@ pub fn router(state: AppState) -> Router {
 }
 
 #[cfg(feature = "ssr")]
+const MENU_FORBIDDEN_HTML: &str = r#"<!doctype html><html lang="vi"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/><title>403 - MiniRust</title>
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#020617;color:#e2e8f0;font-family:ui-sans-serif,system-ui,sans-serif}main{max-width:34rem;padding:2rem;text-align:center}h1{margin:0;font-size:3rem}p{color:#94a3b8;line-height:1.6}</style>
+</head><body><main><h1>403</h1>
+<p>Tài khoản của bạn không được phép mở trang này.</p>
+<p>Your account is not allowed to open this page.</p>
+</main></body></html>"#;
+
+#[cfg(feature = "ssr")]
 async fn auth_guard(
     axum::extract::State(state): axum::extract::State<AppState>,
     jar: CookieJar,
     request: axum::extract::Request,
     next: middleware::Next,
 ) -> impl IntoResponse {
-    let path = request.uri().path();
-    let is_auth_page = matches!(path, "/login" | "/register");
+    let path = request.uri().path().to_owned();
+    let is_auth_page = matches!(path.as_str(), "/login" | "/register");
     let is_root = path == "/";
-    let is_protected = is_root
-        || path == "/app"
-        || path.starts_with("/profile")
-        || path == "/admin"
-        || path.starts_with("/admin/");
+    let is_admin_area = path == "/admin" || path.starts_with("/admin/");
+    let is_protected = is_root || path == "/app" || path.starts_with("/profile") || is_admin_area;
 
     if !is_auth_page && !is_root && !is_protected {
         return next.run(request).await;
     }
 
-    let authenticated = match (state.auth.as_ref(), jar.get("minirust_session")) {
-        (Some(auth), Some(cookie)) => auth.current_session(cookie.value()).await.is_ok(),
-        _ => false,
+    let actor = match (state.auth.as_ref(), jar.get("minirust_session")) {
+        (Some(auth), Some(cookie)) => auth.current_session(cookie.value()).await.ok(),
+        _ => None,
     };
+    let authenticated = actor.is_some();
 
     if is_auth_page {
         if authenticated {
@@ -186,22 +216,33 @@ async fn auth_guard(
         };
     }
 
-    if !authenticated {
+    let Some(actor) = actor else {
         return Redirect::to("/login").into_response();
+    };
+
+    if is_admin_area && !actor.is_admin {
+        return Redirect::to("/app").into_response();
     }
 
-    if path == "/admin" || path.starts_with("/admin/") {
-        let is_admin = match (state.auth.as_ref(), jar.get("minirust_session")) {
-            (Some(auth), Some(cookie)) => auth
-                .current_session(cookie.value())
-                .await
-                .map(|user| user.is_admin)
-                .unwrap_or(false),
-            _ => false,
-        };
-
-        if !is_admin {
-            return Redirect::to("/app").into_response();
+    // The menu registry also governs direct URL access: opening a menu the
+    // account is not entitled to redirects to the first menu it may open.
+    if let Some(menus) = state.menus.as_ref() {
+        match menus.decide_access(&actor, &path).await {
+            Ok(MenuAccessDecision::Denied {
+                fallback: Some(fallback),
+            }) => return Redirect::to(&fallback).into_response(),
+            Ok(MenuAccessDecision::Denied { fallback: None }) => {
+                return (StatusCode::FORBIDDEN, Html(MENU_FORBIDDEN_HTML)).into_response();
+            }
+            Ok(_) => {}
+            Err(error) => {
+                tracing::error!(%error, "failed to evaluate menu access");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "menu access check failed",
+                )
+                    .into_response();
+            }
         }
     }
 

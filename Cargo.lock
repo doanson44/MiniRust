@@ -2141,6 +2141,7 @@ dependencies = [
  "hmac 0.13.0",
  "minirust-core",
  "sha2 0.11.0",
+ "tokio",
  "uuid",
 ]
 
@@ -2149,19 +2150,23 @@ name = "minirust-web"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "axum-extra",
  "gloo-net",
  "leptos",
  "leptos_axum",
  "leptos_router",
  "minirust-config",
  "minirust-core",
+ "minirust-database",
  "minirust-observability",
+ "minirust-services",
  "serde",
  "serde_json",
  "tokio",
  "tower",
  "tower-http",
  "tracing",
+ "uuid",
  "wasm-bindgen",
  "web-sys",
 ]

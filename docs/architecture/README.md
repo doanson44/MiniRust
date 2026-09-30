@@ -78,6 +78,18 @@ Read DTO
 
 The query side must not mutate state and should not require the write-side domain model merely to format a response.
 
+### Authorization
+
+Authorization is enforced in the transport layers, never in UI components:
+
+1. The API validates the server-side session and requires the admin system role for `/api/v1/admin/*`.
+2. `GET /api/v1/menus` applies the menu access flags and only returns the menus the current
+   account may open; that response populates the web sidebar.
+3. The web middleware resolves the requested path against the same menu registry, so an account
+   cannot open an ungranted menu by typing its URL.
+
+See [`authentication.md`](authentication.md) for the account model and the menu access flags.
+
 ## Scaling path
 
 ```text

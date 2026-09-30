@@ -47,6 +47,7 @@ The current repository baseline indicates:
 - SQLx with the MySQL/MariaDB driver
 - CQRS-oriented application boundary
 - commands/ and queries/ separation
+- menu-based navigation authorization with normal, premium, and admin tiers
 - Tailwind CSS
 - Docker Compose
 - database health checks
