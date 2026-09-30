@@ -14,7 +14,7 @@ use axum::response::{IntoResponse, Redirect};
 #[cfg(feature = "ssr")]
 use axum::routing::get;
 #[cfg(feature = "ssr")]
-use axum::{Router, RequestExt};
+use axum::Router;
 #[cfg(feature = "ssr")]
 use axum_extra::extract::cookie::CookieJar;
 #[cfg(feature = "ssr")]
