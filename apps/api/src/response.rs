@@ -2,7 +2,7 @@ use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use minirust_core::ValidationError;
-use minirust_services::{AuthError, UserAdminError, UserLocale};
+use minirust_services::{AuthError, MenuError, UserAdminError, UserLocale};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -342,6 +342,85 @@ impl ProblemDetails {
         Self {
             problem_type: "https://minirust.dev/problems/user-management",
             title: "User management error",
+            status: status.as_u16(),
+            code,
+            message_key,
+            locale: locale.as_str(),
+            detail,
+        }
+    }
+
+    pub fn menu(error: &MenuError, locale: Locale) -> Self {
+        let (status, code, message_key, detail) = match error {
+            MenuError::Forbidden => (
+                StatusCode::FORBIDDEN,
+                "FORBIDDEN",
+                "errors.authorization.forbidden",
+                match locale {
+                    Locale::Vi => "Bạn không có quyền quản lý menu.".to_owned(),
+                    Locale::En => "You are not authorized to manage menus.".to_owned(),
+                },
+            ),
+            MenuError::NotFound => (
+                StatusCode::NOT_FOUND,
+                "MENU_NOT_FOUND",
+                "errors.menu.not_found",
+                match locale {
+                    Locale::Vi => "Không tìm thấy menu.".to_owned(),
+                    Locale::En => "Menu was not found.".to_owned(),
+                },
+            ),
+            MenuError::InvalidName => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_MENU_NAME",
+                "errors.menu.invalid_name",
+                match locale {
+                    Locale::Vi => "Tên menu không hợp lệ.".to_owned(),
+                    Locale::En => "The menu name is invalid.".to_owned(),
+                },
+            ),
+            MenuError::InvalidPath => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_MENU_PATH",
+                "errors.menu.invalid_path",
+                match locale {
+                    Locale::Vi => "Đường dẫn menu không hợp lệ.".to_owned(),
+                    Locale::En => "The menu path is invalid.".to_owned(),
+                },
+            ),
+            MenuError::InvalidIcon => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_MENU_ICON",
+                "errors.menu.invalid_icon",
+                match locale {
+                    Locale::Vi => "Icon menu không hợp lệ.".to_owned(),
+                    Locale::En => "The menu icon is invalid.".to_owned(),
+                },
+            ),
+            MenuError::InvalidRole => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_MENU_ROLE",
+                "errors.menu.invalid_role",
+                match locale {
+                    Locale::Vi => "Role của menu không hợp lệ.".to_owned(),
+                    Locale::En => "The menu role is invalid.".to_owned(),
+                },
+            ),
+            MenuError::InvalidParent => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_MENU_PARENT",
+                "errors.menu.invalid_parent",
+                match locale {
+                    Locale::Vi => "Menu cha không hợp lệ.".to_owned(),
+                    Locale::En => "The menu parent is invalid.".to_owned(),
+                },
+            ),
+            MenuError::Persistence => return Self::internal(locale),
+        };
+
+        Self {
+            problem_type: "https://minirust.dev/problems/menu-management",
+            title: "Menu management error",
             status: status.as_u16(),
             code,
             message_key,
