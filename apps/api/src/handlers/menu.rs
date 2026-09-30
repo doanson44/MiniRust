@@ -139,7 +139,7 @@ pub async fn create(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
-    let input = match parse_request(body.0, locale).await {
+    let input = match parse_request(body, locale).await {
         Ok(input) => input,
         Err(response) => return response,
     };

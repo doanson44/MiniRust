@@ -1,4 +1,4 @@
-use crate::types::{MenuListResponse, MenuResponse, UserResponse};
+use crate::types::{MenuResponse, UserResponse};
 use leptos::prelude::*;
 use leptos_router::components::Outlet;
 
