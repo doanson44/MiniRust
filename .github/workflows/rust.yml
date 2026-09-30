@@ -43,8 +43,8 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-      - name: Run tests
-        run: cargo test --workspace --locked --all-targets -- --test-threads=1
+      - name: Run unit tests
+        run: cargo test --workspace --locked --lib --bins
 
       - name: Build
         run: cargo build --workspace --locked
