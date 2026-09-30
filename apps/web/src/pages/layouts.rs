@@ -1,4 +1,4 @@
-use crate::types::UserResponse;
+use crate::types::{MenuListResponse, MenuResponse, UserResponse};
 use leptos::prelude::*;
 use leptos_router::components::Outlet;
 
@@ -11,6 +11,7 @@ pub fn AppLayout() -> impl IntoView {
     let (user, set_user) = signal(None::<UserResponse>);
     let (menu_open, set_menu_open) = signal(false);
     let (sidebar_open, set_sidebar_open) = signal(false);
+    let (menus, set_menus) = signal(Vec::<MenuResponse>::new());
 
     #[cfg(feature = "hydrate")]
     {
@@ -20,6 +21,12 @@ pub fn AppLayout() -> impl IntoView {
             {
                 set_locale.set(current_user.locale.clone());
                 set_user.set(Some(current_user));
+
+                if let Ok(menu_response) =
+                    api_json::<MenuListResponse>(gloo_net::http::Method::GET, "/api/v1/menus", None).await
+                {
+                    set_menus.set(menu_response.menus);
+                }
             }
         });
     }
@@ -153,21 +160,21 @@ pub fn AppLayout() -> impl IntoView {
                     if sidebar_open.get() { "translate-x-0" } else { "-translate-x-full" }
                 )>
                     <nav class="flex h-full flex-col gap-1 p-4" aria-label="Application navigation">
-                        <a href="/app" class="rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/10 hover:text-white">
-                            {move || if locale.get() == "vi" { "Tổng quan" } else { "Dashboard" }}
-                        </a>
-                        <a href="/profile" class="rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/10 hover:text-white">
-                            {move || if locale.get() == "vi" { "Thông tin" } else { "Profile" }}
-                        </a>
-
-                        <Show when=move || user.get().is_some_and(|current_user| current_user.is_admin)>
-                            <div class="mt-6 px-3 text-[11px] font-bold uppercase tracking-widest text-slate-600">
-                                {move || if locale.get() == "vi" { "Quản trị" } else { "Administration" }}
-                            </div>
-                            <a href="/admin" class="rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/10 hover:text-white">
-                                {move || if locale.get() == "vi" { "Người dùng" } else { "Users" }}
-                            </a>
-                        </Show>
+                        <For
+                            each=move || menus.get()
+                            key=|menu| menu.id.clone()
+                            children=move |menu| {
+                                view! {
+                                    <a
+                                        href=menu.path
+                                        class="rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+                                        on:click=move |_| set_sidebar_open.set(false)
+                                    >
+                                        {menu.name}
+                                    </a>
+                                }
+                            }
+                        />
 
                         <div class="mt-auto border-t border-white/10 pt-4">
                             <select
