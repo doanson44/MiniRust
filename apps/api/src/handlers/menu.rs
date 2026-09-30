@@ -69,6 +69,7 @@ pub async fn list_for_user(
         Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
+
 pub async fn list_admin(
     headers: HeaderMap,
     State(state): State<AppState>,
