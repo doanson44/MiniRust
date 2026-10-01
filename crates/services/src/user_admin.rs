@@ -71,7 +71,11 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
 
     async fn find_user(&self, email: &str) -> Result<Option<UserAccess>, UserAdminError>;
 
-    async fn list_users(&self, now: i64, pagination: Pagination) -> Result<Page<UserAccess>, UserAdminError>;
+    async fn list_users(
+        &self,
+        now: i64,
+        pagination: Pagination,
+    ) -> Result<Page<UserAccess>, UserAdminError>;
 
     async fn find_user_by_id(
         &self,
