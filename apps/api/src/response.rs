@@ -156,6 +156,15 @@ impl ProblemDetails {
                     Locale::En => "The verification code is invalid.".to_owned(),
                 },
             ),
+            AuthError::InvalidVerificationToken => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_VERIFICATION_TOKEN",
+                "errors.auth.invalid_verification_token",
+                match locale {
+                    Locale::Vi => "Liên kết xác thực không hợp lệ.".to_owned(),
+                    Locale::En => "The verification link is invalid.".to_owned(),
+                },
+            ),
             AuthError::CodeExpired => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "VERIFICATION_CODE_EXPIRED",
@@ -163,6 +172,15 @@ impl ProblemDetails {
                 match locale {
                     Locale::Vi => "Mã xác thực đã hết hạn.".to_owned(),
                     Locale::En => "The verification code has expired.".to_owned(),
+                },
+            ),
+            AuthError::VerificationTokenExpired => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "VERIFICATION_TOKEN_EXPIRED",
+                "errors.auth.verification_token_expired",
+                match locale {
+                    Locale::Vi => "Liên kết xác thực đã hết hạn.".to_owned(),
+                    Locale::En => "The verification link has expired.".to_owned(),
                 },
             ),
             AuthError::CodeAttemptsExceeded => (
