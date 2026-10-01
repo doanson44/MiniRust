@@ -176,12 +176,15 @@ pub fn AppLayout() -> impl IntoView {
                             key=|menu| menu.id.clone()
                             children=move |menu| {
                                 let path = menu.path.clone();
+                                let label = menu.name.clone();
+
                                 view! {
                                     <a
-                                        href=menu.path
+                                        href=path.clone()
                                         class=move || {
                                             let current = location.pathname.get();
-                                            let is_active = current == path || current.starts_with(&format!("{}/", path));
+                                            let is_active = current == path
+                                                || current.starts_with(&format!("{}/", path));
                                             if is_active {
                                                 "rounded-xl px-3 py-2.5 text-sm font-semibold bg-white/15 text-white"
                                             } else {
@@ -190,13 +193,7 @@ pub fn AppLayout() -> impl IntoView {
                                         }
                                         on:click=move |_| set_sidebar_open.set(false)
                                     >
-                                        {move || {
-                                            if menu.path == "/admin/users" {
-                                                "User Management".to_owned()
-                                            } else {
-                                                menu.name.clone()
-                                            }
-                                        }}
+                                        {label}
                                     </a>
                                 }
                             }
