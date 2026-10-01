@@ -481,7 +481,7 @@ pub fn AdminPage() -> impl IntoView {
                             </button>
                         </div>
 
-                        <form on:submit=save_changes class="mt-6 space-y-5">
+                        <form id="edit-user-form" on:submit=save_changes class="mt-6 space-y-5">
                             <div class="grid gap-4 md:grid-cols-2">
                                 <label class="block">
                                     <span class="text-sm font-medium text-slate-300">"Email"</span>
@@ -538,11 +538,6 @@ pub fn AdminPage() -> impl IntoView {
                                 </div>
                             </div>
 
-                            <div class="flex justify-end">
-                                <button type="submit" class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950">
-                                    "Save Changes"
-                                </button>
-                            </div>
                         </form>
 
                         <Show when=move || selected.get().and_then(|id| users.get().into_iter().find(|user| user.id == id)).is_some_and(|user| user.is_locked)>
@@ -561,6 +556,22 @@ pub fn AdminPage() -> impl IntoView {
                                 </button>
                             </div>
                         </Show>
+                        <div class="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
+                            <button
+                                type="button"
+                                on:click=move |_| set_selected.set(None)
+                                class="rounded-xl border border-white/10 px-4 py-3 text-slate-300"
+                            >
+                                "Close"
+                            </button>
+                            <button
+                                type="submit"
+                                form="edit-user-form"
+                                class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950"
+                            >
+                                "Save Changes"
+                            </button>
+                        </div>
                     </section>
                 </div>
             </Show>
