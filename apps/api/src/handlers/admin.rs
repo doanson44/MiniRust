@@ -219,6 +219,18 @@ pub async fn delete_user(
         Err(error) => return error.into_response(),
     };
 
+    match current_authenticated_user(&state, &jar, locale).await {
+        Ok(current_user) if current_user.id == user_id => {
+            return ProblemDetails::user_admin(
+                &minirust_services::UserAdminError::ProtectedUser,
+                locale,
+            )
+            .into_response();
+        }
+        Ok(_) => {}
+        Err(response) => return response,
+    }
+
     match state
         .user_commands
         .handle(UserAdminCommand::DeleteUser { user_id })
