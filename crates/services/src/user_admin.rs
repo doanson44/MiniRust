@@ -78,30 +78,18 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
         user_id: EntityId,
     ) -> Result<Option<UserAccess>, UserAdminError>;
 
-    async fn update_user_email(
+    async fn update_user(
         &self,
         user_id: EntityId,
         new_email: &str,
+        role: AdminUserRole,
+        premium_active: bool,
+        premium_expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError>;
 
     async fn delete_user(&self, user_id: EntityId) -> Result<(), UserAdminError>;
 
-    async fn set_admin_role(
-        &self,
-        user_id: EntityId,
-        role: AdminUserRole,
-    ) -> Result<UserAccess, UserAdminError>;
-
-    async fn set_premium(
-        &self,
-        user_id: EntityId,
-        active: bool,
-        expires_at: Option<i64>,
-    ) -> Result<UserAccess, UserAdminError>;
-
     async fn get_premium(&self, user_id: EntityId) -> Result<PremiumEntitlement, UserAdminError>;
-
-    async fn revoke_premium(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError>;
     async fn update_profile(
         &self,
         user_id: EntityId,
@@ -167,39 +155,34 @@ where
         self.repository.list_users(now()).await
     }
 
-    pub async fn update_email(
+    pub async fn update_user(
         &self,
         user_id: EntityId,
         new_email: &str,
+        role: AdminUserRole,
+        premium_active: bool,
+        premium_expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError> {
         let new_email = normalize_email(new_email)?;
-        let current_user = self
-            .repository
-            .find_user_by_id(user_id)
-            .await?
-            .ok_or(UserAdminError::NotFound)?;
-
-        if current_user.email == new_email {
-            return Ok(current_user);
+        if let Some(expires_at) = premium_expires_at {
+            if expires_at <= now() {
+                return Err(UserAdminError::InvalidPremiumExpiry);
+            }
         }
 
-        if self.repository.find_user(&new_email).await?.is_some() {
-            return Err(UserAdminError::EmailAlreadyExists);
-        }
-
-        self.repository.update_user_email(user_id, &new_email).await
+        self.repository
+            .update_user(
+                user_id,
+                &new_email,
+                role,
+                premium_active,
+                premium_expires_at,
+            )
+            .await
     }
 
     pub async fn delete(&self, user_id: EntityId) -> Result<(), UserAdminError> {
         self.repository.delete_user(user_id).await
-    }
-
-    pub async fn assign_role(
-        &self,
-        user_id: EntityId,
-        role: AdminUserRole,
-    ) -> Result<UserAccess, UserAdminError> {
-        self.repository.set_admin_role(user_id, role).await
     }
 
     pub async fn get_premium(
@@ -209,25 +192,6 @@ where
         self.repository.get_premium(user_id).await
     }
 
-    pub async fn revoke_premium(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError> {
-        self.repository.revoke_premium(user_id).await
-    }
-
-    pub async fn set_premium(
-        &self,
-        user_id: EntityId,
-        active: bool,
-        expires_at: Option<i64>,
-    ) -> Result<UserAccess, UserAdminError> {
-        if let Some(expires_at) = expires_at {
-            if expires_at <= now() {
-                return Err(UserAdminError::InvalidPremiumExpiry);
-            }
-        }
-        self.repository
-            .set_premium(user_id, active, expires_at)
-            .await
-    }
     pub async fn update_profile(
         &self,
         user_id: EntityId,
@@ -309,23 +273,14 @@ pub enum UserAdminCommand {
     CreateUser {
         email: String,
     },
-    UpdateUserEmail {
+    UpdateUser {
         user_id: EntityId,
         new_email: String,
+        role: AdminUserRole,
+        premium_active: bool,
+        premium_expires_at: Option<i64>,
     },
     DeleteUser {
-        user_id: EntityId,
-    },
-    AssignRole {
-        user_id: EntityId,
-        role: AdminUserRole,
-    },
-    SetPremium {
-        user_id: EntityId,
-        active: bool,
-        expires_at: Option<i64>,
-    },
-    RevokePremium {
         user_id: EntityId,
     },
     UpdateProfile {
@@ -387,9 +342,21 @@ where
                 .create(&email)
                 .await
                 .map(UserAdminCommandResult::User),
-            UserAdminCommand::UpdateUserEmail { user_id, new_email } => self
+            UserAdminCommand::UpdateUser {
+                user_id,
+                new_email,
+                role,
+                premium_active,
+                premium_expires_at,
+            } => self
                 .service
-                .update_email(user_id, &new_email)
+                .update_user(
+                    user_id,
+                    &new_email,
+                    role,
+                    premium_active,
+                    premium_expires_at,
+                )
                 .await
                 .map(UserAdminCommandResult::User),
             UserAdminCommand::DeleteUser { user_id } => self
@@ -397,25 +364,6 @@ where
                 .delete(user_id)
                 .await
                 .map(|_| UserAdminCommandResult::Deleted),
-            UserAdminCommand::AssignRole { user_id, role } => self
-                .service
-                .assign_role(user_id, role)
-                .await
-                .map(UserAdminCommandResult::User),
-            UserAdminCommand::SetPremium {
-                user_id,
-                active,
-                expires_at,
-            } => self
-                .service
-                .set_premium(user_id, active, expires_at)
-                .await
-                .map(UserAdminCommandResult::User),
-            UserAdminCommand::RevokePremium { user_id } => self
-                .service
-                .revoke_premium(user_id)
-                .await
-                .map(UserAdminCommandResult::User),
             UserAdminCommand::UpdateProfile {
                 user_id,
                 full_name,
