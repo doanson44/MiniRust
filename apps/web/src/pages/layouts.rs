@@ -190,7 +190,13 @@ pub fn AppLayout() -> impl IntoView {
                                         }
                                         on:click=move |_| set_sidebar_open.set(false)
                                     >
-                                        {menu.name}
+                                        {move || {
+                                            if locale.get() == "vi" && menu.path == "/admin" {
+                                                "Quản trị".to_owned()
+                                            } else {
+                                                menu.name.clone()
+                                            }
+                                        }}
                                     </a>
                                 }
                             }
