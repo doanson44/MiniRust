@@ -433,6 +433,8 @@ pub fn AdminPage() -> impl IntoView {
                                     let is_self = current_user_id
                                         .get()
                                         .is_some_and(|current_id| current_id == user.id);
+                                    let edit_user = user.clone();
+                                    let delete_user = user.clone();
 
                                     view! {
                                         <tr class="border-t border-white/10">
@@ -455,7 +457,7 @@ pub fn AdminPage() -> impl IntoView {
                                                 <div class="flex flex-wrap gap-2">
                                                     <button
                                                         type="button"
-                                                        on:click=move |_| open_edit(user.clone())
+                                                        on:click=move |_| open_edit(edit_user.clone())
                                                         class="rounded-lg border border-white/10 px-3 py-2 text-slate-300 hover:bg-white/10"
                                                     >
                                                         "Edit"
@@ -463,7 +465,7 @@ pub fn AdminPage() -> impl IntoView {
                                                     <Show when=move || !is_self>
                                                         <button
                                                             type="button"
-                                                            on:click=move |_| set_delete_candidate.set(Some(user.clone()))
+                                                            on:click=move |_| set_delete_candidate.set(Some(delete_user.clone()))
                                                             class="rounded-lg bg-red-300/10 px-3 py-2 text-red-200 hover:bg-red-300/20"
                                                         >
                                                             "Delete"
