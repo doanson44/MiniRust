@@ -310,7 +310,9 @@ where
     ) -> Result<CodeRequestAccepted, AuthError> {
         let email = normalize_email(email)?;
         if self.repository.user_exists(&email).await? {
-            return Ok(CodeRequestAccepted { verification_token: None });
+            return Ok(CodeRequestAccepted {
+                verification_token: None,
+            });
         }
 
         let now = now()?;
@@ -355,10 +357,7 @@ where
         self.request_code(email, ChallengePurpose::Login).await
     }
 
-    pub async fn verify_registration(
-        &self,
-        token: &str,
-    ) -> Result<Session, AuthError> {
+    pub async fn verify_registration(&self, token: &str) -> Result<Session, AuthError> {
         if token.is_empty() || token.len() > 256 {
             return Err(AuthError::InvalidVerificationToken);
         }
@@ -374,13 +373,7 @@ where
 
         let user = self
             .repository
-            .consume_registration_token(
-                hash,
-                EntityId::new(),
-                now,
-                session_token_hash,
-                expires_at,
-            )
+            .consume_registration_token(hash, EntityId::new(), now, session_token_hash, expires_at)
             .await?;
 
         Ok(Session {
@@ -464,7 +457,9 @@ where
             return Err(error);
         }
 
-        Ok(CodeRequestAccepted { verification_token: None })
+        Ok(CodeRequestAccepted {
+            verification_token: None,
+        })
     }
 
     async fn verify_code(
@@ -490,14 +485,7 @@ where
 
         let user = self
             .repository
-            .consume_login_code(
-                challenge.id,
-                &email,
-                code_hash,
-                now,
-                token_hash,
-                expires_at,
-            )
+            .consume_login_code(challenge.id, &email, code_hash, now, token_hash, expires_at)
             .await?;
 
         Ok(Session {
