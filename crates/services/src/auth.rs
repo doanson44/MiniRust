@@ -175,18 +175,6 @@ pub trait AuthRepository: Clone + Send + Sync + 'static {
         now: i64,
     ) -> Result<Option<ChallengeRef>, AuthError>;
 
-    #[allow(clippy::too_many_arguments)]
-    async fn consume_registration_code(
-        &self,
-        challenge_id: EntityId,
-        email: &str,
-        code_hash: [u8; 32],
-        user_id: EntityId,
-        now: i64,
-        session_token_hash: [u8; 32],
-        session_expires_at: i64,
-    ) -> Result<UserAccess, AuthError>;
-
     async fn consume_login_code(
         &self,
         challenge_id: EntityId,
@@ -457,33 +445,17 @@ where
         let token_hash = hash_session_token(&token);
         let expires_at = now + SESSION_TTL_SECONDS;
 
-        let user = match purpose {
-            ChallengePurpose::Registration => {
-                self.repository
-                    .consume_registration_code(
-                        challenge.id,
-                        &email,
-                        code_hash,
-                        EntityId::new(),
-                        now,
-                        token_hash,
-                        expires_at,
-                    )
-                    .await?
-            }
-            ChallengePurpose::Login => {
-                self.repository
-                    .consume_login_code(
-                        challenge.id,
-                        &email,
-                        code_hash,
-                        now,
-                        token_hash,
-                        expires_at,
-                    )
-                    .await?
-            }
-        };
+        let user = self
+            .repository
+            .consume_login_code(
+                challenge.id,
+                &email,
+                code_hash,
+                now,
+                token_hash,
+                expires_at,
+            )
+            .await?;
 
         Ok(Session {
             user,
