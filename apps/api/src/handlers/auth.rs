@@ -141,7 +141,6 @@ pub async fn register_request_verification(
             )
                 .into_response()
         }
-            .into_response(),
         Err(error) => auth_error_response(error, locale).into_response(),
     }
 }
@@ -206,9 +205,7 @@ pub async fn register_verify(
 
     match state
         .auth_commands
-        .handle(AuthCommand::VerifyRegistration {
-            token: body.token,
-        })
+        .handle(AuthCommand::VerifyRegistration { token: body.token })
         .await
     {
         Ok(AuthCommandResult::Session(session)) => {
