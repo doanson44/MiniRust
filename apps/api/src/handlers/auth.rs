@@ -27,6 +27,11 @@ pub(crate) struct AuthVerifyRequest {
     code: String,
 }
 
+#[derive(Deserialize)]
+pub(crate) struct AuthTokenRequest {
+    token: String,
+}
+
 #[derive(Serialize)]
 pub(crate) struct CodeRequestResponse {
     accepted: bool,
@@ -83,7 +88,7 @@ pub async fn current_authenticated_user(
         .map_err(|error| auth_error_response(error, locale).into_response())
 }
 
-pub async fn register_request_code(
+pub async fn register_request_verification(
     headers: HeaderMap,
     State(state): State<AppState>,
     body: Result<Json<AuthEmailRequest>, JsonRejection>,
@@ -112,7 +117,7 @@ pub async fn register_request_code(
 
     match state
         .auth_commands
-        .handle(AuthCommand::RequestRegistrationCode {
+        .handle(AuthCommand::RequestRegistrationVerification {
             email: body.email.clone(),
         })
         .await
@@ -169,11 +174,11 @@ pub async fn login_request_code(
     }
 }
 
-pub async fn register_verify_code(
+pub async fn register_verify(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
-    body: Result<Json<AuthVerifyRequest>, JsonRejection>,
+    body: Result<Json<AuthTokenRequest>, JsonRejection>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     let Json(body) = match body {
@@ -183,9 +188,8 @@ pub async fn register_verify_code(
 
     match state
         .auth_commands
-        .handle(AuthCommand::VerifyRegistrationCode {
-            email: body.email.clone(),
-            code: body.code.clone(),
+        .handle(AuthCommand::VerifyRegistration {
+            token: body.token,
         })
         .await
     {
