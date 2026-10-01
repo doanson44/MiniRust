@@ -13,8 +13,8 @@ use axum::http::StatusCode;
 use minirust_core::{AppError, EntityId};
 use minirust_database::Database;
 use minirust_services::{
-    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService, MenuCommandHandler,
-    MenuQueryHandler, MenuService, UnavailableEmailSender, UserAdminCommandHandler,
+    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService, ConfiguredEmailSender, MenuCommandHandler,
+    MenuQueryHandler, MenuService,  UserAdminCommandHandler,
     UserAdminQueryHandler, UserAdminService,
 };
 use minirust_services::{EchoCommandHandler, GreetingQueryHandler};
@@ -29,8 +29,8 @@ pub struct AppState {
     pub echo: EchoCommandHandler,
     pub greeting: GreetingQueryHandler,
     pub database: Database,
-    pub auth_commands: AuthCommandHandler<Database, UnavailableEmailSender>,
-    pub auth_queries: AuthQueryHandler<Database, UnavailableEmailSender>,
+    pub auth_commands: AuthCommandHandler<Database, ConfiguredEmailSender>,
+    pub auth_queries: AuthQueryHandler<Database, ConfiguredEmailSender>,
     pub user_commands: UserAdminCommandHandler<Database>,
     pub menu_commands: MenuCommandHandler<Database>,
     pub user_queries: UserAdminQueryHandler<Database>,
@@ -80,7 +80,8 @@ impl AppState {
         auth_secret: impl Into<Vec<u8>>,
         secure_cookies: bool,
     ) -> Result<Self, AuthError> {
-        let auth = AuthService::new(database.clone(), UnavailableEmailSender, auth_secret)?;
+        let email_sender = if secure_cookies { ConfiguredEmailSender::Unavailable } else { ConfiguredEmailSender::Local };
+        let auth = AuthService::new(database.clone(), email_sender, auth_secret)?;
         let users = UserAdminService::new(database.clone());
         let menus = MenuService::new(database.clone());
         Ok(Self {
