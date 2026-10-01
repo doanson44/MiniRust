@@ -319,8 +319,13 @@ pub enum MenuQuery {
     },
 }
 
+pub enum MenuQueryResult {
+    List(Page<Menu>),
+    ListForUser(Vec<Menu>),
+}
+
 impl Query for MenuQuery {
-    type Output = Result<Page<Menu>, MenuError>;
+    type Output = Result<MenuQueryResult, MenuError>;
 }
 
 #[derive(Clone)]
@@ -344,10 +349,18 @@ impl<R> AsyncQueryHandler<MenuQuery> for MenuQueryHandler<R>
 where
     R: MenuRepository,
 {
-    async fn handle(&self, query: MenuQuery) -> Result<Vec<Menu>, MenuError> {
+    async fn handle(&self, query: MenuQuery) -> Result<MenuQueryResult, MenuError> {
         match query {
-            MenuQuery::List { actor, pagination } => self.service.list(&actor, pagination).await,
-            MenuQuery::ListForUser { actor } => self.service.list_for_user(&actor).await,
+            MenuQuery::List { actor, pagination } => self
+                .service
+                .list(&actor, pagination)
+                .await
+                .map(MenuQueryResult::List),
+            MenuQuery::ListForUser { actor } => self
+                .service
+                .list_for_user(&actor)
+                .await
+                .map(MenuQueryResult::ListForUser),
         }
     }
 }
