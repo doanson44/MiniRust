@@ -71,7 +71,7 @@ pub fn AdminPage() -> impl IntoView {
 
                 match api_json::<UserListResponse>(
                     gloo_net::http::Method::GET,
-                    "/api/v1/admin/users",
+                    "/api/v1/admin/users?page_size=-1",
                     None,
                 )
                 .await
