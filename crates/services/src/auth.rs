@@ -436,10 +436,10 @@ where
             });
         }
 
-        // Both existing and non-existing accounts receive the same public result.
         if !should_send {
             return Ok(CodeRequestAccepted {
                 verification_token: None,
+                email_exists: false,
             });
         }
 
