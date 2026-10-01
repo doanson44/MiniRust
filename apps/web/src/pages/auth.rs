@@ -4,6 +4,7 @@ use leptos::prelude::*;
 #[cfg(feature = "hydrate")]
 #[derive(serde::Deserialize)]
 struct RegistrationRequestResponse {
+    email_exists: bool,
     verification_url: Option<String>,
 }
 
@@ -134,7 +135,9 @@ pub fn RegisterPage() -> impl IntoView {
             {
                 Ok(result) => {
                     set_requested.set(true);
-                    if let Some(url) = result.verification_url {
+                    if result.email_exists {
+                        set_status.set("This email is already registered.".to_owned());
+                    } else if let Some(url) = result.verification_url {
                         set_status.set(format!("Local test link: {url}"));
                     } else {
                         set_status.set("Check your email for the verification link.".to_owned());
@@ -159,6 +162,16 @@ pub fn RegisterPage() -> impl IntoView {
                                 "We've sent a verification link to your email. Open it to complete your registration."
                             </p>
                             <p class="text-sm text-slate-400">{status}</p>
+                            <Show
+                                when=move || status.get() == "This email is already registered."
+                            >
+                                <a
+                                    href="/login"
+                                    class="inline-block rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
+                                >
+                                    "Go to login"
+                                </a>
+                            </Show>
                             <Show
                                 when=move || status.get().starts_with("Local test link: ")
                             >
