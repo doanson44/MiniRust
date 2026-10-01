@@ -2,7 +2,14 @@ use crate::pages::AuthLayout;
 use leptos::prelude::*;
 
 #[cfg(feature = "hydrate")]
-use crate::api::api_empty;
+#[derive(serde::Deserialize)]
+struct RegistrationRequestResponse {
+    accepted: bool,
+    verification_url: Option<String>,
+}
+
+#[cfg(feature = "hydrate")]
+use crate::api::{api_empty, api_json};
 
 #[component]
 #[allow(unused_variables)]
@@ -81,16 +88,20 @@ pub fn RegisterPage() -> impl IntoView {
         let email_value = email.get();
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            match api_empty(
+            match api_json::<RegistrationRequestResponse>(
                 gloo_net::http::Method::POST,
                 "/api/v1/auth/register/request-verification",
                 Some(serde_json::json!({"email": email_value}).to_string()),
             )
             .await
             {
-                Ok(()) => {
+                Ok(result) => {
                     set_requested.set(true);
-                    set_status.set("Check your email for the verification link.".to_owned());
+                    if let Some(url) = result.verification_url {
+                        set_status.set(format!("Local test link: {url}"));
+                    } else {
+                        set_status.set("Check your email for the verification link.".to_owned());
+                    }
                 }
                 Err(error) => set_status.set(error),
             }
@@ -111,6 +122,12 @@ pub fn RegisterPage() -> impl IntoView {
                                 "We've sent a verification link to your email. Open it to complete your registration."
                             </p>
                             <p class="text-sm text-slate-400">{status}</p>
+                            <Show when=move || status.get().starts_with("Local test link: ")}
+                                <a
+                                    href={move || status.get().trim_start_matches("Local test link: ").to_owned()}
+                                    class="inline-block rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
+                                >"Open verification link"</a>
+                            </Show>
                             <p class="text-sm text-slate-500">
                                 "If you do not receive the email, check your spam folder or "
                                 <button
