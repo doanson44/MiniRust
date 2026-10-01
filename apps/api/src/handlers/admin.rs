@@ -11,7 +11,7 @@ use minirust_services::{
 use serde::{Deserialize, Serialize};
 
 use crate::handlers::auth::{authorize_admin, current_authenticated_user};
-use crate::response::{ApiResponse, Locale, ProblemDetails};
+use crate::response::{ApiResponse, ApiResponseWithMeta, Locale, ProblemDetails};
 use crate::{auth_user_response, json_rejection_response, parse_user_id, AppState};
 
 #[derive(Deserialize)]
@@ -91,9 +91,12 @@ pub async fn list(
     {
         Ok(UserAdminQueryResult::Users(users)) => (
             StatusCode::OK,
-            Json(ApiResponse::new(AdminUserListResponse {
-                users: users.items.into_iter().map(auth_user_response).collect(),
-            })),
+            Json(ApiResponseWithMeta::new(
+                AdminUserListResponse {
+                    users: users.items.into_iter().map(auth_user_response).collect(),
+                },
+                AdminUserListMeta::from(users.meta),
+            )),
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
