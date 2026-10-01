@@ -1,7 +1,7 @@
 //! Authentication application services and contracts.
 //!
 //! Transport and persistence adapters implement the traits in this module.
-//! The application layer owns the passwordless email-code workflow.
+//! The application layer owns passwordless email verification for registration and login.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -97,7 +97,9 @@ pub struct CodeRequestAccepted;
 pub enum AuthError {
     InvalidEmail,
     InvalidCode,
+    InvalidVerificationToken,
     CodeExpired,
+    VerificationTokenExpired,
     CodeAttemptsExceeded,
     SessionInvalid,
     AccountLocked,
@@ -115,7 +117,9 @@ impl std::fmt::Display for AuthError {
         match self {
             Self::InvalidEmail => f.write_str("invalid email"),
             Self::InvalidCode => f.write_str("invalid verification code"),
+            Self::InvalidVerificationToken => f.write_str("invalid verification link"),
             Self::CodeExpired => f.write_str("verification code expired"),
+            Self::VerificationTokenExpired => f.write_str("verification link expired"),
             Self::CodeAttemptsExceeded => f.write_str("verification attempts exceeded"),
             Self::SessionInvalid => f.write_str("invalid session"),
             Self::AccountLocked => f.write_str("account is locked"),
@@ -151,9 +155,18 @@ pub trait AuthRepository: Clone + Send + Sync + 'static {
         challenge: Challenge,
         email: &str,
         purpose: ChallengePurpose,
-        code_hash: [u8; 32],
+        secret_hash: [u8; 32],
         created_at: i64,
     ) -> Result<(), AuthError>;
+
+    async fn consume_registration_token(
+        &self,
+        token_hash: [u8; 32],
+        user_id: EntityId,
+        now: i64,
+        session_token_hash: [u8; 32],
+        session_expires_at: i64,
+    ) -> Result<UserAccess, AuthError>;
 
     async fn latest_challenge(
         &self,
@@ -202,6 +215,12 @@ pub trait EmailSender: Clone + Send + Sync + 'static {
         purpose: ChallengePurpose,
         code: &str,
     ) -> Result<(), AuthError>;
+
+    async fn send_registration_verification(
+        &self,
+        email: &str,
+        token: &str,
+    ) -> Result<(), AuthError>;
 }
 
 /// Adapter used until a concrete email provider is configured.
@@ -209,6 +228,14 @@ pub trait EmailSender: Clone + Send + Sync + 'static {
 pub struct UnavailableEmailSender;
 
 impl EmailSender for UnavailableEmailSender {
+    async fn send_registration_verification(
+        &self,
+        _email: &str,
+        _token: &str,
+    ) -> Result<(), AuthError> {
+        Err(AuthError::EmailDeliveryUnavailable)
+    }
+
     async fn send_verification_code(
         &self,
         _email: &str,
@@ -248,25 +275,83 @@ where
         })
     }
 
-    pub async fn request_registration_code(
+    pub async fn request_registration_verification(
         &self,
         email: &str,
     ) -> Result<CodeRequestAccepted, AuthError> {
-        self.request_code(email, ChallengePurpose::Registration)
+        let email = normalize_email(email)?;
+        if self.repository.user_exists(&email).await? {
+            return Ok(CodeRequestAccepted);
+        }
+
+        let now = now()?;
+        let challenge = Challenge {
+            id: EntityId::new(),
+            expires_at: now + OTP_TTL_SECONDS,
+            max_attempts: 1,
+        };
+        let token = generate_verification_token()?;
+        let token_hash = hash_verification_token(&self.secret, challenge.id, &email, &token)?;
+
+        self.repository
+            .create_challenge(
+                challenge,
+                &email,
+                ChallengePurpose::Registration,
+                token_hash,
+                now,
+            )
+            .await?;
+
+        if let Err(error) = self
+            .email_sender
+            .send_registration_verification(&email, &token)
             .await
+        {
+            let _ = self.repository.discard_challenge(challenge.id).await;
+            return Err(error);
+        }
+
+        Ok(CodeRequestAccepted)
     }
 
     pub async fn request_login_code(&self, email: &str) -> Result<CodeRequestAccepted, AuthError> {
         self.request_code(email, ChallengePurpose::Login).await
     }
 
-    pub async fn verify_registration_code(
+    pub async fn verify_registration(
         &self,
-        email: &str,
-        code: &str,
+        token: &str,
     ) -> Result<Session, AuthError> {
-        self.verify_code(email, code, ChallengePurpose::Registration)
-            .await
+        if token.is_empty() || token.len() > 256 {
+            return Err(AuthError::InvalidVerificationToken);
+        }
+
+        let now = now()?;
+        let token_hash = Sha256::digest(token.as_bytes());
+        let mut hash = [0u8; 32];
+        hash.copy_from_slice(&token_hash);
+
+        let session_token = generate_session_token()?;
+        let session_token_hash = hash_session_token(&session_token);
+        let expires_at = now + SESSION_TTL_SECONDS;
+
+        let user = self
+            .repository
+            .consume_registration_token(
+                hash,
+                EntityId::new(),
+                now,
+                session_token_hash,
+                expires_at,
+            )
+            .await?;
+
+        Ok(Session {
+            user,
+            token: session_token,
+            expires_at,
+        })
     }
 
     pub async fn verify_login_code(&self, email: &str, code: &str) -> Result<Session, AuthError> {
@@ -437,6 +522,30 @@ fn generate_otp() -> Result<String, AuthError> {
     }
 }
 
+fn generate_verification_token() -> Result<String, AuthError> {
+    let mut bytes = [0u8; 32];
+    fill(&mut bytes).map_err(|_| AuthError::Randomness)?;
+    Ok(URL_SAFE_NO_PAD.encode(bytes))
+}
+
+fn hash_verification_token(
+    secret: &[u8],
+    challenge_id: EntityId,
+    email: &str,
+    token: &str,
+) -> Result<[u8; 32], AuthError> {
+    let mut mac = HmacSha256::new_from_slice(secret).map_err(|_| AuthError::InvalidSecret)?;
+    mac.update(challenge_id.as_uuid().as_bytes());
+    mac.update(b"registration");
+    mac.update(email.as_bytes());
+    mac.update(token.as_bytes());
+
+    let bytes = mac.finalize().into_bytes();
+    let mut result = [0u8; 32];
+    result.copy_from_slice(&bytes);
+    Ok(result)
+}
+
 fn generate_session_token() -> Result<String, AuthError> {
     let mut bytes = [0u8; 32];
     fill(&mut bytes).map_err(|_| AuthError::Randomness)?;
@@ -508,9 +617,9 @@ mod tests {
 use crate::cqrs::{AsyncCommandHandler, AsyncQueryHandler, Command, Query};
 
 pub enum AuthCommand {
-    RequestRegistrationCode { email: String },
+    RequestRegistrationVerification { email: String },
     RequestLoginCode { email: String },
-    VerifyRegistrationCode { email: String, code: String },
+    VerifyRegistration { token: String },
     VerifyLoginCode { email: String, code: String },
     Logout { token: String },
 }
@@ -552,9 +661,9 @@ where
 {
     async fn handle(&self, command: AuthCommand) -> Result<AuthCommandResult, AuthError> {
         match command {
-            AuthCommand::RequestRegistrationCode { email } => self
+            AuthCommand::RequestRegistrationVerification { email } => self
                 .service
-                .request_registration_code(&email)
+                .request_registration_verification(&email)
                 .await
                 .map(AuthCommandResult::CodeRequested),
             AuthCommand::RequestLoginCode { email } => self
@@ -562,9 +671,9 @@ where
                 .request_login_code(&email)
                 .await
                 .map(AuthCommandResult::CodeRequested),
-            AuthCommand::VerifyRegistrationCode { email, code } => self
+            AuthCommand::VerifyRegistration { token } => self
                 .service
-                .verify_registration_code(&email, &code)
+                .verify_registration(&token)
                 .await
                 .map(AuthCommandResult::Session),
             AuthCommand::VerifyLoginCode { email, code } => self
