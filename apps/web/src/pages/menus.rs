@@ -194,20 +194,26 @@ pub fn MenuAdminPage() -> impl IntoView {
                 </label>
                 <span>{move || format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())}</span>
                 <div class="flex gap-2">
-                    <button type="button" disabled=move || page.get() <= 1
+                    <button type="button" disabled=move || { page.get() <= 1 }
                         on:click=move |_| {
                             let next_page = page.get().saturating_sub(1).max(1);
                             set_page.set(next_page);
                             reload();
                         }
-                        class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40">"Previous"</button>
-                    <button type="button" disabled=move || page.get() >= total_pages.get()
+                        class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40"
+                    >
+                        "Previous"
+                    </button>
+                    <button type="button" disabled=move || { page.get() >= total_pages.get() }
                         on:click=move |_| {
                             let next_page = page.get() + 1;
                             set_page.set(next_page);
                             reload();
                         }
-                        class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40">"Next"</button>
+                        class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40"
+                    >
+                        "Next"
+                    </button>
                 </div>
             </div>
         </div>
