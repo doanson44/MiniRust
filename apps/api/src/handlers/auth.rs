@@ -35,6 +35,7 @@ pub(crate) struct AuthTokenRequest {
 #[derive(Serialize)]
 pub(crate) struct CodeRequestResponse {
     accepted: bool,
+    email_exists: bool,
     verification_url: Option<String>,
 }
 
@@ -136,6 +137,7 @@ pub async fn register_request_verification(
                 StatusCode::OK,
                 Json(ApiResponse::new(CodeRequestResponse {
                     accepted: true,
+                    email_exists: result.email_exists,
                     verification_url,
                 })),
             )
@@ -184,6 +186,7 @@ pub async fn login_request_code(
             StatusCode::OK,
             Json(ApiResponse::new(CodeRequestResponse {
                 accepted: true,
+                email_exists: false,
                 verification_url: None,
             })),
         )
