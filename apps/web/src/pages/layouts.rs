@@ -191,7 +191,7 @@ pub fn AppLayout() -> impl IntoView {
                                         on:click=move |_| set_sidebar_open.set(false)
                                     >
                                         {move || {
-                                            if menu.path == "/admin" {
+                                            if menu.path == "/admin/users" {
                                                 "User Management".to_owned()
                                             } else {
                                                 menu.name.clone()
