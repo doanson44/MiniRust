@@ -180,7 +180,7 @@ pub async fn login_request_code(
         })
         .await
     {
-        Ok(AuthCommandResult::CodeRequested(result)) => (
+        Ok(AuthCommandResult::CodeRequested(_result)) => (
             StatusCode::OK,
             Json(ApiResponse::new(CodeRequestResponse {
                 accepted: true,
