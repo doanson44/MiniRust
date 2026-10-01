@@ -21,17 +21,9 @@ pub(crate) struct AdminCreateUserRequest {
 #[derive(Deserialize)]
 pub(crate) struct AdminUpdateUserRequest {
     email: String,
-}
-
-#[derive(Deserialize)]
-pub(crate) struct AdminAssignRoleRequest {
     role: String,
-}
-
-#[derive(Deserialize)]
-pub(crate) struct AdminPremiumRequest {
-    active: bool,
-    expires_at: Option<i64>,
+    premium_active: bool,
+    premium_expires_at: Option<i64>,
 }
 
 #[derive(Serialize)]
@@ -154,11 +146,19 @@ pub async fn update(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
+    let role = match minirust_services::AdminUserRole::parse(&body.role) {
+        Ok(role) => role,
+        Err(error) => return ProblemDetails::user_admin(&error, locale).into_response(),
+    };
+
     match state
         .user_commands
-        .handle(UserAdminCommand::UpdateUserEmail {
+        .handle(UserAdminCommand::UpdateUser {
             user_id,
-            new_email: body.email.clone(),
+            new_email: body.email,
+            role,
+            premium_active: body.premium_active,
+            premium_expires_at: body.premium_expires_at,
         })
         .await
     {
@@ -269,120 +269,6 @@ pub async fn get_premium(
                 active: entitlement.active,
                 expires_at: entitlement.expires_at,
             })),
-        )
-            .into_response(),
-        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
-        Ok(_) => ProblemDetails::internal(locale).into_response(),
-    }
-}
-
-pub async fn revoke_premium(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    jar: CookieJar,
-    Path(user_id_value): Path<String>,
-) -> impl IntoResponse {
-    let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = authorize_admin(&state, &jar, locale).await {
-        return response;
-    }
-
-    let user_id = match parse_user_id(&user_id_value, locale) {
-        Ok(user_id) => user_id,
-        Err(error) => return error.into_response(),
-    };
-
-    match state
-        .user_commands
-        .handle(UserAdminCommand::RevokePremium { user_id })
-        .await
-    {
-        Ok(UserAdminCommandResult::User(user)) => (
-            StatusCode::OK,
-            Json(ApiResponse::new(auth_user_response(user))),
-        )
-            .into_response(),
-        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
-        Ok(_) => ProblemDetails::internal(locale).into_response(),
-    }
-}
-
-pub async fn set_premium(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    jar: CookieJar,
-    Path(user_id_value): Path<String>,
-    body: Result<Json<AdminPremiumRequest>, JsonRejection>,
-) -> impl IntoResponse {
-    let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = authorize_admin(&state, &jar, locale).await {
-        return response;
-    }
-
-    let user_id = match parse_user_id(&user_id_value, locale) {
-        Ok(user_id) => user_id,
-        Err(error) => return error.into_response(),
-    };
-
-    let Json(body) = match body {
-        Ok(body) => body,
-        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
-    };
-
-    match state
-        .user_commands
-        .handle(UserAdminCommand::SetPremium {
-            user_id,
-            active: body.active,
-            expires_at: body.expires_at,
-        })
-        .await
-    {
-        Ok(UserAdminCommandResult::User(user)) => (
-            StatusCode::OK,
-            Json(ApiResponse::new(auth_user_response(user))),
-        )
-            .into_response(),
-        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
-        Ok(_) => ProblemDetails::internal(locale).into_response(),
-    }
-}
-
-pub async fn assign_role(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    jar: CookieJar,
-    Path(user_id_value): Path<String>,
-    body: Result<Json<AdminAssignRoleRequest>, JsonRejection>,
-) -> impl IntoResponse {
-    let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = authorize_admin(&state, &jar, locale).await {
-        return response;
-    }
-
-    let user_id = match parse_user_id(&user_id_value, locale) {
-        Ok(user_id) => user_id,
-        Err(error) => return error.into_response(),
-    };
-
-    let Json(body) = match body {
-        Ok(body) => body,
-        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
-    };
-
-    let role = match minirust_services::AdminUserRole::parse(&body.role) {
-        Ok(role) => role,
-        Err(error) => return ProblemDetails::user_admin(&error, locale).into_response(),
-    };
-
-    match state
-        .user_commands
-        .handle(UserAdminCommand::AssignRole { user_id, role })
-        .await
-    {
-        Ok(UserAdminCommandResult::User(user)) => (
-            StatusCode::OK,
-            Json(ApiResponse::new(auth_user_response(user))),
         )
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
