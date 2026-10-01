@@ -67,6 +67,18 @@ impl<T> ApiResponse<T> {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ApiResponseWithMeta<T, M> {
+    pub data: T,
+    pub meta: M,
+}
+
+impl<T, M> ApiResponseWithMeta<T, M> {
+    pub fn new(data: T, meta: M) -> Self {
+        Self { data, meta }
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct ProblemDetails {
     #[serde(rename = "type")]
     pub problem_type: &'static str,
