@@ -266,7 +266,7 @@ impl AuthRepository for Database {
 
         validate_challenge(&challenge, email, ChallengePurpose::Login, now)?;
 
-        if challenge.code_hash != code_hash {
+        if challenge.secret_hash != secret_hash {
             let error = record_failed_attempt(
                 &mut tx,
                 challenge_id,
