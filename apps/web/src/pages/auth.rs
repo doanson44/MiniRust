@@ -73,42 +73,24 @@ pub fn LoginPage() -> impl IntoView {
 #[allow(unused_variables)]
 pub fn RegisterPage() -> impl IntoView {
     let (email, set_email) = signal(String::new());
-    let (code, set_code) = signal(String::new());
     let (requested, set_requested) = signal(false);
     let (status, set_status) = signal(String::new());
 
     let submit = move |event: leptos::ev::SubmitEvent| {
         event.prevent_default();
         let email_value = email.get();
-        let code_value = code.get();
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            let verifying = requested.get_untracked();
-            let endpoint = if verifying {
-                "/api/v1/auth/register/verify-code"
-            } else {
-                "/api/v1/auth/register/request-code"
-            };
-            let body = if verifying {
-                serde_json::json!({"email": email_value, "code": code_value})
-            } else {
-                serde_json::json!({"email": email_value})
-            };
             match api_empty(
                 gloo_net::http::Method::POST,
-                endpoint,
-                Some(body.to_string()),
+                "/api/v1/auth/register/request-verification",
+                Some(serde_json::json!({"email": email_value}).to_string()),
             )
             .await
             {
-                Ok(()) if verifying => {
-                    if let Some(window) = web_sys::window() {
-                        let _ = window.location().set_href("/app");
-                    }
-                }
                 Ok(()) => {
                     set_requested.set(true);
-                    set_status.set("Verification code requested.".to_owned());
+                    set_status.set("Check your email for the verification link.".to_owned());
                 }
                 Err(error) => set_status.set(error),
             }
@@ -121,20 +103,100 @@ pub fn RegisterPage() -> impl IntoView {
             <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
                 <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Create account"</p>
                 <h1 class="mt-3 text-3xl font-black text-white">"Start with your email"</h1>
-                <p class="mt-3 text-sm leading-6 text-slate-400">"We will send a verification code."</p>
-                <form on:submit=submit class="mt-8 space-y-4">
-                    <label class="block text-sm font-semibold text-slate-200">"Email"
-                        <input type="email" required prop:value=email on:input=move |ev| set_email.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
-                    </label>
-                    <Show when=move || requested.get()>
-                        <label class="block text-sm font-semibold text-slate-200">"Code"
-                            <input type="text" inputmode="numeric" maxlength="6" prop:value=code on:input=move |ev| set_code.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                <Show
+                    when=move || !requested.get()
+                    fallback=move || view! {
+                        <div class="mt-8 space-y-4">
+                            <p class="text-sm leading-6 text-slate-300">
+                                "We've sent a verification link to your email. Open it to complete your registration."
+                            </p>
+                            <p class="text-sm text-slate-400">{status}</p>
+                            <p class="text-sm text-slate-500">
+                                "If you do not receive the email, check your spam folder or "
+                                <button
+                                    type="button"
+                                    class="font-semibold text-cyan-300"
+                                    on:click=move |_| {
+                                        set_requested.set(false);
+                                        set_status.set(String::new());
+                                    }
+                                >"try again"</button>
+                                "."
+                            </p>
+                        </div>
+                    }
+                >
+                    <p class="mt-3 text-sm leading-6 text-slate-400">
+                        "We'll send a verification link to confirm that you own this email address."
+                    </p>
+                    <form on:submit=submit class="mt-8 space-y-4">
+                        <label class="block text-sm font-semibold text-slate-200">"Email"
+                            <input
+                                type="email"
+                                required
+                                prop:value=email
+                                on:input=move |ev| set_email.set(event_target_value(&ev))
+                                class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            />
                         </label>
-                    </Show>
-                    <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">{move || if requested.get() { "Verify and continue" } else { "Send code" }}</button>
-                </form>
-                <p class="mt-4 text-sm text-slate-400">{status}</p>
-                <p class="mt-8 text-sm text-slate-500">"Already registered? " <a href="/login" class="font-semibold text-cyan-300">"Sign in"</a></p>
+                        <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">
+                            "Register"
+                        </button>
+                    </form>
+                    <p class="mt-4 text-sm text-slate-400">{status}</p>
+                </Show>
+                <p class="mt-8 text-sm text-slate-500">"Already registered? "
+                    <a href="/login" class="font-semibold text-cyan-300">"Sign in"</a>
+                </p>
+            </section>
+        </AuthLayout>
+    }
+}
+
+#[component]
+#[allow(unused_variables)]
+pub fn RegisterVerifyPage() -> impl IntoView {
+    let (status, set_status) = signal("Verifying your email…".to_owned());
+
+    #[cfg(feature = "hydrate")]
+    {
+        Effect::new(move |_| {
+            let token = web_sys::window()
+                .and_then(|window| window.location().search().ok())
+                .and_then(|search| search.strip_prefix("?token=").map(str::to_owned))
+                .and_then(|value| value.split('&').next().map(str::to_owned));
+
+            leptos::task::spawn_local(async move {
+                let Some(token) = token else {
+                    set_status.set("The verification link is invalid.".to_owned());
+                    return;
+                };
+
+                match api_empty(
+                    gloo_net::http::Method::POST,
+                    "/api/v1/auth/register/verify",
+                    Some(serde_json::json!({"token": token}).to_string()),
+                )
+                .await
+                {
+                    Ok(()) => {
+                        if let Some(window) = web_sys::window() {
+                            let _ = window.location().set_href("/app");
+                        }
+                    }
+                    Err(error) => set_status.set(error),
+                }
+            });
+        });
+    }
+
+    view! {
+        <AuthLayout>
+            <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center sm:p-8">
+                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Email verification"</p>
+                <h1 class="mt-3 text-3xl font-black text-white">"Complete registration"</h1>
+                <p class="mt-4 text-sm leading-6 text-slate-400">{status}</p>
+                <a href="/register" class="mt-8 inline-block font-semibold text-cyan-300">"Back to registration"</a>
             </section>
         </AuthLayout>
     }
