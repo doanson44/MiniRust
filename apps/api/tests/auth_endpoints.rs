@@ -229,6 +229,66 @@ async fn local_registration_returns_verification_link() {
     assert!(verify.headers().contains_key("set-cookie"));
 }
 
+
+#[tokio::test]
+async fn register_existing_email_reports_already_registered() {
+    let app = test_app().await;
+
+    let first = app
+        .router()
+        .oneshot(
+            Request::post("/api/v1/auth/register/request-verification")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"email":"existing@example.com"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::OK);
+
+    let first_body = axum::body::to_bytes(first.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let first_body: serde_json::Value = serde_json::from_slice(&first_body).unwrap();
+    let token = first_body["data"]["verification_url"]
+        .as_str()
+        .and_then(|url| url.strip_prefix("/register/verify?token="))
+        .expect("registration must return a local verification token");
+
+    let verify = app
+        .router()
+        .oneshot(
+            Request::post("/api/v1/auth/register/verify")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::json!({"token": token}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(verify.status(), StatusCode::OK);
+
+    let response = app
+        .router()
+        .oneshot(
+            Request::post("/api/v1/auth/register/request-verification")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"email":"existing@example.com"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(body["data"]["accepted"], true);
+    assert_eq!(body["data"]["email_exists"], true);
+    assert_eq!(body["data"]["verification_url"], serde_json::Value::Null);
+}
+
 #[tokio::test]
 async fn login_verify_rejects_unknown_code() {
     let app = test_app().await;
