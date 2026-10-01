@@ -4,7 +4,6 @@ use leptos::prelude::*;
 #[cfg(feature = "hydrate")]
 #[derive(serde::Deserialize)]
 struct RegistrationRequestResponse {
-    accepted: bool,
     verification_url: Option<String>,
 }
 
