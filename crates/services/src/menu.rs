@@ -4,7 +4,7 @@ use minirust_core::EntityId;
 
 use crate::auth::UserAccess;
 use crate::cqrs::{AsyncCommandHandler, AsyncQueryHandler, Command, Query};
-use crate::{Page, Pagination, PaginationMeta};
+use crate::{Page, Pagination};
 
 /// Which account tiers may open a menu.
 ///
@@ -369,6 +369,7 @@ where
 mod tests {
     use super::*;
     use crate::auth::UserLocale;
+    use crate::PaginationMeta;
 
     fn actor(is_admin: bool, is_premium: bool) -> UserAccess {
         UserAccess {
