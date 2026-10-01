@@ -26,7 +26,7 @@ impl PaginationRequest {
 
         match self.page_size {
             -1 => Ok(Pagination::All),
-            1..=100 => Ok(Pagination::Paged {
+            1..=(Self::MAX_PAGE_SIZE as i32) => Ok(Pagination::Paged {
                 page: self.page,
                 page_size: self.page_size as u32,
             }),
