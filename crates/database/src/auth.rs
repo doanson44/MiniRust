@@ -36,7 +36,7 @@ impl AuthRepository for Database {
         challenge: Challenge,
         email: &str,
         purpose: ChallengePurpose,
-        code_hash: [u8; 32],
+        secret_hash: [u8; 32],
         created_at: i64,
     ) -> Result<(), AuthError> {
         if purpose == ChallengePurpose::Login {
@@ -71,13 +71,13 @@ impl AuthRepository for Database {
 
         sqlx::query(
             "INSERT INTO auth_challenges
-                (id, email, purpose, code_hash, attempts, max_attempts, expires_at, created_at)
+                (id, email, purpose, secret_hash, attempts, max_attempts, expires_at, created_at)
              VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
         )
         .bind(challenge.id.as_uuid().as_bytes().as_slice())
         .bind(email)
         .bind(purpose.as_str())
-        .bind(code_hash.as_slice())
+        .bind(secret_hash.as_slice())
         .bind(challenge.max_attempts)
         .bind(challenge.expires_at)
         .bind(created_at)
@@ -116,11 +116,9 @@ impl AuthRepository for Database {
             .transpose()
     }
 
-    async fn consume_registration_code(
+    async fn consume_registration_token(
         &self,
-        challenge_id: EntityId,
-        email: &str,
-        code_hash: [u8; 32],
+        token_hash: [u8; 32],
         user_id: EntityId,
         now: i64,
         session_token_hash: [u8; 32],
@@ -131,11 +129,78 @@ impl AuthRepository for Database {
             .begin()
             .await
             .map_err(|_| AuthError::Persistence)?;
+
+        let row = sqlx::query(
+            "SELECT id, email, purpose, secret_hash, attempts, max_attempts, expires_at
+             FROM auth_challenges
+             WHERE secret_hash = ?
+               AND purpose = 'registration'
+               AND consumed_at IS NULL
+             FOR UPDATE",
+        )
+        .bind(token_hash.as_slice())
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| AuthError::Persistence)?
+        .ok_or(AuthError::InvalidVerificationToken)?;
+
+        let challenge_id = row_to_id(&row)?;
+        let expires_at = row
+            .try_get::<i64, _>("expires_at")
+            .map_err(|_| AuthError::Persistence)?;
+        if expires_at <= now {
+            return Err(AuthError::VerificationTokenExpired);
+        }
+
+        let email = row
+            .try_get::<String, _>("email")
+            .map_err(|_| AuthError::Persistence)?;
+
+        let insert = sqlx::query(
+            "INSERT INTO users (id, email, bootstrap_admin, created_at) VALUES (?, ?, 0, ?)",
+        )
+        .bind(user_id.as_uuid().as_bytes().as_slice())
+        .bind(&email)
+        .bind(now)
+        .execute(&mut *tx)
+        .await;
+
+        if let Err(error) = insert {
+            if error
+                .as_database_error()
+                .and_then(|database| database.code())
+                .map(|code| code == "1062")
+                .unwrap_or(false)
+            {
+                return Err(AuthError::EmailAlreadyExists);
+            }
+            return Err(AuthError::Persistence);
+        }
+
+        consume_challenge(&mut tx, challenge_id, now).await?;
+        insert_session(
+            &mut tx,
+            user_id,
+            session_token_hash,
+            now,
+            session_expires_at,
+        )
+        .await?;
+
+        let user = self.user_by_id(&mut tx, user_id, now).await?;
+        tx.commit().await.map_err(|_| AuthError::Persistence)?;
+        Ok(user)
+    }
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| AuthError::Persistence)?;
         let challenge = lock_challenge(&mut tx, challenge_id).await?;
 
         validate_challenge(&challenge, email, ChallengePurpose::Registration, now)?;
 
-        if challenge.code_hash != code_hash {
+        if challenge.secret_hash != secret_hash {
             let error = record_failed_attempt(
                 &mut tx,
                 challenge_id,
@@ -187,7 +252,7 @@ impl AuthRepository for Database {
         &self,
         challenge_id: EntityId,
         email: &str,
-        code_hash: [u8; 32],
+        secret_hash: [u8; 32],
         now: i64,
         session_token_hash: [u8; 32],
         session_expires_at: i64,
@@ -314,7 +379,7 @@ impl AuthRepository for Database {
 pub(crate) struct StoredChallenge {
     pub email: String,
     pub purpose: ChallengePurpose,
-    pub code_hash: [u8; 32],
+    pub secret_hash: [u8; 32],
     pub attempts: u8,
     pub max_attempts: u8,
     pub expires_at: i64,
@@ -339,7 +404,7 @@ pub(crate) async fn lock_challenge(
     let hash = row
         .try_get::<Vec<u8>, _>("code_hash")
         .map_err(|_| AuthError::Persistence)?;
-    let code_hash: [u8; 32] = hash.try_into().map_err(|_| AuthError::Persistence)?;
+    let secret_hash: [u8; 32] = hash.try_into().map_err(|_| AuthError::Persistence)?;
 
     Ok(StoredChallenge {
         email: row.try_get("email").map_err(|_| AuthError::Persistence)?,
@@ -347,7 +412,7 @@ pub(crate) async fn lock_challenge(
             &row.try_get::<String, _>("purpose")
                 .map_err(|_| AuthError::Persistence)?,
         )?,
-        code_hash,
+        secret_hash,
         attempts: row
             .try_get("attempts")
             .map_err(|_| AuthError::Persistence)?,
