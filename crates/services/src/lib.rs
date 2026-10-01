@@ -16,6 +16,7 @@ pub use queries::greeting::{GreetingQuery, GreetingQueryHandler};
 pub use auth::{
     AuthCommand, AuthCommandHandler, AuthCommandResult, AuthError, AuthQueryHandler,
     AuthRepository, AuthService, Challenge, ChallengePurpose, ChallengeRef, CodeRequestAccepted,
+    ConfiguredEmailSender,
     CurrentSessionQuery, EmailSender, RequireAdminQuery, Session, UnavailableEmailSender,
     UserAccess, UserLocale,
 };
