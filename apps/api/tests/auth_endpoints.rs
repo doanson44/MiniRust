@@ -492,7 +492,9 @@ async fn admin_user_crud_and_modal_update() {
         .await
         .unwrap();
     assert_eq!(list.status(), StatusCode::OK);
-    let list_body = axum::body::to_bytes(list.into_body(), 1024 * 1024).await.unwrap();
+    let list_body = axum::body::to_bytes(list.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
     let list_body: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
     assert_eq!(list_body["meta"]["page_size"], -1);
     assert_eq!(list_body["meta"]["total_pages"], 1);
