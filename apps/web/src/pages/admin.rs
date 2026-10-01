@@ -173,7 +173,11 @@ pub fn AdminPage() -> impl IntoView {
 
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            let premium_expires_at = date_to_timestamp(&premium_expires);
+            let premium_expires_at = if premium_active {
+                date_to_timestamp(&premium_expires)
+            } else {
+                None
+            };
             match api_json::<UserResponse>(
                 gloo_net::http::Method::PATCH,
                 &format!("/api/v1/admin/users/{user_id}"),
@@ -517,16 +521,7 @@ pub fn AdminPage() -> impl IntoView {
                                     </span>
                                 </div>
 
-                                <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                                    <label class="block flex-1">
-                                        <span class="text-sm font-medium text-slate-300">"Premium expiry"</span>
-                                        <input
-                                            type="date"
-                                            prop:value=premium_expires
-                                            on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
-                                            class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                                        />
-                                    </label>
+                                <div class="mt-4 flex flex-col gap-3">
                                     <label class="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">
                                         <input
                                             type="checkbox"
@@ -535,6 +530,21 @@ pub fn AdminPage() -> impl IntoView {
                                         />
                                         "Premium active"
                                     </label>
+
+                                    <Show when=move || premium_active.get()>
+                                        <label class="block">
+                                            <span class="text-sm font-medium text-slate-300">"Premium expiry (optional)"</span>
+                                            <span class="mt-1 block text-xs text-slate-500">
+                                                "Leave empty for no expiry."
+                                            </span>
+                                            <input
+                                                type="date"
+                                                prop:value=premium_expires
+                                                on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
+                                                class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                                            />
+                                        </label>
+                                    </Show>
                                 </div>
                             </div>
 
