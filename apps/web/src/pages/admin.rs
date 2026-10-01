@@ -2,9 +2,9 @@ use leptos::prelude::*;
 
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json};
+use crate::types::UserResponse;
 #[cfg(feature = "hydrate")]
 use crate::types::{PremiumResponse, UserListResponse};
-use crate::types::UserResponse;
 
 const PAGE_SIZE: usize = 10;
 
@@ -23,9 +23,9 @@ fn date_to_timestamp(value: &str) -> Option<i64> {
         return None;
     }
 
-    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_str(
-        &format!("{value}T23:59:59Z"),
-    ));
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_str(&format!(
+        "{value}T23:59:59Z"
+    )));
     let milliseconds = date.get_time();
     if milliseconds.is_finite() {
         Some((milliseconds / 1000.0) as i64)
