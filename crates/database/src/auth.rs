@@ -390,7 +390,7 @@ pub(crate) async fn lock_challenge(
     challenge_id: EntityId,
 ) -> Result<StoredChallenge, AuthError> {
     let row = sqlx::query(
-        "SELECT email, purpose, code_hash, attempts, max_attempts, expires_at
+        "SELECT email, purpose, secret_hash, attempts, max_attempts, expires_at
          FROM auth_challenges
          WHERE id = ? AND consumed_at IS NULL
          FOR UPDATE",
@@ -402,7 +402,7 @@ pub(crate) async fn lock_challenge(
     .ok_or(AuthError::InvalidCode)?;
 
     let hash = row
-        .try_get::<Vec<u8>, _>("code_hash")
+        .try_get::<Vec<u8>, _>("secret_hash")
         .map_err(|_| AuthError::Persistence)?;
     let secret_hash: [u8; 32] = hash.try_into().map_err(|_| AuthError::Persistence)?;
 
