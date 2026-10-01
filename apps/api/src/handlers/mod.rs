@@ -25,12 +25,12 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/hello", get(hello))
         .route("/api/v1/echo", post(echo))
         .route(
-            "/api/v1/auth/register/request-code",
-            post(auth::register_request_code),
+            "/api/v1/auth/register/request-verification",
+            post(auth::register_request_verification),
         )
         .route(
-            "/api/v1/auth/register/verify-code",
-            post(auth::register_verify_code),
+            "/api/v1/auth/register/verify",
+            post(auth::register_verify),
         )
         .route(
             "/api/v1/auth/login/request-code",
