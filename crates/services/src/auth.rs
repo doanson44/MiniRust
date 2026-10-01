@@ -93,6 +93,7 @@ pub struct Session {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CodeRequestAccepted {
     pub verification_token: Option<String>,
+    pub email_exists: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -312,6 +313,7 @@ where
         if self.repository.user_exists(&email).await? {
             return Ok(CodeRequestAccepted {
                 verification_token: None,
+                email_exists: true,
             });
         }
 
@@ -350,6 +352,7 @@ where
 
         Ok(CodeRequestAccepted {
             verification_token: Some(token),
+            email_exists: false,
         })
     }
 
@@ -429,6 +432,7 @@ where
         {
             return Ok(CodeRequestAccepted {
                 verification_token: None,
+                email_exists: false,
             });
         }
 
@@ -463,6 +467,7 @@ where
 
         Ok(CodeRequestAccepted {
             verification_token: None,
+            email_exists: false,
         })
     }
 
