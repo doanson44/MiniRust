@@ -48,6 +48,7 @@ pub fn AdminPage() -> impl IntoView {
     let (edit_role, set_edit_role) = signal("none".to_owned());
     let (premium_active, set_premium_active) = signal(false);
     let (premium_expires, set_premium_expires) = signal(String::new());
+    let premium_expires_input = NodeRef::<leptos::html::Input>::new();
 
     let (search, set_search) = signal(String::new());
     let (role_filter, set_role_filter) = signal("all".to_owned());
@@ -534,12 +535,27 @@ pub fn AdminPage() -> impl IntoView {
                                             <span class="mt-1 block text-xs text-slate-500">
                                                 "Leave empty for no expiry."
                                             </span>
-                                            <input
-                                                type="date"
-                                                prop:value=premium_expires
-                                                on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
-                                                class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                                            />
+                                            <div class="mt-2 flex gap-2">
+                                                <input
+                                                    node_ref=premium_expires_input
+                                                    type="date"
+                                                    prop:value=premium_expires
+                                                    on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
+                                                    class="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    aria-label="Open premium expiry date picker"
+                                                    on:click=move |_| {
+                                                        if let Some(input) = premium_expires_input.get() {
+                                                            input.click();
+                                                        }
+                                                    }
+                                                    class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-slate-300 hover:bg-white/10"
+                                                >
+                                                    "Calendar"
+                                                </button>
+                                            </div>
                                         </label>
                                     </Show>
                                 </div>
