@@ -176,15 +176,16 @@ pub fn AppLayout() -> impl IntoView {
                             key=|menu| menu.id.clone()
                             children=move |menu| {
                                 let path = menu.path.clone();
+                                let class_path = path.clone();
                                 let label = menu.name.clone();
 
                                 view! {
                                     <a
-                                        href=path.clone()
+                                        href=path
                                         class=move || {
                                             let current = location.pathname.get();
-                                            let is_active = current == path
-                                                || current.starts_with(&format!("{}/", path));
+                                            let is_active = current == class_path
+                                                || current.starts_with(&format!("{}/", class_path));
                                             if is_active {
                                                 "rounded-xl px-3 py-2.5 text-sm font-semibold bg-white/15 text-white"
                                             } else {
