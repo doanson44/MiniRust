@@ -1,6 +1,7 @@
 use minirust_core::EntityId;
 use minirust_services::{
-    AdminUserRole, PremiumEntitlement, UserAccess, UserAdminError, UserAdminRepository, UserLocale,
+    AdminUserRole, Page, Pagination, PaginationMeta, PremiumEntitlement, UserAccess,
+    UserAdminError, UserAdminRepository, UserLocale,
 };
 use sqlx::Row;
 use tracing::error;
@@ -82,42 +83,96 @@ impl UserAdminRepository for Database {
             .transpose()
     }
 
-    async fn list_users(&self, now: i64) -> Result<Vec<UserAccess>, UserAdminError> {
-        let rows = sqlx::query(
-            r#"
-                SELECT
-                    u.id,
-                    u.email,
-                    u.full_name,
-                    u.avatar_url,
-                    u.locale,
-                    CAST(u.locked_at IS NOT NULL AS SIGNED) AS is_locked,
-                    CAST(EXISTS(
-                        SELECT 1 FROM user_roles ur
-                        WHERE ur.user_id = u.id AND ur.role = 'admin'
-                    ) AS SIGNED) AS is_admin,
-                    CAST(EXISTS(
-                        SELECT 1 FROM user_entitlements ue
-                        WHERE ue.user_id = u.id
-                          AND ue.entitlement = 'premium'
-                          AND ue.active = 1
-                          AND (ue.expires_at IS NULL OR ue.expires_at > ?)
-                    ) AS SIGNED) AS is_premium
-                FROM users u
-                ORDER BY u.email
-            "#,
-        )
-        .bind(now)
-        .fetch_all(&self.pool)
-        .await
+    async fn list_users(
+        &self,
+        now: i64,
+        pagination: Pagination,
+    ) -> Result<Page<UserAccess>, UserAdminError> {
+        let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| {
+                error!(%error, "failed to count users");
+                UserAdminError::Persistence
+            })? as u64;
+
+        let rows = match pagination {
+            Pagination::All => {
+                sqlx::query(
+                    r#"
+                        SELECT
+                            u.id,
+                            u.email,
+                            u.full_name,
+                            u.avatar_url,
+                            u.locale,
+                            CAST(u.locked_at IS NOT NULL AS SIGNED) AS is_locked,
+                            CAST(EXISTS(
+                                SELECT 1 FROM user_roles ur
+                                WHERE ur.user_id = u.id AND ur.role = 'admin'
+                            ) AS SIGNED) AS is_admin,
+                            CAST(EXISTS(
+                                SELECT 1 FROM user_entitlements ue
+                                WHERE ue.user_id = u.id
+                                  AND ue.entitlement = 'premium'
+                                  AND ue.active = 1
+                                  AND (ue.expires_at IS NULL OR ue.expires_at > ?)
+                            ) AS SIGNED) AS is_premium
+                        FROM users u
+                        ORDER BY u.email, u.id
+                    "#,
+                )
+                .bind(now)
+                .fetch_all(&self.pool)
+                .await
+            }
+            Pagination::Paged { page_size, .. } => {
+                sqlx::query(
+                    r#"
+                        SELECT
+                            u.id,
+                            u.email,
+                            u.full_name,
+                            u.avatar_url,
+                            u.locale,
+                            CAST(u.locked_at IS NOT NULL AS SIGNED) AS is_locked,
+                            CAST(EXISTS(
+                                SELECT 1 FROM user_roles ur
+                                WHERE ur.user_id = u.id AND ur.role = 'admin'
+                            ) AS SIGNED) AS is_admin,
+                            CAST(EXISTS(
+                                SELECT 1 FROM user_entitlements ue
+                                WHERE ue.user_id = u.id
+                                  AND ue.entitlement = 'premium'
+                                  AND ue.active = 1
+                                  AND (ue.expires_at IS NULL OR ue.expires_at > ?)
+                            ) AS SIGNED) AS is_premium
+                        FROM users u
+                        ORDER BY u.email, u.id
+                        LIMIT ? OFFSET ?
+                    "#,
+                )
+                .bind(now)
+                .bind(i64::from(page_size))
+                .bind(pagination.offset() as i64)
+                .fetch_all(&self.pool)
+                .await
+            }
+        }
         .map_err(|error| {
             error!(%error, "failed to list users");
             UserAdminError::Persistence
         })?;
 
-        rows.into_iter()
+        let items = rows
+            .into_iter()
             .map(|row| row_to_user(&row).map_err(|_| UserAdminError::Persistence))
-            .collect()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Page {
+            items,
+            meta: PaginationMeta::from_pagination(pagination, total),
+        })
     }
 
     async fn update_user(
