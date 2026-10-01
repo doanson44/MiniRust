@@ -477,7 +477,7 @@ async fn protected_bootstrap_admin_cannot_lock_or_delete_self() {
 }
 
 #[tokio::test]
-async fn admin_user_crud_and_role_assignment() {
+async fn admin_user_crud_and_modal_update() {
     let app = test_app().await;
     let (cookie, admin_id) = admin_cookie(&app).await;
 
@@ -530,25 +530,22 @@ async fn admin_user_crud_and_role_assignment() {
             Request::patch(format!("/api/v1/admin/users/{user_id}"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
-                .body(Body::from(r#"{"email":"updated@example.com"}"#))
+                .body(Body::from(
+                    r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":4102444800}"#,
+                ))
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(update.status(), StatusCode::OK);
 
-    let assign = app
-        .router()
-        .oneshot(
-            Request::put(format!("/api/v1/admin/users/{user_id}/role"))
-                .header("content-type", "application/json")
-                .header("cookie", &cookie)
-                .body(Body::from(r#"{"role":"admin"}"#))
-                .unwrap(),
-        )
+    let update_body = axum::body::to_bytes(update.into_body(), 1024 * 1024)
         .await
         .unwrap();
-    assert_eq!(assign.status(), StatusCode::OK);
+    let update_body: serde_json::Value = serde_json::from_slice(&update_body).unwrap();
+    assert_eq!(update_body["data"]["email"], "updated@example.com");
+    assert_eq!(update_body["data"]["is_admin"], true);
+    assert_eq!(update_body["data"]["is_premium"], true);
 
     let premium_get = app
         .router()
@@ -564,77 +561,42 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(premium_get.status(), StatusCode::OK);
 
-    let premium = app
-        .router()
-        .oneshot(
-            Request::put(format!(
-                "/api/v1/admin/users/{user_id}/entitlements/premium"
-            ))
-            .header("content-type", "application/json")
-            .header("cookie", &cookie)
-            .body(Body::from(r#"{"active":true,"expires_at":null}"#))
-            .unwrap(),
-        )
+    let premium_body = axum::body::to_bytes(premium_get.into_body(), 1024 * 1024)
         .await
         .unwrap();
-    assert_eq!(premium.status(), StatusCode::OK);
-
-    let remove_premium = app
-        .router()
-        .oneshot(
-            Request::put(format!(
-                "/api/v1/admin/users/{user_id}/entitlements/premium"
-            ))
-            .header("content-type", "application/json")
-            .header("cookie", &cookie)
-            .body(Body::from(r#"{"active":false,"expires_at":null}"#))
-            .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(remove_premium.status(), StatusCode::OK);
+    let premium_body: serde_json::Value = serde_json::from_slice(&premium_body).unwrap();
+    assert_eq!(premium_body["data"]["active"], true);
+    assert_eq!(premium_body["data"]["expires_at"], 4102444800_i64);
 
     let invalid_expiry = app
         .router()
         .oneshot(
-            Request::put(format!(
-                "/api/v1/admin/users/{user_id}/entitlements/premium"
-            ))
-            .header("content-type", "application/json")
-            .header("cookie", &cookie)
-            .body(Body::from(r#"{"active":true,"expires_at":1}"#))
-            .unwrap(),
+            Request::patch(format!("/api/v1/admin/users/{user_id}"))
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(
+                    r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":1}"#,
+                ))
+                .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(invalid_expiry.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
-    let premium_delete = app
+    let protected_update = app
         .router()
         .oneshot(
-            Request::delete(format!(
-                "/api/v1/admin/users/{user_id}/entitlements/premium"
-            ))
-            .header("cookie", &cookie)
-            .body(Body::empty())
-            .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(premium_delete.status(), StatusCode::OK);
-
-    let remove_role = app
-        .router()
-        .oneshot(
-            Request::put(format!("/api/v1/admin/users/{user_id}/role"))
+            Request::patch(format!("/api/v1/admin/users/{admin_id}"))
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
-                .body(Body::from(r#"{"role":"none"}"#))
+                .body(Body::from(
+                    r#"{"email":"changed-admin@example.com","role":"none","premium_active":false,"premium_expires_at":null}"#,
+                ))
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(remove_role.status(), StatusCode::OK);
+    assert_eq!(protected_update.status(), StatusCode::CONFLICT);
 
     let protected_delete = app
         .router()
@@ -647,19 +609,6 @@ async fn admin_user_crud_and_role_assignment() {
         .await
         .unwrap();
     assert_eq!(protected_delete.status(), StatusCode::CONFLICT);
-
-    // The currently authenticated admin cannot delete their own account through the admin endpoint.
-    let self_delete = app
-        .router()
-        .oneshot(
-            Request::delete(format!("/api/v1/admin/users/{admin_id}"))
-                .header("cookie", &cookie)
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(self_delete.status(), StatusCode::CONFLICT);
 
     let delete = app
         .router()
@@ -703,22 +652,19 @@ async fn admin_user_endpoints_require_authentication() {
             .unwrap(),
         Request::patch("/api/v1/admin/users/user@example.com")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{"email":"updated@example.com"}"#))
+            .body(Body::from(
+                r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":null}"#,
+            ))
             .unwrap(),
         Request::delete("/api/v1/admin/users/user@example.com")
             .body(Body::empty())
-            .unwrap(),
-        Request::put("/api/v1/admin/users/user@example.com/role")
-            .header("content-type", "application/json")
-            .body(Body::from(r#"{"role":"admin"}"#))
             .unwrap(),
         Request::put("/api/v1/users/me/language")
             .header("content-type", "application/json")
             .body(Body::from(r#"{"locale":"en"}"#))
             .unwrap(),
-        Request::put("/api/v1/admin/users/user@example.com/entitlements/premium")
-            .header("content-type", "application/json")
-            .body(Body::from(r#"{"active":true,"expires_at":null}"#))
+        Request::get("/api/v1/admin/users/user@example.com/entitlements/premium")
+            .body(Body::empty())
             .unwrap(),
     ];
 
