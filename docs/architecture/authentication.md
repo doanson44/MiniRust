@@ -89,7 +89,7 @@ Later migrations add the navigation registry used by the web transport:
 
 The application layer owns the authentication workflow and exposes AuthRepository and EmailSender ports. The database crate implements AuthRepository; an external email provider will implement EmailSender.
 
-The current API wires UnavailableEmailSender intentionally. Authentication persistence and HTTP contracts are therefore in place, but actual email delivery is not enabled until a concrete provider adapter is added. The registration flow therefore requires a real EmailSender adapter before users can receive verification links. No OTP or verification token is printed to logs as a development shortcut.
+The current API wires UnavailableEmailSender intentionally. Authentication persistence and HTTP contracts are therefore in place, but actual email delivery is not enabled until a concrete provider adapter is added. In development, MiniRust uses a simulated EmailSender and returns a local verification link in the registration response so the UI can complete the flow without an email provider. The link is never returned when secure cookies are enabled for production. Production still requires a real EmailSender adapter. No OTP or verification token is printed to logs as a development shortcut.
 
 
 ## Bootstrap admin
