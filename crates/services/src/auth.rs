@@ -90,7 +90,7 @@ pub struct Session {
     pub expires_at: i64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CodeRequestAccepted {
     pub verification_token: Option<String>,
 }
