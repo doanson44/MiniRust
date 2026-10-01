@@ -217,6 +217,45 @@ pub trait EmailSender: Clone + Send + Sync + 'static {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct UnavailableEmailSender;
 
+#[derive(Debug, Clone, Copy)]
+pub enum ConfiguredEmailSender {
+    Local,
+    Unavailable,
+}
+
+impl EmailSender for ConfiguredEmailSender {
+    async fn send_registration_verification(
+        &self,
+        email: &str,
+        token: &str,
+    ) -> Result<(), AuthError> {
+        match self {
+            Self::Local => {
+                tracing::info!(email = %email, "local registration email simulated");
+                let _ = token;
+                Ok(())
+            }
+            Self::Unavailable => Err(AuthError::EmailDeliveryUnavailable),
+        }
+    }
+
+    async fn send_verification_code(
+        &self,
+        email: &str,
+        purpose: ChallengePurpose,
+        code: &str,
+    ) -> Result<(), AuthError> {
+        match self {
+            Self::Local => {
+                tracing::info!(email = %email, purpose = ?purpose, "local verification email simulated");
+                let _ = code;
+                Ok(())
+            }
+            Self::Unavailable => Err(AuthError::EmailDeliveryUnavailable),
+        }
+    }
+}
+
 impl EmailSender for UnavailableEmailSender {
     async fn send_registration_verification(
         &self,
@@ -395,7 +434,7 @@ where
             && purpose == ChallengePurpose::Login
             && self.repository.is_bootstrap_admin(&email).await?
         {
-            return Ok(CodeRequestAccepted);
+            return Ok(CodeRequestAccepted { verification_token: None });
         }
 
         // Both existing and non-existing accounts receive the same public result.
