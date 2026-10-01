@@ -46,6 +46,13 @@ pub struct UserListResponse {
 
 #[derive(Clone, Debug, Deserialize)]
 #[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
+pub struct PremiumResponse {
+    pub active: bool,
+    pub expires_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
 pub struct ApiProblem {
     pub detail: String,
 }
