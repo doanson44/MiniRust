@@ -1,9 +1,9 @@
 use leptos::prelude::*;
 
 #[cfg(feature = "hydrate")]
-use crate::api::api_json;
+use crate::api::{api_json, api_json_with_meta};
 #[cfg(feature = "hydrate")]
-use crate::types::MenuListResponse;
+use crate::types::{MenuListData, PaginationMeta};
 use crate::types::MenuResponse;
 
 /// Admin page that lists every system menu and marks which account tiers may open it.
@@ -15,6 +15,8 @@ use crate::types::MenuResponse;
 pub fn MenuAdminPage() -> impl IntoView {
     let (menus, set_menus) = signal(Vec::<MenuResponse>::new());
     let (status, set_status) = signal(String::new());
+    let (page, set_page) = signal(1u32);
+    let (total_pages, set_total_pages) = signal(1u32);
 
     let locale = use_context::<ReadSignal<String>>().unwrap_or_else(|| signal("vi".to_owned()).0);
     let text = move |vi: &'static str, en: &'static str| {
@@ -24,14 +26,17 @@ pub fn MenuAdminPage() -> impl IntoView {
     let reload = move || {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            match api_json::<MenuListResponse>(
+            match api_json_with_meta::<MenuListData, PaginationMeta>(
                 gloo_net::http::Method::GET,
-                "/api/v1/admin/menus",
+                &format!("/api/v1/admin/menus?page={}&page_size=20", page.get_untracked()),
                 None,
             )
             .await
             {
-                Ok(response) => set_menus.set(response.menus),
+                Ok(response) => {
+                    set_menus.set(response.data.menus);
+                    set_total_pages.set(response.meta.total_pages.max(1));
+                },
                 Err(error) => set_status.set(error),
             }
         });
@@ -156,6 +161,26 @@ pub fn MenuAdminPage() -> impl IntoView {
                     </tbody>
                 </table>
             </section>
+
+            <div class="flex items-center justify-between border-t border-white/10 px-4 py-4 text-sm text-slate-400">
+                <span>{move || format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())}</span>
+                <div class="flex gap-2">
+                    <button type="button" disabled=move || page.get() <= 1
+                        on:click=move |_| {
+                            let next_page = page.get().saturating_sub(1).max(1);
+                            set_page.set(next_page);
+                            reload();
+                        }
+                        class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40">"Previous"</button>
+                    <button type="button" disabled=move || page.get() >= total_pages.get()
+                        on:click=move |_| {
+                            let next_page = page.get() + 1;
+                            set_page.set(next_page);
+                            reload();
+                        }
+                        class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40">"Next"</button>
+                </div>
+            </div>
         </div>
     }
 }
