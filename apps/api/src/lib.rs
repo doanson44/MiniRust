@@ -80,7 +80,11 @@ impl AppState {
         auth_secret: impl Into<Vec<u8>>,
         secure_cookies: bool,
     ) -> Result<Self, AuthError> {
-        let email_sender = if secure_cookies { ConfiguredEmailSender::Unavailable } else { ConfiguredEmailSender::Local };
+        let email_sender = if secure_cookies {
+            ConfiguredEmailSender::Unavailable
+        } else {
+            ConfiguredEmailSender::Local
+        };
         let auth = AuthService::new(database.clone(), email_sender, auth_secret)?;
         let users = UserAdminService::new(database.clone());
         let menus = MenuService::new(database.clone());
