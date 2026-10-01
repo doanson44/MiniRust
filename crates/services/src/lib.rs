@@ -7,13 +7,13 @@ pub mod auth;
 pub mod commands;
 pub mod cqrs;
 pub mod menu;
-pub mod query;
 pub mod queries;
+pub mod query;
 pub mod user_admin;
 
 pub use commands::echo::{EchoCommand, EchoCommandHandler, EchoCommandResult};
-pub use query::{Page, Pagination, PaginationError, PaginationMeta, PaginationRequest};
 pub use queries::greeting::{GreetingQuery, GreetingQueryHandler};
+pub use query::{Page, Pagination, PaginationError, PaginationMeta, PaginationRequest};
 
 pub use auth::{
     AuthCommand, AuthCommandHandler, AuthCommandResult, AuthError, AuthQueryHandler,
