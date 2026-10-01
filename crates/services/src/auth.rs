@@ -91,7 +91,9 @@ pub struct Session {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CodeRequestAccepted;
+pub struct CodeRequestAccepted {
+    pub verification_token: Option<String>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthError {
@@ -269,7 +271,7 @@ where
     ) -> Result<CodeRequestAccepted, AuthError> {
         let email = normalize_email(email)?;
         if self.repository.user_exists(&email).await? {
-            return Ok(CodeRequestAccepted);
+            return Ok(CodeRequestAccepted { verification_token: None });
         }
 
         let now = now()?;
@@ -305,7 +307,9 @@ where
             return Err(error);
         }
 
-        Ok(CodeRequestAccepted)
+        Ok(CodeRequestAccepted {
+            verification_token: Some(token),
+        })
     }
 
     pub async fn request_login_code(&self, email: &str) -> Result<CodeRequestAccepted, AuthError> {
@@ -396,7 +400,7 @@ where
 
         // Both existing and non-existing accounts receive the same public result.
         if !should_send {
-            return Ok(CodeRequestAccepted);
+            return Ok(CodeRequestAccepted { verification_token: None });
         }
 
         let now = now()?;
@@ -421,7 +425,7 @@ where
             return Err(error);
         }
 
-        Ok(CodeRequestAccepted)
+        Ok(CodeRequestAccepted { verification_token: None })
     }
 
     async fn verify_code(
