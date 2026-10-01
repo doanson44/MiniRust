@@ -4,6 +4,8 @@ use leptos::prelude::*;
 use crate::api::{api_empty, api_json};
 use crate::types::UserResponse;
 
+use super::ui::{LoadingState, BTN_PRIMARY, EYEBROW, PAGE_SHELL, PAGE_TITLE};
+
 #[component]
 #[allow(unused_variables)]
 pub fn ProfilePage() -> impl IntoView {
@@ -74,48 +76,51 @@ pub fn ProfilePage() -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
+        <div class=PAGE_SHELL>
                 <section>
-                    <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">{move || if locale.get() == "vi" { "Không gian làm việc" } else { "Workspace" }}</p>
-                    <h1 class="mt-3 text-4xl font-black text-white">{move || if locale.get() == "vi" { "Tài khoản của bạn" } else { "Your account" }}</h1>
-                    <p class="mt-3 text-sm text-slate-400">{status}</p>
+                    <p class=EYEBROW>{move || if locale.get() == "vi" { "Không gian làm việc" } else { "Workspace" }}</p>
+                    <h1 class=PAGE_TITLE>{move || if locale.get() == "vi" { "Tài khoản của bạn" } else { "Your account" }}</h1>
+                    <p class="mt-3 text-sm text-subtle-foreground">{status}</p>
                 </section>
 
+                <Show when=move || user.get().is_none() && status.get().is_empty()>
+                    <LoadingState label="Loading account".to_owned()/>
+                </Show>
                 <Show when=move || user.get().is_some()>
                     {move || {
                         let u = user.get().unwrap();
                         view! {
-                        <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-                            <h2 class="text-xl font-bold text-white">{move || if locale.get() == "vi" { "Thông tin tài khoản" } else { "Account info" }}</h2>
+                        <section class="rounded-3xl border border-line bg-surface p-6">
+                            <h2 class="text-xl font-bold text-foreground">{move || if locale.get() == "vi" { "Thông tin tài khoản" } else { "Account info" }}</h2>
                             <dl class="mt-4 space-y-2 text-sm">
-                                <div class="flex gap-4"><dt class="w-28 text-slate-500">"Email"</dt><dd class="text-white">{u.email.clone()}</dd></div>
-                                <div class="flex gap-4"><dt class="w-28 text-slate-500">{move || if locale.get() == "vi" { "Vai trò" } else { "Role" }}</dt><dd class="text-white">{if u.is_admin { "Admin" } else { "User" }}</dd></div>
-                                <div class="flex gap-4"><dt class="w-28 text-slate-500">"Premium"</dt><dd class="text-white">{if u.is_premium { "Active" } else { "Inactive" }}</dd></div>
-                                <div class="flex gap-4"><dt class="w-28 text-slate-500">{move || if locale.get() == "vi" { "Trạng thái" } else { "Status" }}</dt><dd class="text-white">{if u.is_locked { "Locked" } else { "Active" }}</dd></div>
+                                <div class="flex gap-4"><dt class="w-28 text-faint-foreground">"Email"</dt><dd class="break-all text-foreground">{u.email.clone()}</dd></div>
+                                <div class="flex gap-4"><dt class="w-28 text-faint-foreground">{move || if locale.get() == "vi" { "Vai trò" } else { "Role" }}</dt><dd class="text-foreground">{if u.is_admin { "Admin" } else { "User" }}</dd></div>
+                                <div class="flex gap-4"><dt class="w-28 text-faint-foreground">"Premium"</dt><dd class="text-foreground">{if u.is_premium { "Active" } else { "Inactive" }}</dd></div>
+                                <div class="flex gap-4"><dt class="w-28 text-faint-foreground">{move || if locale.get() == "vi" { "Trạng thái" } else { "Status" }}</dt><dd class="text-foreground">{if u.is_locked { "Locked" } else { "Active" }}</dd></div>
                             </dl>
                         </section>
                         }
                     }}
                 </Show>
 
-                <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-                    <h2 class="text-xl font-bold text-white">{move || if locale.get() == "vi" { "Hồ sơ" } else { "Profile" }}</h2>
+                <section class="rounded-3xl border border-line bg-surface p-6">
+                    <h2 class="text-xl font-bold text-foreground">{move || if locale.get() == "vi" { "Hồ sơ" } else { "Profile" }}</h2>
                     <form on:submit=update_profile class="mt-4 space-y-4">
-                        <label class="block text-sm font-semibold text-slate-200">{move || if locale.get() == "vi" { "Họ tên" } else { "Full name" }}
-                            <input type="text" prop:value=full_name on:input=move |ev| set_full_name.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                        <label class="block text-sm font-semibold text-muted-foreground">{move || if locale.get() == "vi" { "Họ tên" } else { "Full name" }}
+                            <input type="text" prop:value=full_name on:input=move |ev| set_full_name.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-line bg-canvas px-4 py-3 text-sm text-foreground transition placeholder:text-faint-foreground focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"/>
                         </label>
-                        <label class="block text-sm font-semibold text-slate-200">"Avatar URL"
-                            <input type="url" prop:value=avatar_url on:input=move |ev| set_avatar_url.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                        <label class="block text-sm font-semibold text-muted-foreground">"Avatar URL"
+                            <input type="url" prop:value=avatar_url on:input=move |ev| set_avatar_url.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-line bg-canvas px-4 py-3 text-sm text-foreground transition placeholder:text-faint-foreground focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"/>
                         </label>
-                        <button class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950" type="submit">{move || if locale.get() == "vi" { "Lưu hồ sơ" } else { "Save profile" }}</button>
+                        <button class=BTN_PRIMARY type="submit">{move || if locale.get() == "vi" { "Lưu hồ sơ" } else { "Save profile" }}</button>
                     </form>
                 </section>
 
-                <section class="rounded-3xl border border-red-500/20 bg-red-500/5 p-6">
-                    <h2 class="text-xl font-bold text-red-300">{move || if locale.get() == "vi" { "Khu vực nguy hiểm" } else { "Danger zone" }}</h2>
-                    <p class="mt-2 text-sm text-slate-400">{move || if locale.get() == "vi" { "Các thao tác này có thể gây mất dữ liệu." } else { "These actions are destructive." }}</p>
+                <section class="rounded-3xl border border-danger/20 bg-danger/5 p-6">
+                    <h2 class="text-xl font-bold text-danger">{move || if locale.get() == "vi" { "Khu vực nguy hiểm" } else { "Danger zone" }}</h2>
+                    <p class="mt-2 text-sm text-subtle-foreground">{move || if locale.get() == "vi" { "Các thao tác này có thể gây mất dữ liệu." } else { "These actions are destructive." }}</p>
                     <div class="mt-4 flex flex-wrap gap-3">
-                        <button on:click=lock_account class="rounded-xl bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-200">{move || if locale.get() == "vi" { "Khóa tài khoản" } else { "Lock my account" }}</button>
+                        <button on:click=lock_account class="rounded-xl bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">{move || if locale.get() == "vi" { "Khóa tài khoản" } else { "Lock my account" }}</button>
                     </div>
                 </section>
         </div>

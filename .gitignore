@@ -16,3 +16,4 @@ target
 
 # RustRover
 #.idea/
+node_modules/

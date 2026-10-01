@@ -21,7 +21,13 @@ globs: ["crates/config/**", ".env*", "docker-compose.yml"]
 | `MINIRUST_API_PORT` | API bind port | No |
 | `MINIRUST_WEB_HOST` | Web bind host | No |
 | `MINIRUST_WEB_PORT` | Web bind port | No |
-| `MINIRUST_DATABASE_URL` | MariaDB connection (mysql driver) | No — optional |
+| `MINIRUST_DB_HOST` | MariaDB host | No (defaults `127.0.0.1`) |
+| `MINIRUST_DB_PORT` | MariaDB port | No (defaults `3306`) |
+| `MINIRUST_DB_NAME` | MariaDB database name | No (defaults `minirust`) |
+| `MINIRUST_DB_USER` | MariaDB user | No (defaults `minirust`) |
+| `MINIRUST_DB_PASSWORD` | MariaDB password | No (defaults `minirust`) |
+| `MINIRUST_DB_MAX_CONNECTIONS` | MariaDB pool size | No (defaults `10`) |
+| `MINIRUST_DATABASE_URL` | Full SQLx URL; overrides all `MINIRUST_DB_*` | No — optional |
 | `MINIRUST_REDIS_URL` | Redis URL | No — optional |
 
 ## Secret rules
@@ -29,6 +35,8 @@ globs: ["crates/config/**", ".env*", "docker-compose.yml"]
 - **Never** commit `.env` with real values.
 - **Always** update `.env.example` with placeholder values when adding a new variable.
 - Log `database_configured = true/false` and `redis_configured = true/false` booleans — never log connection strings or passwords.
+- `.env` values containing `$` must be wrapped in single quotes — dotenvy expands `$VAR` in unquoted and double-quoted values.
+- The connection URL is built with percent-encoded credentials because SQLx percent-decodes the user, password, and database components.
 
 ## Docker compose
 

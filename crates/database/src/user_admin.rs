@@ -178,7 +178,6 @@ impl UserAdminRepository for Database {
     async fn update_user(
         &self,
         user_id: EntityId,
-        new_email: &str,
         role: AdminUserRole,
         premium_active: bool,
         premium_expires_at: Option<i64>,
@@ -190,7 +189,7 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?;
 
         let row = sqlx::query(
-            "SELECT email, bootstrap_admin
+            "SELECT bootstrap_admin
              FROM users
              WHERE id = ?
              FOR UPDATE",
@@ -201,44 +200,13 @@ impl UserAdminRepository for Database {
         .map_err(|_| UserAdminError::Persistence)?
         .ok_or(UserAdminError::NotFound)?;
 
-        let current_email = row
-            .try_get::<String, _>("email")
-            .map_err(|_| UserAdminError::Persistence)?;
         let bootstrap_admin = row
             .try_get::<i64, _>("bootstrap_admin")
             .map_err(|_| UserAdminError::Persistence)?
             != 0;
 
-        if bootstrap_admin && current_email != new_email {
-            return Err(UserAdminError::ProtectedUser);
-        }
         if bootstrap_admin && role == AdminUserRole::None {
             return Err(UserAdminError::ProtectedUser);
-        }
-
-        if current_email != new_email {
-            let result = sqlx::query("UPDATE users SET email = ? WHERE id = ?")
-                .bind(new_email)
-                .bind(user_id.as_uuid().as_bytes().as_slice())
-                .execute(&mut *tx)
-                .await;
-
-            if let Err(error) = result {
-                if error
-                    .as_database_error()
-                    .and_then(|database| database.code().map(|code| code == "1062"))
-                    .unwrap_or(false)
-                {
-                    return Err(UserAdminError::EmailAlreadyExists);
-                }
-                return Err(UserAdminError::Persistence);
-            }
-
-            sqlx::query("DELETE FROM auth_challenges WHERE email = ?")
-                .bind(current_email)
-                .execute(&mut *tx)
-                .await
-                .map_err(|_| UserAdminError::Persistence)?;
         }
 
         match role {

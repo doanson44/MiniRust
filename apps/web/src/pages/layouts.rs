@@ -5,6 +5,8 @@ use leptos::prelude::*;
 use leptos_router::components::Outlet;
 use leptos_router::hooks::use_location;
 
+use super::ui::{EmptyState, LoadingState, BTN_ICON_PLAIN, MENU_ITEM, MENU_ITEM_DANGER};
+
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json};
 
@@ -15,6 +17,7 @@ pub fn AppLayout() -> impl IntoView {
     let (menu_open, set_menu_open) = signal(false);
     let (sidebar_open, set_sidebar_open) = signal(false);
     let (menus, set_menus) = signal(Vec::<MenuResponse>::new());
+    let (menus_loaded, set_menus_loaded) = signal(false);
     let location = use_location();
 
     #[cfg(feature = "hydrate")]
@@ -32,6 +35,10 @@ pub fn AppLayout() -> impl IntoView {
                 {
                     set_menus.set(menu_response.menus);
                 }
+
+                // Resolve the surface even when the request failed, so a failure
+                // shows the empty state instead of an endless spinner.
+                set_menus_loaded.set(true);
             }
         });
     }
@@ -73,21 +80,22 @@ pub fn AppLayout() -> impl IntoView {
                     <div class="flex items-center gap-3">
                         <button
                             type="button"
-                            class="rounded-lg p-2 text-slate-300 hover:bg-white/10"
+                            class=BTN_ICON_PLAIN
                             aria-label="Toggle navigation"
                             aria-expanded=move || sidebar_open.get()
+                            aria-controls="app-sidebar"
                             on:click=move |_| set_sidebar_open.update(|open| *open = !*open)
                         >
-                            "☰"
+                            <span aria-hidden="true">"☰"</span>
                         </button>
-                        <a href="/app" class="text-lg font-black tracking-tight text-white">"MiniRust"</a>
+                        <a href="/app" class="rounded text-lg font-black tracking-tight text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">"MiniRust"</a>
                     </div>
 
                     <div class="relative flex items-center gap-3">
                         <select
                             prop:value=move || locale.get()
                             on:change=change_locale
-                            class="hidden rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-slate-300 sm:block"
+                            class="hidden rounded-lg border border-line bg-canvas-raised px-2 py-1.5 text-xs text-muted-foreground transition focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:block"
                             aria-label="Language"
                         >
                             <option value="vi">"Tiếng Việt"</option>
@@ -96,8 +104,9 @@ pub fn AppLayout() -> impl IntoView {
 
                         <button
                             type="button"
-                            class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-white/10"
+                            class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                             aria-expanded=move || menu_open.get()
+                            aria-haspopup="true"
                             on:click=move |_| set_menu_open.update(|open| *open = !*open)
                         >
                             <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-cyan-300 font-bold text-slate-950">
@@ -126,7 +135,7 @@ pub fn AppLayout() -> impl IntoView {
                         </button>
 
                         <Show when=move || menu_open.get()>
-                            <div class="absolute right-0 top-12 w-64 rounded-2xl border border-white/10 bg-slate-900 p-2 shadow-2xl">
+                            <div class="absolute right-0 top-12 z-50 w-64 space-y-1 rounded-2xl border border-line bg-canvas-raised p-2 shadow-2xl">
                                 <div class="border-b border-white/10 px-3 py-3">
                                     <p class="truncate text-sm font-semibold text-white">
                                         {move || user.get().and_then(|u| u.full_name).unwrap_or_else(|| "User".to_owned())}
@@ -135,18 +144,18 @@ pub fn AppLayout() -> impl IntoView {
                                         {move || user.get().map(|u| u.email).unwrap_or_default()}
                                     </p>
                                 </div>
-                                <a href="/profile" class="mt-1 block rounded-xl px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
+                                <a href="/profile" class=MENU_ITEM>
                                     {move || if locale.get() == "vi" { "Thông tin tài khoản" } else { "Account information" }}
                                 </a>
                                 <Show when=move || user.get().map(|u| u.is_admin).unwrap_or(false)>
-                                    <a href="/admin/menus" class="mt-1 block rounded-xl px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
+                                    <a href="/admin/menus" class=MENU_ITEM>
                                         {move || if locale.get() == "vi" { "Phân quyền menu" } else { "Menu permissions" }}
                                     </a>
                                 </Show>
                                 <button
                                     type="button"
                                     on:click=sign_out
-                                    class="w-full rounded-xl px-3 py-2.5 text-left text-sm text-red-300 hover:bg-red-400/10"
+                                    class=MENU_ITEM_DANGER
                                 >
                                     {move || if locale.get() == "vi" { "Đăng xuất" } else { "Log out" }}
                                 </button>
@@ -166,30 +175,51 @@ pub fn AppLayout() -> impl IntoView {
                     ></button>
                 </Show>
 
-                <aside class=move || format!(
-                    "fixed inset-y-0 left-0 z-30 w-64 transform border-r border-white/10 bg-slate-950 pt-16 transition-transform duration-200 {}",
-                    if sidebar_open.get() { "translate-x-0" } else { "-translate-x-full" }
-                )>
+                <aside
+                    id="app-sidebar"
+                    class=move || format!(
+                        "fixed inset-y-0 left-0 z-30 w-64 transform border-r border-line bg-canvas pt-16 transition-transform duration-200 {}",
+                        if sidebar_open.get() { "translate-x-0" } else { "-translate-x-full" },
+                    )
+                >
                     <nav class="flex h-full flex-col gap-1 p-4" aria-label="Application navigation">
+                        <Show when=move || menus.get().is_empty() && !menus_loaded.get()>
+                            <LoadingState label="Loading navigation".to_owned()/>
+                        </Show>
+                        <Show when=move || menus.get().is_empty() && menus_loaded.get()>
+                            <EmptyState>
+                                {move || if locale.get() == "vi" {
+                                    "Tài khoản của bạn chưa được cấp menu nào. Quản trị viên có thể cấp trong mục Phân quyền menu."
+                                } else {
+                                    "Your account has no menu grants yet. An administrator can grant access under Menu permissions."
+                                }}
+                            </EmptyState>
+                        </Show>
                         <For
                             each=move || menus.get()
                             key=|menu| menu.id.clone()
                             children=move |menu| {
                                 let path = menu.path.clone();
-                                let class_path = path.clone();
                                 let label = menu.name.clone();
+                                let match_path = path.clone();
+                                let pathname = location.pathname;
+                                let is_active = Memo::new(move |_| {
+                                    let current = pathname.get();
+                                    current == match_path
+                                        || current.starts_with(&format!("{}/", match_path))
+                                });
 
                                 view! {
                                     <a
                                         href=path
+                                        aria-current=move || {
+                                            if is_active.get() { Some("page") } else { None }
+                                        }
                                         class=move || {
-                                            let current = location.pathname.get();
-                                            let is_active = current == class_path
-                                                || current.starts_with(&format!("{}/", class_path));
-                                            if is_active {
-                                                "rounded-xl px-3 py-2.5 text-sm font-semibold bg-white/15 text-white"
+                                            if is_active.get() {
+                                                "block rounded-xl bg-white/15 px-3 py-2.5 text-sm font-semibold text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
                                             } else {
-                                                "rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+                                                "block rounded-xl px-3 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
                                             }
                                         }
                                         on:click=move |_| set_sidebar_open.set(false)
@@ -204,7 +234,7 @@ pub fn AppLayout() -> impl IntoView {
                             <select
                                 prop:value=move || locale.get()
                                 on:change=change_locale
-                                class="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-2 text-xs text-slate-300 sm:hidden"
+                                class="w-full rounded-lg border border-line bg-canvas-raised px-2 py-2 text-xs text-muted-foreground transition focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:hidden"
                                 aria-label="Language"
                             >
                                 <option value="vi">"Tiếng Việt"</option>

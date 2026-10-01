@@ -4,6 +4,8 @@ description: Add a new Leptos SSR page to apps/web following the MiniRust view p
 
 Follow the implement-minirust-feature skill (Web path).
 
+Prefer the `create-minirust-page` skill — it is the current, accurate recipe for a page in `apps/web` and takes precedence over the steps below if they conflict.
+
 1. Inspect the existing page and web rules before coding.
 2. Add a `#[component]` in `apps/web/src/lib.rs` or a focused presentation module.
 3. Add a `render_<page>()` function — `.to_html()` prefixed with `<!DOCTYPE html>`.

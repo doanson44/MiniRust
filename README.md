@@ -122,7 +122,11 @@ The authenticated sidebar is populated from `/api/v1/menus`, so server-side filt
 
 MariaDB is the selected relational database. SQLx uses its `mysql` driver for MariaDB connectivity.
 
-The API requires `MINIRUST_DATABASE_URL` because its current startup contract establishes a live database connection before serving requests.
+The API requires MariaDB connection settings because its current startup contract establishes a live database connection before serving requests.
+
+Connection settings come from the `MINIRUST_DB_*` variables. `MINIRUST_DATABASE_URL`, when set, overrides all of them.
+
+Wrap values in single quotes inside `.env` when they contain `$`, because dotenvy expands `$VAR` in double-quoted and unquoted values only.
 
 ## Integration tests
 
@@ -151,7 +155,13 @@ Docker must be running when database integration tests execute. No separate test
 | `MINIRUST_API_PORT` | `3000` | API bind port |
 | `MINIRUST_WEB_HOST` | `127.0.0.1` | Web bind host |
 | `MINIRUST_WEB_PORT` | `3001` | Web bind port |
-| `MINIRUST_DATABASE_URL` | required by API | MariaDB SQLx connection URL |
+| `MINIRUST_DB_HOST` | `127.0.0.1` | MariaDB host |
+| `MINIRUST_DB_PORT` | `3306` | MariaDB port |
+| `MINIRUST_DB_NAME` | `minirust` | MariaDB database name |
+| `MINIRUST_DB_USER` | `minirust` | MariaDB user |
+| `MINIRUST_DB_PASSWORD` | `minirust` | MariaDB password |
+| `MINIRUST_DB_MAX_CONNECTIONS` | `10` | MariaDB connection pool size |
+| `MINIRUST_DATABASE_URL` | — | Full SQLx URL; overrides every `MINIRUST_DB_*` variable |
 | `MINIRUST_AUTH_SECRET` | required | Authentication/session secret |
 | `MINIRUST_ADMIN_EMAIL` | `admin@minirust.local` in development | Bootstrap administrator email |
 | `MINIRUST_ADMIN_OTP` | `123456` in development | Bootstrap administrator OTP |
@@ -171,7 +181,7 @@ The API and web processes use separate file prefixes: `minirust-api.log.*` and `
 
 ## Run locally
 
-Start MariaDB, create the database, and set `MINIRUST_DATABASE_URL` in `.env`:
+Start MariaDB, create the database, and set the `MINIRUST_DB_*` variables in `.env`:
 
 ```bash
 cargo run -p minirust-api

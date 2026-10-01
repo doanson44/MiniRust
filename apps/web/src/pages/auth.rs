@@ -11,6 +11,8 @@ struct RegistrationRequestResponse {
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json};
 
+use super::ui::{Field, BTN_PRIMARY_FULL, EYEBROW, INPUT, LINK};
+
 #[component]
 #[allow(unused_variables)]
 pub fn LoginPage() -> impl IntoView {
@@ -53,19 +55,18 @@ pub fn LoginPage() -> impl IntoView {
 
     view! {
         <AuthLayout>
-            <a href="/login" class="mb-8 text-sm font-bold text-cyan-300">"<- MiniRust"</a>
-            <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Sign in"</p>
-                <h1 class="mt-3 text-3xl font-black text-white">"Access your account"</h1>
-                <p class="mt-3 text-sm leading-6 text-slate-400">
+            <a href="/login" class="mb-8 inline-block text-sm font-bold text-accent transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">"<- MiniRust"</a>
+            <section class="rounded-3xl border border-line bg-surface p-6 sm:p-8">
+                <p class=EYEBROW>"Sign in"</p>
+                <h1 class="mt-3 text-3xl font-black text-foreground">"Access your account"</h1>
+                <p class="mt-3 text-sm leading-6 text-subtle-foreground">
                     "Passwordless authentication uses a verification code."
                 </p>
                 <Show
                     when=move || !requested.get()
                     fallback=move || view! {
                         <form on:submit=submit class="mt-8 space-y-4">
-                            <label class="block text-sm font-semibold text-slate-200">
-                                "Verification code"
+                            <Field label="Verification code".to_owned()>
                                 <input
                                     type="text"
                                     inputmode="numeric"
@@ -73,41 +74,30 @@ pub fn LoginPage() -> impl IntoView {
                                     required
                                     prop:value=code
                                     on:input=move |ev| set_code.set(event_target_value(&ev))
-                                    class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                                    class=INPUT
                                 />
-                            </label>
-                            <button
-                                type="submit"
-                                class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
-                            >
-                                "Verify and continue"
-                            </button>
+                            </Field>
+                            <button type="submit" class=BTN_PRIMARY_FULL>"Verify and continue"</button>
                         </form>
                     }
                 >
                     <form on:submit=submit class="mt-8 space-y-4">
-                        <label class="block text-sm font-semibold text-slate-200">
-                            "Email"
+                        <Field label="Email".to_owned()>
                             <input
                                 type="email"
                                 required
                                 prop:value=email
                                 on:input=move |ev| set_email.set(event_target_value(&ev))
-                                class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                                class=INPUT
                             />
-                        </label>
-                        <button
-                            type="submit"
-                            class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
-                        >
-                            "Send code"
-                        </button>
+                        </Field>
+                        <button type="submit" class=BTN_PRIMARY_FULL>"Send code"</button>
                     </form>
                 </Show>
-                <p class="mt-4 text-sm text-slate-400">{status}</p>
-                <p class="mt-8 text-sm text-slate-500">
+                <p class="mt-4 text-sm text-subtle-foreground">{status}</p>
+                <p class="mt-8 text-sm text-faint-foreground">
                     "New here? "
-                    <a href="/register" class="font-semibold text-cyan-300">"Create an account"</a>
+                    <a href="/register" class=LINK>"Create an account"</a>
                 </p>
             </section>
         </AuthLayout>
@@ -150,27 +140,22 @@ pub fn RegisterPage() -> impl IntoView {
 
     view! {
         <AuthLayout>
-            <a href="/" class="mb-8 text-sm font-bold text-cyan-300">"<- MiniRust"</a>
-            <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Create account"</p>
-                <h1 class="mt-3 text-3xl font-black text-white">"Start with your email"</h1>
+            <a href="/" class="mb-8 inline-block text-sm font-bold text-accent transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">"<- MiniRust"</a>
+            <section class="rounded-3xl border border-line bg-surface p-6 sm:p-8">
+                <p class=EYEBROW>"Create account"</p>
+                <h1 class="mt-3 text-3xl font-black text-foreground">"Start with your email"</h1>
                 <Show
                     when=move || !requested.get()
                     fallback=move || view! {
                         <div class="mt-8 space-y-4">
-                            <p class="text-sm leading-6 text-slate-300">
+                            <p class="text-sm leading-6 text-muted-foreground">
                                 "We've sent a verification link to your email. Open it to complete your registration."
                             </p>
-                            <p class="text-sm text-slate-400">{status}</p>
+                            <p class="text-sm text-subtle-foreground">{status}</p>
                             <Show
                                 when=move || status.get() == "This email is already registered."
                             >
-                                <a
-                                    href="/login"
-                                    class="inline-block rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
-                                >
-                                    "Go to login"
-                                </a>
+                                <a href="/login" class=BTN_PRIMARY_FULL>"Go to login"</a>
                             </Show>
                             <Show
                                 when=move || status.get().starts_with("Local test link: ")
@@ -182,16 +167,16 @@ pub fn RegisterPage() -> impl IntoView {
                                             .trim_start_matches("Local test link: ")
                                             .to_owned()
                                     }}
-                                    class="inline-block rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
+                                    class=BTN_PRIMARY_FULL
                                 >
                                     "Open verification link"
                                 </a>
                             </Show>
-                            <p class="text-sm text-slate-500">
+                            <p class="text-sm text-faint-foreground">
                                 "If you do not receive the email, check your spam folder or "
                                 <button
                                     type="button"
-                                    class="font-semibold text-cyan-300"
+                                    class=LINK
                                     on:click=move |_| {
                                         set_requested.set(false);
                                         set_status.set(String::new());
@@ -204,32 +189,26 @@ pub fn RegisterPage() -> impl IntoView {
                         </div>
                     }
                 >
-                    <p class="mt-3 text-sm leading-6 text-slate-400">
+                    <p class="mt-3 text-sm leading-6 text-subtle-foreground">
                         "We'll send a verification link to confirm that you own this email address."
                     </p>
                     <form on:submit=submit class="mt-8 space-y-4">
-                        <label class="block text-sm font-semibold text-slate-200">
-                            "Email"
+                        <Field label="Email".to_owned()>
                             <input
                                 type="email"
                                 required
                                 prop:value=email
                                 on:input=move |ev| set_email.set(event_target_value(&ev))
-                                class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                                class=INPUT
                             />
-                        </label>
-                        <button
-                            type="submit"
-                            class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
-                        >
-                            "Register"
-                        </button>
+                        </Field>
+                        <button type="submit" class=BTN_PRIMARY_FULL>"Register"</button>
                     </form>
-                    <p class="mt-4 text-sm text-slate-400">{status}</p>
+                    <p class="mt-4 text-sm text-subtle-foreground">{status}</p>
                 </Show>
-                <p class="mt-8 text-sm text-slate-500">
+                <p class="mt-8 text-sm text-faint-foreground">
                     "Already registered? "
-                    <a href="/login" class="font-semibold text-cyan-300">"Sign in"</a>
+                    <a href="/login" class=LINK>"Sign in"</a>
                 </p>
             </section>
         </AuthLayout>
@@ -275,11 +254,11 @@ pub fn RegisterVerifyPage() -> impl IntoView {
 
     view! {
         <AuthLayout>
-            <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center sm:p-8">
-                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Email verification"</p>
-                <h1 class="mt-3 text-3xl font-black text-white">"Complete registration"</h1>
-                <p class="mt-4 text-sm leading-6 text-slate-400">{status}</p>
-                <a href="/register" class="mt-8 inline-block font-semibold text-cyan-300">"Back to registration"</a>
+            <section class="rounded-3xl border border-line bg-surface p-6 text-center sm:p-8">
+                <p class=EYEBROW>"Email verification"</p>
+                <h1 class="mt-3 text-3xl font-black text-foreground">"Complete registration"</h1>
+                <p class="mt-4 text-sm leading-6 text-subtle-foreground">{status}</p>
+                <a href="/register" class="mt-8 inline-block font-semibold text-accent transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">"Back to registration"</a>
             </section>
         </AuthLayout>
     }

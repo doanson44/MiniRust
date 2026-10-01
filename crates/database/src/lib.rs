@@ -16,6 +16,9 @@ mod user_admin;
 
 use auth::seed_otp_hash;
 
+/// Pool size used when the caller does not provide one.
+pub const DEFAULT_MAX_CONNECTIONS: u32 = 10;
+
 #[derive(Clone)]
 pub struct Database {
     pool: MySqlPool,
@@ -23,8 +26,15 @@ pub struct Database {
 
 impl Database {
     pub async fn connect(url: &str) -> Result<Self, sqlx::Error> {
+        Self::connect_with_max_connections(url, DEFAULT_MAX_CONNECTIONS).await
+    }
+
+    pub async fn connect_with_max_connections(
+        url: &str,
+        max_connections: u32,
+    ) -> Result<Self, sqlx::Error> {
         let pool = MySqlPoolOptions::new()
-            .max_connections(10)
+            .max_connections(max_connections)
             .connect(url)
             .await?;
         Ok(Self { pool })

@@ -25,4 +25,4 @@ Only when runtime verification is requested:
 2. `cargo run -p minirust-web` → `/` and `/health`.
 3. Stop the processes when verification is complete.
 
-The API currently requires MariaDB through `MINIRUST_DATABASE_URL` at startup. Use Docker Compose when a real database is required.
+The API connects to MariaDB at startup using `MINIRUST_DB_*` (or `MINIRUST_DATABASE_URL` when set). Use Docker Compose when a real database is required.

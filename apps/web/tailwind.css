@@ -1,2 +1,34 @@
 @import "tailwindcss";
 @source "./src";
+
+/* The build output lives inside the scanned tree. Excluding it prevents a
+   previous build's class names from keeping themselves alive forever. */
+@source not "./src/generated.css";
+
+/* === SEMANTIC TOKENS ===
+   Value-preserving aliases for the palette the app already uses. Changing a
+   value here is a redesign; migrating a page onto these names is a refactor.
+   See the minirust-design-system skill. */
+@theme {
+  /* Surfaces */
+  --color-canvas: #020617; /* slate-950 */
+  --color-canvas-raised: #0f172a; /* slate-900 */
+  --color-surface: rgb(255 255 255 / 0.03);
+  --color-surface-strong: rgb(255 255 255 / 0.04);
+
+  /* Lines — `border-line`, `border-line-strong` */
+  --color-line: rgb(255 255 255 / 0.1);
+  --color-line-strong: rgb(255 255 255 / 0.15);
+
+  /* Text */
+  --color-foreground: #ffffff;
+  --color-muted-foreground: #cbd5e1; /* slate-300 */
+  --color-subtle-foreground: #94a3b8; /* slate-400 */
+  --color-faint-foreground: #64748b; /* slate-500 */
+
+  /* Accents */
+  --color-accent: #67e8f9; /* cyan-300 */
+  --color-accent-strong: #a5f3fc; /* cyan-200 */
+  --color-danger: #fca5a5; /* red-300 */
+  --color-success: #6ee7b7; /* emerald-300 */
+}

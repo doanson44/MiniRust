@@ -22,6 +22,6 @@ Smoke test:
 - `curl http://127.0.0.1:3001/` → HTML with `<!DOCTYPE html>` and `MiniRust`
 - `curl http://127.0.0.1:3001/health` → `ok`
 
-MariaDB is optional — the API binary starts without `MINIRUST_DATABASE_URL`. If set, `/health` also checks DB connectivity.
+MariaDB connection comes from the `MINIRUST_DB_*` variables (`MINIRUST_DATABASE_URL` overrides them when set). The API connects at startup and `/health` also checks DB connectivity.
 
 Stop all processes when smoke testing is complete.

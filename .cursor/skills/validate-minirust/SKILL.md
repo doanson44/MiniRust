@@ -23,6 +23,6 @@ When requested:
 2. `cargo run -p minirust-web` → `/` and `/health`.
 3. Stop all processes when verification is complete.
 
-The API currently requires MariaDB through `MINIRUST_DATABASE_URL` at startup.
+The API connects to MariaDB at startup using `MINIRUST_DB_*` (or `MINIRUST_DATABASE_URL` when set).
 
 CI equivalent: `.github/workflows/rust.yml`.

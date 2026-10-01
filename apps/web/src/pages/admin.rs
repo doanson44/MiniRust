@@ -7,6 +7,12 @@ use crate::types::UserResponse;
 #[cfg(feature = "hydrate")]
 use crate::types::{PaginationMeta, PremiumResponse, UserListData};
 
+use super::ui::{
+    EmptyState, Field, LoadingState, Modal, PageSizeSelect, Pagination, SortHeader, ToggleRow,
+    BTN_DANGER, BTN_DANGER_SM, BTN_PRIMARY, BTN_SECONDARY_SM, EYEBROW, INPUT, PAGE_SHELL,
+    PAGE_TITLE, SELECT, SELECT_CHEVRON, TABLE_SHELL, TH, TR,
+};
+
 #[cfg(feature = "hydrate")]
 fn timestamp_to_date(timestamp: i64) -> String {
     js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(timestamp as f64 * 1000.0))
@@ -39,16 +45,24 @@ pub fn AdminPage() -> impl IntoView {
     let (users, set_users) = signal(Vec::<UserResponse>::new());
     let (current_user_id, set_current_user_id) = signal(None::<String>);
     let (status, set_status) = signal(String::new());
-    let (new_email, set_new_email) = signal(String::new());
 
+    // ── Create modal state ───────────────────────────────────────────────
+    let (show_create, set_show_create) = signal(false);
+    let (new_email, set_new_email) = signal(String::new());
+    let (new_role, set_new_role) = signal("none".to_owned());
+    let (new_premium_active, set_new_premium_active) = signal(false);
+
+    // ── Edit dialog state ────────────────────────────────────────────────
     let (selected, set_selected) = signal(None::<String>);
     let (delete_candidate, set_delete_candidate) = signal(None::<UserResponse>);
     let (edit_email, set_edit_email) = signal(String::new());
     let (edit_role, set_edit_role) = signal("none".to_owned());
     let (premium_active, set_premium_active) = signal(false);
     let (premium_expires, set_premium_expires) = signal(String::new());
+    let (edit_locked, set_edit_locked) = signal(false);
     let premium_expires_input = NodeRef::<leptos::html::Input>::new();
 
+    // ── Filter / sort / page state ───────────────────────────────────────
     let (search, set_search) = signal(String::new());
     let (role_filter, set_role_filter) = signal("all".to_owned());
     let (premium_filter, set_premium_filter) = signal("all".to_owned());
@@ -58,11 +72,13 @@ pub fn AdminPage() -> impl IntoView {
     let (page, set_page) = signal(1u32);
     let (page_size, set_page_size) = signal(20i32);
     let (total_pages, set_total_pages) = signal(1u32);
+    let (loading, set_loading) = signal(false);
 
     #[cfg(feature = "hydrate")]
     {
         leptos::task::spawn_local({
             async move {
+                set_loading.set(true);
                 if let Ok(current_user) =
                     api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None)
                         .await
@@ -87,6 +103,7 @@ pub fn AdminPage() -> impl IntoView {
                     }
                     Err(error) => set_status.set(error),
                 }
+                set_loading.set(false);
             }
         });
     }
@@ -97,6 +114,7 @@ pub fn AdminPage() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local({
             async move {
+                set_loading.set(true);
                 match api_json_with_meta::<UserListData, PaginationMeta>(
                     gloo_net::http::Method::GET,
                     &format!(
@@ -113,6 +131,7 @@ pub fn AdminPage() -> impl IntoView {
                     }
                     Err(error) => set_status.set(error),
                 }
+                set_loading.set(false);
             }
         });
     };
@@ -120,17 +139,29 @@ pub fn AdminPage() -> impl IntoView {
     let create_user = move |event: leptos::ev::SubmitEvent| {
         event.prevent_default();
         let email = new_email.get();
+        let role = new_role.get();
+        let premium_active = new_premium_active.get();
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
             match api_json::<UserResponse>(
                 gloo_net::http::Method::POST,
                 "/api/v1/admin/users",
-                Some(serde_json::json!({ "email": email }).to_string()),
+                Some(
+                    serde_json::json!({
+                        "email": email,
+                        "role": role,
+                        "premium_active": premium_active
+                    })
+                    .to_string(),
+                ),
             )
             .await
             {
                 Ok(_) => {
                     set_new_email.set(String::new());
+                    set_new_role.set("none".to_owned());
+                    set_new_premium_active.set(false);
+                    set_show_create.set(false);
                     set_status.set("User created.".to_owned());
                     reload_users();
                 }
@@ -154,6 +185,26 @@ pub fn AdminPage() -> impl IntoView {
                     if selected.get().as_deref() == Some(user_id.as_str()) {
                         set_selected.set(None);
                     }
+                    reload_users();
+                }
+                Err(error) => set_status.set(error),
+            }
+        });
+    };
+
+    let lock_user = move |user_id: String| {
+        #[cfg(feature = "hydrate")]
+        leptos::task::spawn_local(async move {
+            match api_empty(
+                gloo_net::http::Method::POST,
+                &format!("/api/v1/admin/users/{user_id}/lock"),
+                None,
+            )
+            .await
+            {
+                Ok(()) => {
+                    set_status.set("User locked.".to_owned());
+                    set_selected.set(None);
                     reload_users();
                 }
                 Err(error) => set_status.set(error),
@@ -185,10 +236,19 @@ pub fn AdminPage() -> impl IntoView {
         let Some(user_id) = selected.get() else {
             return;
         };
-        let email = edit_email.get();
         let role = edit_role.get();
         let premium_active = premium_active.get();
         let premium_expires = premium_expires.get();
+        let locked_target = edit_locked.get();
+
+        // Check if locked state changed
+        let original_locked = users
+            .get()
+            .into_iter()
+            .find(|u| u.id == user_id)
+            .map(|u| u.is_locked)
+            .unwrap_or(false);
+        let toggle_lock = original_locked != locked_target;
 
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
@@ -202,7 +262,6 @@ pub fn AdminPage() -> impl IntoView {
                 &format!("/api/v1/admin/users/{user_id}"),
                 Some(
                     serde_json::json!({
-                        "email": email,
                         "role": role,
                         "premium_active": premium_active,
                         "premium_expires_at": premium_expires_at
@@ -213,6 +272,24 @@ pub fn AdminPage() -> impl IntoView {
             .await
             {
                 Ok(_) => {
+                    if toggle_lock {
+                        if locked_target {
+                            let _ = api_empty(
+                                gloo_net::http::Method::POST,
+                                &format!("/api/v1/admin/users/{user_id}/lock"),
+                                None,
+                            )
+                            .await;
+                        } else {
+                            let _ = api_json::<UserResponse>(
+                                gloo_net::http::Method::POST,
+                                &format!("/api/v1/admin/users/{user_id}/unlock"),
+                                None,
+                            )
+                            .await;
+                        }
+                    }
+
                     set_status.set("User changes saved.".to_owned());
                     set_selected.set(None);
                     reload_users();
@@ -232,6 +309,7 @@ pub fn AdminPage() -> impl IntoView {
         });
         set_premium_active.set(user.is_premium);
         set_premium_expires.set(String::new());
+        set_edit_locked.set(user.is_locked);
 
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
@@ -287,7 +365,7 @@ pub fn AdminPage() -> impl IntoView {
             .collect::<Vec<_>>()
     });
 
-    let sort_users = move |column: &'static str| {
+    let sort_users = move |column: &str| {
         if sort_column.get().as_str() == column {
             set_sort_desc.update(|descending| *descending = !*descending);
         } else {
@@ -325,6 +403,10 @@ pub fn AdminPage() -> impl IntoView {
 
     let page_users = Memo::new(move |_| sorted_users.get());
 
+    // `SortHeader` hands the column back as an owned `String`; `sort_users`
+    // takes a borrow. `Callback` is `Copy`, so one value can serve every header.
+    let sort_by = Callback::new(move |column: String| sort_users(&column));
+
     let change_page_size = move |value: String| {
         if let Ok(value) = value.parse::<i32>() {
             if PAGE_SIZE_OPTIONS.contains(&value) {
@@ -336,166 +418,116 @@ pub fn AdminPage() -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
-            <section>
-                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"User Management"</p>
-                <h1 class="mt-3 text-4xl font-black text-white">"Users"</h1>
-                <p class="mt-3 text-sm text-slate-400">{status}</p>
-            </section>
-
-            <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
-                    <div class="min-w-0 flex-1">
-                        <h2 class="text-xl font-bold text-white">"Create user"</h2>
-                        <form on:submit=create_user class="mt-4 flex flex-col gap-3 sm:flex-row">
-                            <input
-                                type="email"
-                                required
-                                placeholder="user@example.com"
-                                prop:value=new_email
-                                on:input=move |ev| set_new_email.set(event_target_value(&ev))
-                                class="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                            />
-                            <button class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950" type="submit">
-                                "Create"
-                            </button>
-                        </form>
-                    </div>
+        <div class=PAGE_SHELL>
+            <section class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p class=EYEBROW>"User Management"</p>
+                    <h1 class=PAGE_TITLE>"Users"</h1>
+                    <p class="mt-2 text-sm text-subtle-foreground">{status}</p>
                 </div>
+                <button
+                    type="button"
+                    id="btn-open-create-user"
+                    on:click=move |_| set_show_create.set(true)
+                    class=BTN_PRIMARY
+                >
+                    "+ Create user"
+                </button>
             </section>
 
-            <section class="space-y-4">
-                <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                    <label class="text-sm text-slate-400">
-                        <span class="mb-2 block">"Items per page"</span>
-                        <select
-                            prop:value=move || page_size.get().to_string()
-                            on:change=move |ev| change_page_size(event_target_value(&ev))
-                            class="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white"
-                        >
-                            {PAGE_SIZE_OPTIONS.into_iter().map(|size| {
-                                let label = if size == ALL_PAGE_SIZE { "All".to_owned() } else { size.to_string() };
-                                view! { <option value=size.to_string()>{label}</option> }
-                            }).collect_view()}
-                        </select>
-                    </label>
+            <section class="space-y-3">
+                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <input
                         type="search"
+                        aria-label="Search users by email or name"
                         placeholder="Search email or name..."
                         prop:value=search
                         on:input=move |ev| {
                             set_search.set(event_target_value(&ev));
                             set_page.set(1);
                         }
-                        class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white"
+                        class=INPUT
                     />
-                    <select
-                        prop:value=role_filter
-                        on:change=move |ev| {
-                            set_role_filter.set(event_target_value(&ev));
-                            set_page.set(1);
-                        }
-                        class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white"
-                    >
-                        <option value="all">"All roles"</option>
-                        <option value="admin">"Admin"</option>
-                        <option value="user">"User"</option>
-                    </select>
-                    <select
-                        prop:value=premium_filter
-                        on:change=move |ev| {
-                            set_premium_filter.set(event_target_value(&ev));
-                            set_page.set(1);
-                        }
-                        class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white"
-                    >
-                        <option value="all">"All premium states"</option>
-                        <option value="active">"Premium"</option>
-                        <option value="inactive">"Not premium"</option>
-                    </select>
-                    <select
-                        prop:value=status_filter
-                        on:change=move |ev| {
-                            set_status_filter.set(event_target_value(&ev));
-                            set_page.set(1);
-                        }
-                        class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white"
-                    >
-                        <option value="all">"All account states"</option>
-                        <option value="active">"Active"</option>
-                        <option value="locked">"Locked"</option>
-                    </select>
+                    <div class="relative">
+                        <select
+                            aria-label="Filter by role"
+                            prop:value=role_filter
+                            on:change=move |ev| {
+                                set_role_filter.set(event_target_value(&ev));
+                                set_page.set(1);
+                            }
+                            class=SELECT
+                        >
+                            <option value="all" class="bg-canvas-raised text-foreground">"All roles"</option>
+                            <option value="admin" class="bg-canvas-raised text-foreground">"Admin"</option>
+                            <option value="user" class="bg-canvas-raised text-foreground">"User"</option>
+                        </select>
+                        <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
+                    </div>
+                    <div class="relative">
+                        <select
+                            aria-label="Filter by premium state"
+                            prop:value=premium_filter
+                            on:change=move |ev| {
+                                set_premium_filter.set(event_target_value(&ev));
+                                set_page.set(1);
+                            }
+                            class=SELECT
+                        >
+                            <option value="all" class="bg-canvas-raised text-foreground">"All premium states"</option>
+                            <option value="active" class="bg-canvas-raised text-foreground">"Premium"</option>
+                            <option value="inactive" class="bg-canvas-raised text-foreground">"Not premium"</option>
+                        </select>
+                        <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
+                    </div>
+                    <div class="relative">
+                        <select
+                            aria-label="Filter by account state"
+                            prop:value=status_filter
+                            on:change=move |ev| {
+                                set_status_filter.set(event_target_value(&ev));
+                                set_page.set(1);
+                            }
+                            class=SELECT
+                        >
+                            <option value="all" class="bg-canvas-raised text-foreground">"All account states"</option>
+                            <option value="active" class="bg-canvas-raised text-foreground">"Active"</option>
+                            <option value="locked" class="bg-canvas-raised text-foreground">"Locked"</option>
+                        </select>
+                        <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
+                    </div>
                 </div>
 
-                <section class="overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.03]">
-                    <table class="w-full min-w-[760px] text-left">
+                <section class=TABLE_SHELL>
+                    <div class="flex flex-wrap items-center justify-end gap-3 border-b border-line px-4 py-2">
+                        <PageSizeSelect
+                            value=page_size
+                            options=PAGE_SIZE_OPTIONS.to_vec()
+                            all_value=ALL_PAGE_SIZE
+                            on_change=Callback::new(move |size: i32| change_page_size(size.to_string()))
+                        />
+                    </div>
+
+                    <Show when=move || loading.get()>
+                        <LoadingState label="Loading users".to_owned()/>
+                    </Show>
+                    <Show when=move || !loading.get() && page_users.get().is_empty()>
+                        <EmptyState>
+                            "No users match the current search and filters. Clear a filter, or create the first user."
+                        </EmptyState>
+                    </Show>
+
+                    // Desktop table. Below `md` the same rows render as cards so the
+                    // page never scrolls horizontally at 375px.
+                    <div class="hidden md:block">
+                    <table class="w-full text-left" aria-label="Users">
                         <thead>
-                            <tr class="text-xs uppercase tracking-widest text-slate-500">
-                                <th class="px-4 py-4">
-                                    <button
-                                        type="button"
-                                        on:click=move |_| sort_users("email")
-                                        class="inline-flex items-center gap-2 hover:text-white"
-                                    >
-                                        "Email"
-                                        <span class="text-sm">
-                                            {move || if sort_column.get() == "email" {
-                                                if sort_desc.get() { "↓" } else { "↑" }
-                                            } else {
-                                                "↕"
-                                            }}
-                                        </span>
-                                    </button>
-                                </th>
-                                <th class="px-4 py-4">
-                                    <button
-                                        type="button"
-                                        on:click=move |_| sort_users("role")
-                                        class="inline-flex items-center gap-2 hover:text-white"
-                                    >
-                                        "Role"
-                                        <span class="text-sm">
-                                            {move || if sort_column.get() == "role" {
-                                                if sort_desc.get() { "↓" } else { "↑" }
-                                            } else {
-                                                "↕"
-                                            }}
-                                        </span>
-                                    </button>
-                                </th>
-                                <th class="px-4 py-4">
-                                    <button
-                                        type="button"
-                                        on:click=move |_| sort_users("premium")
-                                        class="inline-flex items-center gap-2 hover:text-white"
-                                    >
-                                        "Premium"
-                                        <span class="text-sm">
-                                            {move || if sort_column.get() == "premium" {
-                                                if sort_desc.get() { "↓" } else { "↑" }
-                                            } else {
-                                                "↕"
-                                            }}
-                                        </span>
-                                    </button>
-                                </th>
-                                <th class="px-4 py-4">
-                                    <button
-                                        type="button"
-                                        on:click=move |_| sort_users("status")
-                                        class="inline-flex items-center gap-2 hover:text-white"
-                                    >
-                                        "Status"
-                                        <span class="text-sm">
-                                            {move || if sort_column.get() == "status" {
-                                                if sort_desc.get() { "↓" } else { "↑" }
-                                            } else {
-                                                "↕"
-                                            }}
-                                        </span>
-                                    </button>
-                                </th>
-                                <th class="px-4 py-4">"Actions"</th>
+                            <tr class="text-xs uppercase tracking-widest text-faint-foreground">
+                                <SortHeader label="Email".to_owned() column="email" active_column=sort_column descending=sort_desc on_sort=sort_by/>
+                                <SortHeader label="Role".to_owned() column="role" active_column=sort_column descending=sort_desc on_sort=sort_by/>
+                                <SortHeader label="Premium".to_owned() column="premium" active_column=sort_column descending=sort_desc on_sort=sort_by/>
+                                <SortHeader label="Status".to_owned() column="status" active_column=sort_column descending=sort_desc on_sort=sort_by/>
+                                <th scope="col" class=TH>"Actions"</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -510,20 +542,20 @@ pub fn AdminPage() -> impl IntoView {
                                     let delete_user_id = StoredValue::new(user.id.clone());
 
                                     view! {
-                                        <tr class="border-t border-white/10">
-                                            <td class="px-4 py-4 text-sm text-white">
-                                                <div>{user.email.clone()}</div>
+                                        <tr class=TR>
+                                            <td class="px-4 py-4 text-sm text-foreground">
+                                                <div class="break-words">{user.email.clone()}</div>
                                                 {user.full_name.clone().map(|name| view! {
-                                                    <div class="mt-1 text-xs text-slate-500">{name}</div>
+                                                    <div class="mt-1 break-words text-xs text-faint-foreground">{name}</div>
                                                 })}
                                             </td>
-                                            <td class="px-4 py-4 text-sm text-slate-400">
+                                            <td class="px-4 py-4 text-sm text-subtle-foreground">
                                                 {if user.is_admin { "Admin" } else { "User" }}
                                             </td>
-                                            <td class="px-4 py-4 text-sm text-slate-400">
+                                            <td class="px-4 py-4 text-sm text-subtle-foreground">
                                                 {if user.is_premium { "Active" } else { "Inactive" }}
                                             </td>
-                                            <td class="px-4 py-4 text-sm text-slate-400">
+                                            <td class="px-4 py-4 text-sm text-subtle-foreground">
                                                 {if user.is_locked { "Locked" } else { "Active" }}
                                             </td>
                                             <td class="px-4 py-4 text-sm">
@@ -531,7 +563,7 @@ pub fn AdminPage() -> impl IntoView {
                                                     <button
                                                         type="button"
                                                         on:click=move |_| open_edit(edit_user.clone())
-                                                        class="rounded-lg border border-white/10 px-3 py-2 text-slate-300 hover:bg-white/10"
+                                                        class=BTN_SECONDARY_SM
                                                     >
                                                         "Edit"
                                                     </button>
@@ -546,7 +578,7 @@ pub fn AdminPage() -> impl IntoView {
                                                                     .find(|candidate| candidate.id == user_id);
                                                                 set_delete_candidate.set(candidate);
                                                             }
-                                                            class="rounded-lg bg-red-300/10 px-3 py-2 text-red-200 hover:bg-red-300/20"
+                                                            class=BTN_DANGER_SM
                                                         >
                                                             "Delete"
                                                         </button>
@@ -559,226 +591,299 @@ pub fn AdminPage() -> impl IntoView {
                             />
                         </tbody>
                     </table>
-                    <div class="flex items-center justify-between border-t border-white/10 px-4 py-4 text-sm text-slate-400">
-                        <span>
-                            {move || if page_size.get() == ALL_PAGE_SIZE {
-                                format!("All · {} items", users.get().len())
-                            } else {
-                                format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())
-                            }}
-                        </span>
-                        <div class="flex gap-2">
-                            <button
-                                type="button"
-                                disabled=move || { page.get() <= 1 }
-                                on:click=move |_| {
-                                    set_page.update(|value| *value = value.saturating_sub(1).max(1));
-                                    reload_users();
-                                }
-                                class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40"
-                            >
-                                "Previous"
-                            </button>
-                            <button
-                                type="button"
-                                disabled=move || { page.get() >= total_pages.get() }
-                                on:click=move |_| {
-                                    set_page.update(|value| *value += 1);
-                                    reload_users();
-                                }
-                                class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40"
-                            >
-                                "Next"
-                            </button>
-                        </div>
                     </div>
+
+                    <ul class="space-y-3 p-4 md:hidden">
+                        <For
+                            each=move || page_users.get()
+                            key=|user| user.id.clone()
+                            children=move |user| {
+                                let is_self = current_user_id
+                                    .get()
+                                    .is_some_and(|current_id| current_id == user.id);
+                                let edit_user = user.clone();
+                                let delete_user_id = StoredValue::new(user.id.clone());
+
+                                view! {
+                                    <li class="rounded-2xl border border-line bg-canvas p-4">
+                                        <p class="break-words text-sm font-semibold text-foreground">
+                                            {user.email.clone()}
+                                        </p>
+                                        {user.full_name.clone().map(|name| view! {
+                                            <p class="mt-1 break-words text-xs text-faint-foreground">{name}</p>
+                                        })}
+                                        <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                            <div>
+                                                <dt class="text-faint-foreground">"Role"</dt>
+                                                <dd class="text-muted-foreground">
+                                                    {if user.is_admin { "Admin" } else { "User" }}
+                                                </dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-faint-foreground">"Premium"</dt>
+                                                <dd class="text-muted-foreground">
+                                                    {if user.is_premium { "Active" } else { "Inactive" }}
+                                                </dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-faint-foreground">"Status"</dt>
+                                                <dd class="text-muted-foreground">
+                                                    {if user.is_locked { "Locked" } else { "Active" }}
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                        <div class="mt-3 flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                on:click=move |_| open_edit(edit_user.clone())
+                                                class=BTN_SECONDARY_SM
+                                            >
+                                                "Edit"
+                                            </button>
+                                            <Show when=move || !is_self>
+                                                <button
+                                                    type="button"
+                                                    on:click=move |_| {
+                                                        let user_id = delete_user_id.get_value();
+                                                        let candidate = users
+                                                            .get()
+                                                            .into_iter()
+                                                            .find(|candidate| candidate.id == user_id);
+                                                        set_delete_candidate.set(candidate);
+                                                    }
+                                                    class=BTN_DANGER_SM
+                                                >
+                                                    "Delete"
+                                                </button>
+                                            </Show>
+                                        </div>
+                                    </li>
+                                }
+                            }
+                        />
+                    </ul>
+                    <Pagination
+                        can_go_back=Signal::derive(move || page.get() > 1)
+                        can_go_forward=Signal::derive(move || page.get() < total_pages.get())
+                        on_previous=Callback::new(move |_| {
+                            set_page.update(|value| *value = value.saturating_sub(1).max(1));
+                            reload_users();
+                        })
+                        on_next=Callback::new(move |_| {
+                            set_page.update(|value| *value += 1);
+                            reload_users();
+                        })
+                    >
+                        {move || if page_size.get() == ALL_PAGE_SIZE {
+                            format!("All · {} items", users.get().len())
+                        } else {
+                            format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())
+                        }}
+                    </Pagination>
                 </section>
             </section>
 
-            <Show when=move || selected.get().is_some()>
-                <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+            // CREATE MODAL
+            <Modal
+                open=show_create
+                on_close=Callback::new(move |_| set_show_create.set(false))
+                close_label="Close create dialog".to_owned()
+            >
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-widest text-accent">"New user"</p>
+                        <h2 class="mt-1 text-xl font-bold text-foreground">"Create user"</h2>
+                    </div>
                     <button
                         type="button"
-                        aria-label="Close edit dialog"
-                        class="absolute inset-0 cursor-default"
-                        on:click=move |_| set_selected.set(None)
-                    ></button>
-                    <section
-                        role="dialog"
-                        aria-modal="true"
-                        class="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl"
+                        on:click=move |_| set_show_create.set(false)
+                        class=BTN_SECONDARY_SM
                     >
-                        <div class="flex items-center justify-between gap-4">
-                            <div>
-                                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Edit user"</p>
-                                <h2 class="mt-2 text-xl font-bold text-white">{move || edit_email.get()}</h2>
-                            </div>
-                            <button
-                                type="button"
-                                on:click=move |_| set_selected.set(None)
-                                class="rounded-lg border border-white/10 px-3 py-2 text-slate-300"
+                        <span aria-hidden="true">"\u{2715}"</span>
+                        "Close"
+                    </button>
+                </div>
+                <form id="create-user-form" on:submit=create_user class="mt-6 space-y-4">
+                    <Field label="Email".to_owned()>
+                        <input
+                            type="email"
+                            required
+                            placeholder="user@example.com"
+                            prop:value=new_email
+                            on:input=move |ev| set_new_email.set(event_target_value(&ev))
+                            class=INPUT
+                        />
+                    </Field>
+                    <Field label="Role".to_owned()>
+                        <div class="relative">
+                            <select
+                                aria-label="Role"
+                                prop:value=new_role
+                                on:change=move |ev| set_new_role.set(event_target_value(&ev))
+                                class=SELECT
                             >
-                                "Close"
-                            </button>
+                                <option value="none" class="bg-canvas-raised text-foreground">"User"</option>
+                                <option value="admin" class="bg-canvas-raised text-foreground">"Admin"</option>
+                            </select>
+                            <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
                         </div>
+                    </Field>
+                    <ToggleRow
+                        title="Premium".to_owned()
+                        description="Grant premium access immediately".to_owned()
+                        checked=new_premium_active
+                        on_toggle=Callback::new(move |_| set_new_premium_active.update(|v| *v = !*v))
+                    />
+                    <p class="text-xs text-faint-foreground">"New users are always created as Active."</p>
+                </form>
+                <div class="mt-6 flex justify-end gap-3 border-t border-line pt-5">
+                    <button
+                        type="button"
+                        on:click=move |_| set_show_create.set(false)
+                        class=BTN_SECONDARY_SM
+                    >
+                        "Cancel"
+                    </button>
+                    <button type="submit" form="create-user-form" class=BTN_PRIMARY>"Create user"</button>
+                </div>
+            </Modal>
 
-                        <form id="edit-user-form" on:submit=save_changes class="mt-6 space-y-5">
-                            <div class="grid gap-4 md:grid-cols-2">
-                                <label class="block">
-                                    <span class="text-sm font-medium text-slate-300">"Email"</span>
-                                    <input
-                                        type="email"
-                                        required
-                                        prop:value=edit_email
-                                        on:input=move |ev| set_edit_email.set(event_target_value(&ev))
-                                        class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                                    />
-                                </label>
-                                <label class="block">
-                                    <span class="text-sm font-medium text-slate-300">"Role"</span>
-                                    <select
-                                        prop:value=edit_role
-                                        on:change=move |ev| set_edit_role.set(event_target_value(&ev))
-                                        class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                                    >
-                                        <option value="none">"User"</option>
-                                        <option value="admin">"Admin"</option>
-                                    </select>
-                                </label>
-                            </div>
-
-                            <div class="border-t border-white/10 pt-6">
-                                <div class="flex items-center justify-between gap-4">
-                                    <div>
-                                        <h3 class="text-lg font-bold text-white">"Premium"</h3>
-                                        <p class="mt-1 text-sm text-slate-500">"Choose an optional expiry date."</p>
+            // EDIT MODAL
+            <Modal
+                open=Signal::derive(move || selected.get().is_some())
+                on_close=Callback::new(move |_| set_selected.set(None))
+                close_label="Close edit dialog".to_owned()
+            >
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-xs font-bold uppercase tracking-widest text-accent">"Edit user"</p>
+                        <h2 class="mt-1 truncate text-xl font-bold text-foreground" title=move || edit_email.get()>{move || edit_email.get()}</h2>
+                    </div>
+                    <button
+                        type="button"
+                        on:click=move |_| set_selected.set(None)
+                        class=BTN_SECONDARY_SM
+                    >
+                        <span aria-hidden="true">"\u{2715}"</span>
+                        "Close"
+                    </button>
+                </div>
+                <div class="mt-5 rounded-xl border border-line bg-surface px-4 py-3">
+                    <p class="text-xs font-medium uppercase tracking-widest text-faint-foreground">"Email"</p>
+                    <p class="mt-1 truncate text-sm text-muted-foreground" title=move || edit_email.get()>{move || edit_email.get()}</p>
+                </div>
+                <form id="edit-user-form" on:submit=save_changes class="mt-5 space-y-4">
+                    <Field label="Role".to_owned()>
+                        <div class="relative">
+                            <select
+                                aria-label="Role"
+                                prop:value=edit_role
+                                on:change=move |ev| set_edit_role.set(event_target_value(&ev))
+                                class=SELECT
+                            >
+                                <option value="none" class="bg-canvas-raised text-foreground">"User"</option>
+                                <option value="admin" class="bg-canvas-raised text-foreground">"Admin"</option>
+                            </select>
+                            <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
+                        </div>
+                    </Field>
+                    <ToggleRow
+                        title="Premium".to_owned()
+                        description="Grant premium access".to_owned()
+                        checked=premium_active
+                        on_toggle=Callback::new(move |_| set_premium_active.update(|v| *v = !*v))
+                    />
+                            // Premium expiry
+                            <Show when=move || premium_active.get()>
+                                <Field label="Premium expiry (optional)".to_owned() description="Leave empty for no expiry.".to_owned()>
+                                    <div class="flex gap-2">
+                                        <div class="min-w-0 flex-1">
+                                            <input
+                                                node_ref=premium_expires_input
+                                                type="date"
+                                                aria-label="Premium expiry date"
+                                                prop:value=premium_expires
+                                                on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
+                                                class=INPUT
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            aria-label="Open premium expiry date picker"
+                                            on:click=move |_| {
+                                                if let Some(input) = premium_expires_input.get() {
+                                                    input.click();
+                                                }
+                                            }
+                                            class=BTN_SECONDARY_SM
+                                        >
+                                            <span aria-hidden="true">"\u{1F4C5}"</span>
+                                        </button>
                                     </div>
+                                </Field>
+                            </Show>
+                            // Active / Locked slide toggle
+                            <div class=move || format!("flex items-center justify-between gap-4 rounded-xl border px-4 py-3 {}", if edit_locked.get() { "border-amber-300/20 bg-amber-300/5" } else { "border-line bg-canvas" })>
+                                <div>
+                                    <p class=move || format!("text-sm font-medium {}", if edit_locked.get() { "text-amber-200" } else { "text-muted-foreground" })>
+                                        {move || if edit_locked.get() { "Account locked" } else { "Account active" }}
+                                    </p>
+                                    <p class="text-xs text-faint-foreground">
+                                        {move || if edit_locked.get() { "User cannot log in" } else { "User can log in normally" }}
+                                    </p>
                                 </div>
-
-                                <div class="mt-4 flex flex-col gap-3">
-                                    <label class="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">
-                                        <input
-                                            type="checkbox"
-                                            prop:checked=premium_active
-                                            on:change=move |ev| set_premium_active.set(event_target_checked(&ev))
-                                        />
-                                        "Premium active"
-                                    </label>
-
-                                    <Show when=move || premium_active.get()>
-                                        <label class="block">
-                                            <span class="text-sm font-medium text-slate-300">"Premium expiry (optional)"</span>
-                                            <span class="mt-1 block text-xs text-slate-500">
-                                                "Leave empty for no expiry."
-                                            </span>
-                                            <div class="mt-2 flex gap-2">
-                                                <input
-                                                    node_ref=premium_expires_input
-                                                    type="date"
-                                                    prop:value=premium_expires
-                                                    on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
-                                                    class="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    aria-label="Open premium expiry date picker"
-                                                    on:click=move |_| {
-                                                        if let Some(input) = premium_expires_input.get() {
-                                                            input.click();
-                                                        }
-                                                    }
-                                                    class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-slate-300 hover:bg-white/10"
-                                                >
-                                                    "Calendar"
-                                                </button>
-                                            </div>
-                                        </label>
-                                    </Show>
-                                </div>
-                            </div>
-
-                        </form>
-
-                        <Show when=move || selected.get().and_then(|id| users.get().into_iter().find(|user| user.id == id)).is_some_and(|user| user.is_locked)>
-                            <div class="mt-8 border-t border-white/10 pt-6">
-                                <h3 class="text-lg font-bold text-white">"Account status"</h3>
                                 <button
                                     type="button"
-                                    on:click=move |_| {
-                                        if let Some(user_id) = selected.get() {
-                                            unlock_user(user_id);
-                                        }
-                                    }
-                                    class="mt-3 rounded-xl bg-amber-300/10 px-5 py-3 text-amber-200"
+                                    role="switch"
+                                    aria-label="Account active"
+                                    aria-checked=move || (!edit_locked.get()).to_string()
+                                    on:click=move |_| set_edit_locked.update(|v| *v = !*v)
+                                    class=move || format!("relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas {}", if edit_locked.get() { "bg-amber-400" } else { "bg-accent" })
                                 >
-                                    "Unlock user"
+                                    <span class=move || format!("pointer-events-none inline-block size-5 rounded-full bg-white shadow transition {}", if edit_locked.get() { "translate-x-5" } else { "translate-x-0" }) />
                                 </button>
                             </div>
-                        </Show>
-                        <div class="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
-                            <button
-                                type="button"
-                                on:click=move |_| set_selected.set(None)
-                                class="rounded-xl border border-white/10 px-4 py-3 text-slate-300"
-                            >
-                                "Close"
-                            </button>
-                            <button
-                                type="submit"
-                                form="edit-user-form"
-                                class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950"
-                            >
-                                "Save Changes"
-                            </button>
-                        </div>
-                    </section>
+                        </form>
+                <div class="mt-6 flex justify-end gap-3 border-t border-line pt-5">
+                    <button type="button" on:click=move |_| set_selected.set(None) class=BTN_SECONDARY_SM>"Cancel"</button>
+                    <button type="submit" form="edit-user-form" class=BTN_PRIMARY>"Save changes"</button>
                 </div>
-            </Show>
+            </Modal>
 
-            <Show when=move || delete_candidate.get().is_some()>
-                <div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+            <Modal
+                open=Signal::derive(move || delete_candidate.get().is_some())
+                on_close=Callback::new(move |_| set_delete_candidate.set(None))
+                close_label="Close delete confirmation".to_owned()
+            >
+                <p class="text-sm font-bold uppercase tracking-widest text-danger">"Delete user"</p>
+                <h2 class="mt-3 text-xl font-bold text-foreground">"Are you sure?"</h2>
+                <p class="mt-3 text-sm leading-6 text-subtle-foreground">
+                    "This will permanently delete "
+                    {move || delete_candidate.get().map(|user| user.email)}
+                    ". This action cannot be undone."
+                </p>
+                <div class="mt-6 flex justify-end gap-3">
                     <button
                         type="button"
-                        aria-label="Close delete confirmation"
-                        class="absolute inset-0 cursor-default"
                         on:click=move |_| set_delete_candidate.set(None)
-                    ></button>
-                    <section
-                        role="alertdialog"
-                        aria-modal="true"
-                        class="relative z-10 w-full max-w-md rounded-3xl border border-red-300/20 bg-slate-900 p-6 shadow-2xl"
+                        class=BTN_SECONDARY_SM
                     >
-                        <p class="text-sm font-bold uppercase tracking-widest text-red-300">"Delete user"</p>
-                        <h2 class="mt-3 text-xl font-bold text-white">"Are you sure?"</h2>
-                        <p class="mt-3 text-sm leading-6 text-slate-400">
-                            "This will permanently delete "
-                            {move || delete_candidate.get().map(|user| user.email)}
-                            ". This action cannot be undone."
-                        </p>
-                        <div class="mt-6 flex justify-end gap-3">
-                            <button
-                                type="button"
-                                on:click=move |_| set_delete_candidate.set(None)
-                                class="rounded-xl border border-white/10 px-4 py-2 text-slate-300"
-                            >
-                                "Cancel"
-                            </button>
-                            <button
-                                type="button"
-                                on:click=move |_| {
-                                    if let Some(user) = delete_candidate.get() {
-                                        set_delete_candidate.set(None);
-                                        delete_user(user.id);
-                                    }
-                                }
-                                class="rounded-xl bg-red-400 px-4 py-2 font-bold text-slate-950"
-                            >
-                                "Delete user"
-                            </button>
-                        </div>
-                    </section>
+                        "Cancel"
+                    </button>
+                    <button
+                        type="button"
+                        on:click=move |_| {
+                            if let Some(user) = delete_candidate.get() {
+                                set_delete_candidate.set(None);
+                                delete_user(user.id);
+                            }
+                        }
+                        class=BTN_DANGER
+                    >
+                        "Delete user"
+                    </button>
                 </div>
-            </Show>
+            </Modal>
         </div>
     }
 }

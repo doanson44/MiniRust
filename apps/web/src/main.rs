@@ -47,8 +47,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .env(leptos_environment)
         .build();
 
-    let database_url = config.database_url()?;
-    let database = Database::connect(database_url).await?;
+    let database_url = config.database_url();
+    let database =
+        Database::connect_with_max_connections(&database_url, config.database_max_connections())
+            .await?;
     let auth = AuthService::new(
         database.clone(),
         UnavailableEmailSender,

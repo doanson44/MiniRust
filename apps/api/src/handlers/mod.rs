@@ -53,6 +53,7 @@ pub fn router(state: AppState) -> Router {
                 .patch(admin::update)
                 .delete(admin::delete_user),
         )
+        .route("/api/v1/admin/users/{user_id}/lock", post(admin::lock))
         .route("/api/v1/admin/users/{user_id}/unlock", post(admin::unlock))
         .route(
             "/api/v1/admin/users/{user_id}/entitlements/premium",

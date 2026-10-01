@@ -71,7 +71,7 @@ Do not introduce Event Sourcing or a message broker merely because CQRS exists. 
 
 ## Database
 
-MariaDB is the selected database. The API currently requires `MINIRUST_DATABASE_URL` during startup and `/health` performs a live `SELECT 1` connectivity check.
+MariaDB is the selected database. The API reads its connection from `MINIRUST_DB_*` (or `MINIRUST_DATABASE_URL` when set) during startup and `/health` performs a live `SELECT 1` connectivity check.
 
 ## Scope
 

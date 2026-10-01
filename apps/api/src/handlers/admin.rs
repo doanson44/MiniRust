@@ -17,11 +17,14 @@ use crate::{auth_user_response, json_rejection_response, parse_user_id, AppState
 #[derive(Deserialize)]
 pub(crate) struct AdminCreateUserRequest {
     email: String,
+    #[serde(default)]
+    role: Option<String>,
+    #[serde(default)]
+    premium_active: Option<bool>,
 }
 
 #[derive(Deserialize)]
 pub(crate) struct AdminUpdateUserRequest {
-    email: String,
     role: String,
     premium_active: bool,
     premium_expires_at: Option<i64>,
@@ -120,10 +123,20 @@ pub async fn create(
         Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
     };
 
+    let role = match body.role.as_deref() {
+        Some(value) => match minirust_services::AdminUserRole::parse(value) {
+            Ok(role) => role,
+            Err(error) => return ProblemDetails::user_admin(&error, locale).into_response(),
+        },
+        None => minirust_services::AdminUserRole::None,
+    };
+
     match state
         .user_commands
         .handle(UserAdminCommand::CreateUser {
             email: body.email.clone(),
+            role,
+            premium_active: body.premium_active.unwrap_or(false),
         })
         .await
     {
@@ -199,7 +212,6 @@ pub async fn update(
         .user_commands
         .handle(UserAdminCommand::UpdateUser {
             user_id,
-            new_email: body.email,
             role,
             premium_active: body.premium_active,
             premium_expires_at: body.premium_expires_at,
@@ -213,6 +225,44 @@ pub async fn update(
             .into_response(),
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
         Ok(_) => ProblemDetails::internal(locale).into_response(),
+    }
+}
+
+pub async fn lock(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Path(user_id_value): Path<String>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    if let Err(response) = authorize_admin(&state, &jar, locale).await {
+        return response;
+    }
+
+    let user_id = match parse_user_id(&user_id_value, locale) {
+        Ok(user_id) => user_id,
+        Err(error) => return error.into_response(),
+    };
+
+    match current_authenticated_user(&state, &jar, locale).await {
+        Ok(current_user) if current_user.id == user_id => {
+            return ProblemDetails::user_admin(
+                &minirust_services::UserAdminError::ProtectedUser,
+                locale,
+            )
+            .into_response();
+        }
+        Ok(_) => {}
+        Err(response) => return response,
+    }
+
+    match state
+        .user_commands
+        .handle(UserAdminCommand::LockUser { user_id })
+        .await
+    {
+        Ok(_) => StatusCode::NO_CONTENT.into_response(),
+        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
     }
 }
 

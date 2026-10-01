@@ -2142,6 +2142,7 @@ dependencies = [
  "minirust-core",
  "sha2 0.11.0",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -2152,6 +2153,7 @@ dependencies = [
  "axum",
  "axum-extra",
  "gloo-net",
+ "js-sys",
  "leptos",
  "leptos_axum",
  "leptos_router",

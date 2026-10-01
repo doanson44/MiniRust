@@ -16,6 +16,12 @@ pub const DEFAULT_LOG_DIRECTORY: &str = "logs";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_API_PORT: u16 = 3000;
 pub const DEFAULT_WEB_PORT: u16 = 3001;
+pub const DEFAULT_DB_HOST: &str = "127.0.0.1";
+pub const DEFAULT_DB_PORT: u16 = 3306;
+pub const DEFAULT_DB_NAME: &str = "minirust";
+pub const DEFAULT_DB_USER: &str = "minirust";
+pub const DEFAULT_DB_PASSWORD: &str = "minirust";
+pub const DEFAULT_DB_MAX_CONNECTIONS: u32 = 10;
 
 pub const ENV_ENVIRONMENT: &str = "MINIRUST_ENV";
 pub const ENV_LOG: &str = "MINIRUST_LOG";
@@ -25,6 +31,12 @@ pub const ENV_API_PORT: &str = "MINIRUST_API_PORT";
 pub const ENV_WEB_HOST: &str = "MINIRUST_WEB_HOST";
 pub const ENV_WEB_PORT: &str = "MINIRUST_WEB_PORT";
 pub const ENV_DATABASE_URL: &str = "MINIRUST_DATABASE_URL";
+pub const ENV_DB_HOST: &str = "MINIRUST_DB_HOST";
+pub const ENV_DB_PORT: &str = "MINIRUST_DB_PORT";
+pub const ENV_DB_NAME: &str = "MINIRUST_DB_NAME";
+pub const ENV_DB_USER: &str = "MINIRUST_DB_USER";
+pub const ENV_DB_PASSWORD: &str = "MINIRUST_DB_PASSWORD";
+pub const ENV_DB_MAX_CONNECTIONS: &str = "MINIRUST_DB_MAX_CONNECTIONS";
 pub const ENV_AUTH_SECRET: &str = "MINIRUST_AUTH_SECRET";
 pub const ENV_ADMIN_EMAIL: &str = "MINIRUST_ADMIN_EMAIL";
 pub const ENV_ADMIN_OTP: &str = "MINIRUST_ADMIN_OTP";
@@ -81,15 +93,42 @@ pub enum ServerKind {
     Web,
 }
 
+/// MariaDB connection settings assembled from the `MINIRUST_DB_*` variables.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DatabaseConfig {
+    pub host: String,
+    pub port: u16,
+    pub name: String,
+    pub user: String,
+    pub password: String,
+    pub max_connections: u32,
+}
+
+impl DatabaseConfig {
+    /// Builds the SQLx MySQL URL. Credentials are percent-encoded because SQLx
+    /// percent-decodes them, so passwords with reserved characters survive.
+    pub fn url(&self) -> String {
+        format!(
+            "mysql://{}:{}@{}:{}/{}",
+            encode_url_component(&self.user),
+            encode_url_component(&self.password),
+            self.host,
+            self.port,
+            encode_url_component(&self.name),
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
     pub environment: Environment,
     pub log_filter: String,
     pub log_directory: String,
-    pub database_url: Option<String>,
+    pub database: DatabaseConfig,
     pub auth_secret: Option<String>,
     pub admin_email: String,
     pub admin_otp: String,
+    database_url_override: Option<String>,
 }
 
 impl Config {
@@ -109,7 +148,8 @@ impl Config {
             environment,
             log_filter: read_or_default(ENV_LOG, DEFAULT_LOG_FILTER),
             log_directory: read_or_default(ENV_LOG_DIRECTORY, DEFAULT_LOG_DIRECTORY),
-            database_url: read_optional(ENV_DATABASE_URL),
+            database: read_database(environment)?,
+            database_url_override: read_optional(ENV_DATABASE_URL),
             auth_secret: read_optional(ENV_AUTH_SECRET),
             admin_email: match environment {
                 Environment::Development => {
@@ -124,10 +164,17 @@ impl Config {
         })
     }
 
-    pub fn database_url(&self) -> Result<&str, ConfigError> {
-        self.database_url
-            .as_deref()
-            .ok_or_else(|| ConfigError::MissingRequired(ENV_DATABASE_URL.to_owned()))
+    /// Connection URL. `MINIRUST_DATABASE_URL`, when set, overrides the
+    /// `MINIRUST_DB_*` parts entirely.
+    pub fn database_url(&self) -> String {
+        match self.database_url_override.as_deref() {
+            Some(url) => url.to_owned(),
+            None => self.database.url(),
+        }
+    }
+
+    pub fn database_max_connections(&self) -> u32 {
+        self.database.max_connections
     }
 
     pub fn admin_email(&self) -> &str {
@@ -175,6 +222,10 @@ pub enum ConfigError {
         port: u16,
         source: AddrParseError,
     },
+    InvalidMaxConnections {
+        name: String,
+        value: String,
+    },
 }
 
 impl fmt::Display for ConfigError {
@@ -188,6 +239,12 @@ impl fmt::Display for ConfigError {
             Self::InvalidAddress { host, port, source } => {
                 write!(formatter, "invalid server address {host}:{port}: {source}")
             }
+            Self::InvalidMaxConnections { name, value } => {
+                write!(
+                    formatter,
+                    "invalid {name}: expected a positive integer, got {value}"
+                )
+            }
         }
     }
 }
@@ -197,7 +254,7 @@ impl std::error::Error for ConfigError {
         match self {
             Self::InvalidPort { source, .. } => Some(source),
             Self::InvalidAddress { source, .. } => Some(source),
-            Self::Dotenv(_) | Self::MissingRequired(_) => None,
+            Self::Dotenv(_) | Self::MissingRequired(_) | Self::InvalidMaxConnections { .. } => None,
         }
     }
 }
@@ -256,4 +313,66 @@ fn parse_port(name: &str, value: &str) -> Result<u16, ConfigError> {
         name: name.to_owned(),
         source,
     })
+}
+
+fn read_database(environment: Environment) -> Result<DatabaseConfig, ConfigError> {
+    let (host, name, user, password) = match environment {
+        Environment::Development => (
+            read_or_default(ENV_DB_HOST, DEFAULT_DB_HOST),
+            read_or_default(ENV_DB_NAME, DEFAULT_DB_NAME),
+            read_or_default(ENV_DB_USER, DEFAULT_DB_USER),
+            read_or_default(ENV_DB_PASSWORD, DEFAULT_DB_PASSWORD),
+        ),
+        Environment::Production => (
+            require_var(ENV_DB_HOST)?,
+            require_var(ENV_DB_NAME)?,
+            require_var(ENV_DB_USER)?,
+            require_var(ENV_DB_PASSWORD)?,
+        ),
+    };
+
+    let port = match env::var(ENV_DB_PORT) {
+        Ok(value) if !value.is_empty() => parse_port(ENV_DB_PORT, &value)?,
+        _ => DEFAULT_DB_PORT,
+    };
+
+    Ok(DatabaseConfig {
+        host,
+        port,
+        name,
+        user,
+        password,
+        max_connections: read_max_connections()?,
+    })
+}
+
+fn read_max_connections() -> Result<u32, ConfigError> {
+    match env::var(ENV_DB_MAX_CONNECTIONS) {
+        Ok(value) if !value.is_empty() => match value.parse::<u32>() {
+            Ok(parsed) if parsed > 0 => Ok(parsed),
+            _ => Err(ConfigError::InvalidMaxConnections {
+                name: ENV_DB_MAX_CONNECTIONS.to_owned(),
+                value,
+            }),
+        },
+        _ => Ok(DEFAULT_DB_MAX_CONNECTIONS),
+    }
+}
+
+fn encode_url_component(value: &str) -> String {
+    const HEX: [u8; 16] = *b"0123456789ABCDEF";
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                encoded.push(char::from(byte));
+            }
+            _ => {
+                encoded.push('%');
+                encoded.push(char::from(HEX[usize::from(byte >> 4)]));
+                encoded.push(char::from(HEX[usize::from(byte & 0x0f)]));
+            }
+        }
+    }
+    encoded
 }

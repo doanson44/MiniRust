@@ -85,7 +85,6 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
     async fn update_user(
         &self,
         user_id: EntityId,
-        new_email: &str,
         role: AdminUserRole,
         premium_active: bool,
         premium_expires_at: Option<i64>,
@@ -129,15 +128,35 @@ where
         Self { repository }
     }
 
-    pub async fn create(&self, email: &str) -> Result<UserAccess, UserAdminError> {
+    pub async fn create(
+        &self,
+        email: &str,
+        role: AdminUserRole,
+        premium_active: bool,
+    ) -> Result<UserAccess, UserAdminError> {
         let email = normalize_email(email)?;
         if self.repository.find_user(&email).await?.is_some() {
             return Err(UserAdminError::EmailAlreadyExists);
         }
 
-        self.repository
-            .create_user(EntityId::new(), &email, now())
-            .await
+        let id = EntityId::new();
+        let user = self.repository.create_user(id, &email, now()).await?;
+
+        // Apply role and premium after creation within the same logical operation
+        let user = if role == AdminUserRole::Admin || premium_active {
+            let effective_role = if user.is_admin {
+                AdminUserRole::Admin
+            } else {
+                role
+            };
+            self.repository
+                .update_user(user.id, effective_role, premium_active, None)
+                .await?
+        } else {
+            user
+        };
+
+        Ok(user)
     }
 
     pub async fn get_by_id(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError> {
@@ -162,12 +181,10 @@ where
     pub async fn update_user(
         &self,
         user_id: EntityId,
-        new_email: &str,
         role: AdminUserRole,
         premium_active: bool,
         premium_expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError> {
-        let new_email = normalize_email(new_email)?;
         if let Some(expires_at) = premium_expires_at {
             if expires_at <= now() {
                 return Err(UserAdminError::InvalidPremiumExpiry);
@@ -175,13 +192,7 @@ where
         }
 
         self.repository
-            .update_user(
-                user_id,
-                &new_email,
-                role,
-                premium_active,
-                premium_expires_at,
-            )
+            .update_user(user_id, role, premium_active, premium_expires_at)
             .await
     }
 
@@ -276,10 +287,11 @@ use crate::cqrs::{AsyncCommandHandler, AsyncQueryHandler, Command, Query};
 pub enum UserAdminCommand {
     CreateUser {
         email: String,
+        role: AdminUserRole,
+        premium_active: bool,
     },
     UpdateUser {
         user_id: EntityId,
-        new_email: String,
         role: AdminUserRole,
         premium_active: bool,
         premium_expires_at: Option<i64>,
@@ -341,26 +353,23 @@ where
         command: UserAdminCommand,
     ) -> Result<UserAdminCommandResult, UserAdminError> {
         match command {
-            UserAdminCommand::CreateUser { email } => self
+            UserAdminCommand::CreateUser {
+                email,
+                role,
+                premium_active,
+            } => self
                 .service
-                .create(&email)
+                .create(&email, role, premium_active)
                 .await
                 .map(UserAdminCommandResult::User),
             UserAdminCommand::UpdateUser {
                 user_id,
-                new_email,
                 role,
                 premium_active,
                 premium_expires_at,
             } => self
                 .service
-                .update_user(
-                    user_id,
-                    &new_email,
-                    role,
-                    premium_active,
-                    premium_expires_at,
-                )
+                .update_user(user_id, role, premium_active, premium_expires_at)
                 .await
                 .map(UserAdminCommandResult::User),
             UserAdminCommand::DeleteUser { user_id } => self

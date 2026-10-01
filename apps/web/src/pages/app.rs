@@ -4,6 +4,8 @@ use leptos::prelude::*;
 use crate::api::api_json;
 use crate::types::UserResponse;
 
+use super::ui::{BTN_PRIMARY, BTN_SECONDARY, EYEBROW, PAGE_SHELL};
+
 /// Landing page shown at `/app`: an introduction to the platform.
 #[component]
 #[allow(unused_variables)]
@@ -27,20 +29,23 @@ pub fn AppPage() -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
-            <section class="rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-white/[0.03] to-transparent p-6 sm:p-10">
-                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">{text("Tổng quan", "Overview")}</p>
-                <h1 class="mt-3 text-4xl font-black text-white sm:text-5xl">"MiniRust"</h1>
-                <p class="mt-4 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
+        <div class=PAGE_SHELL>
+            <section class="rounded-3xl border border-line bg-gradient-to-br from-cyan-400/10 via-white/[0.03] to-transparent p-6 sm:p-10">
+                <p class=EYEBROW>{text("Tổng quan", "Overview")}</p>
+                <h1 class="mt-3 text-4xl font-black text-foreground sm:text-5xl">"MiniRust"</h1>
+                <p class="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
                     {text(
                         "Nền tảng web viết bằng Rust: API Axum, giao diện Leptos SSR kèm hydration và dữ liệu MariaDB — tổ chức theo kiến trúc CQRS modular monolith.",
                         "A Rust web platform: an Axum API, a Leptos SSR front end with hydration, and MariaDB storage — organized as a CQRS-oriented modular monolith.",
                     )}
                 </p>
+                <Show when=move || user.get().is_none()>
+                    <p class="mt-6 text-sm text-faint-foreground">{text("Đang tải…", "Loading…")}</p>
+                </Show>
                 <Show when=move || user.get().is_some()>
-                    <p class="mt-6 text-sm text-slate-400">
+                    <p class="mt-6 text-sm text-subtle-foreground">
                         {text("Xin chào, ", "Welcome, ")}
-                        <span class="font-semibold text-white">
+                        <span class="font-semibold text-foreground">
                             {move || user.get().and_then(|u| u.full_name.or(Some(u.email))).unwrap_or_default()}
                         </span>
                     </p>
@@ -96,11 +101,11 @@ pub fn AppPage() -> impl IntoView {
             <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
                 <h2 class="text-xl font-bold text-white">{text("Bắt đầu", "Get started")}</h2>
                 <div class="mt-4 flex flex-wrap gap-3">
-                    <a href="/profile" class="rounded-xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950">
+                    <a href="/profile" class=BTN_PRIMARY>
                         {text("Thông tin tài khoản", "Account information")}
                     </a>
                     <Show when=move || user.get().map(|u| u.is_admin).unwrap_or(false)>
-                        <a href="/admin" class="rounded-xl border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10">
+                        <a href="/admin" class=BTN_SECONDARY>
                             {text("Quản trị người dùng", "User administration")}
                         </a>
                     </Show>

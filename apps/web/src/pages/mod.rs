@@ -4,6 +4,7 @@ mod auth;
 mod layouts;
 mod menus;
 mod profile;
+pub mod ui;
 
 pub use admin::AdminPage;
 pub use app::AppPage;

@@ -19,8 +19,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "minirust-api",
     )?;
 
-    let database_url = config.database_url()?;
-    let database = Database::connect(database_url).await?;
+    let database_url = config.database_url();
+    let database =
+        Database::connect_with_max_connections(&database_url, config.database_max_connections())
+            .await?;
     database.migrate().await?;
     database
         .seed_admin(
