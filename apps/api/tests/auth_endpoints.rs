@@ -139,7 +139,7 @@ async fn register_request_rejects_invalid_email() {
     let response = app
         .router()
         .oneshot(
-            Request::post("/api/v1/auth/register/request-code")
+            Request::post("/api/v1/auth/register/request-verification")
                 .header("content-type", "application/json")
                 .body(Body::from(r#"{"email":"not-an-email"}"#))
                 .unwrap(),
@@ -175,10 +175,10 @@ async fn register_verify_rejects_unknown_code() {
     let response = app
         .router()
         .oneshot(
-            Request::post("/api/v1/auth/register/verify-code")
+            Request::post("/api/v1/auth/register/verify")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"email":"user@example.com","code":"123456"}"#,
+                    r#"{"token":"invalid-token"}"#,
                 ))
                 .unwrap(),
         )
