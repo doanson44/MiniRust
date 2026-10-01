@@ -57,12 +57,15 @@ pub fn LoginPage() -> impl IntoView {
             <section class="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
                 <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Sign in"</p>
                 <h1 class="mt-3 text-3xl font-black text-white">"Access your account"</h1>
-                <p class="mt-3 text-sm leading-6 text-slate-400">"Passwordless authentication uses a verification code."</p>
+                <p class="mt-3 text-sm leading-6 text-slate-400">
+                    "Passwordless authentication uses a verification code."
+                </p>
                 <Show
                     when=move || !requested.get()
                     fallback=move || view! {
                         <form on:submit=submit class="mt-8 space-y-4">
-                            <label class="block text-sm font-semibold text-slate-200">"Verification code"
+                            <label class="block text-sm font-semibold text-slate-200">
+                                "Verification code"
                                 <input
                                     type="text"
                                     inputmode="numeric"
@@ -73,14 +76,18 @@ pub fn LoginPage() -> impl IntoView {
                                     class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                                 />
                             </label>
-                            <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">
+                            <button
+                                type="submit"
+                                class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
+                            >
                                 "Verify and continue"
                             </button>
                         </form>
                     }
                 >
                     <form on:submit=submit class="mt-8 space-y-4">
-                        <label class="block text-sm font-semibold text-slate-200">"Email"
+                        <label class="block text-sm font-semibold text-slate-200">
+                            "Email"
                             <input
                                 type="email"
                                 required
@@ -89,13 +96,19 @@ pub fn LoginPage() -> impl IntoView {
                                 class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             />
                         </label>
-                        <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">
+                        <button
+                            type="submit"
+                            class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
+                        >
                             "Send code"
                         </button>
                     </form>
                 </Show>
                 <p class="mt-4 text-sm text-slate-400">{status}</p>
-                <p class="mt-8 text-sm text-slate-500">"New here? " <a href="/register" class="font-semibold text-cyan-300">"Create an account"</a></p>
+                <p class="mt-8 text-sm text-slate-500">
+                    "New here? "
+                    <a href="/register" class="font-semibold text-cyan-300">"Create an account"</a>
+                </p>
             </section>
         </AuthLayout>
     }
@@ -147,11 +160,20 @@ pub fn RegisterPage() -> impl IntoView {
                                 "We've sent a verification link to your email. Open it to complete your registration."
                             </p>
                             <p class="text-sm text-slate-400">{status}</p>
-                            <Show when=move || status.get().starts_with("Local test link: ")}
+                            <Show
+                                when=move || status.get().starts_with("Local test link: ")
+                            >
                                 <a
-                                    href={move || status.get().trim_start_matches("Local test link: ").to_owned()}
+                                    href={move || {
+                                        status
+                                            .get()
+                                            .trim_start_matches("Local test link: ")
+                                            .to_owned()
+                                    }}
                                     class="inline-block rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
-                                >"Open verification link"</a>
+                                >
+                                    "Open verification link"
+                                </a>
                             </Show>
                             <p class="text-sm text-slate-500">
                                 "If you do not receive the email, check your spam folder or "
@@ -162,7 +184,9 @@ pub fn RegisterPage() -> impl IntoView {
                                         set_requested.set(false);
                                         set_status.set(String::new());
                                     }
-                                >"try again"</button>
+                                >
+                                    "try again"
+                                </button>
                                 "."
                             </p>
                         </div>
@@ -172,7 +196,8 @@ pub fn RegisterPage() -> impl IntoView {
                         "We'll send a verification link to confirm that you own this email address."
                     </p>
                     <form on:submit=submit class="mt-8 space-y-4">
-                        <label class="block text-sm font-semibold text-slate-200">"Email"
+                        <label class="block text-sm font-semibold text-slate-200">
+                            "Email"
                             <input
                                 type="email"
                                 required
@@ -181,13 +206,17 @@ pub fn RegisterPage() -> impl IntoView {
                                 class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             />
                         </label>
-                        <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">
+                        <button
+                            type="submit"
+                            class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950"
+                        >
                             "Register"
                         </button>
                     </form>
                     <p class="mt-4 text-sm text-slate-400">{status}</p>
                 </Show>
-                <p class="mt-8 text-sm text-slate-500">"Already registered? "
+                <p class="mt-8 text-sm text-slate-500">
+                    "Already registered? "
                     <a href="/login" class="font-semibold text-cyan-300">"Sign in"</a>
                 </p>
             </section>
