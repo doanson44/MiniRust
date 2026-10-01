@@ -533,8 +533,10 @@ pub fn AdminPage() -> impl IntoView {
                             <button
                                 type="button"
                                 disabled=move || page.get() <= 1
-                                on:click=move |_| set_page.update(|value| *value = value.saturating_sub(1).max(1));
-                                reload_users()
+                                on:click=move |_| {
+                                    set_page.update(|value| *value = value.saturating_sub(1).max(1));
+                                    reload_users();
+                                }
                                 class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40"
                             >
                                 "Previous"
@@ -542,8 +544,10 @@ pub fn AdminPage() -> impl IntoView {
                             <button
                                 type="button"
                                 disabled=move || page.get() >= total_pages.get()
-                                on:click=move |_| set_page.update(|value| *value += 1);
-                                reload_users()
+                                on:click=move |_| {
+                                    set_page.update(|value| *value += 1);
+                                    reload_users();
+                                }
                                 class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40"
                             >
                                 "Next"
