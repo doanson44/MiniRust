@@ -1,7 +1,7 @@
 #[cfg(feature = "hydrate")]
 use crate::types::{ApiEnvelope, ApiProblem};
 #[cfg(feature = "hydrate")]
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 #[cfg(feature = "hydrate")]
 pub async fn api_request(
