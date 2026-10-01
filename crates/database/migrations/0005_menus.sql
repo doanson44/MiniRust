@@ -22,4 +22,4 @@ INSERT INTO menus
 VALUES
     (UNHEX(REPLACE('01a0f1be-1215-77a2-ba65-aafb21c8e53e', '-', '')), NULL, 'Dashboard', '/app', 'layout-dashboard', 'user', 10, 1, 0, 0),
     (UNHEX(REPLACE('01a0f1be-1215-7469-88cb-19f9e99563c8', '-', '')), NULL, 'Profile', '/profile', 'user', 'user', 20, 1, 0, 0),
-    (UNHEX(REPLACE('01a0f1be-1215-7330-ac8a-d28c0fbd52ee', '-', '')), NULL, 'Administration', '/admin', 'shield', 'admin', 90, 1, 0, 0);
+    (UNHEX(REPLACE('01a0f1be-1215-7330-ac8a-d28c0fbd52ee', '-', '')), NULL, 'User Management', '/admin/users', 'shield', 'admin', 90, 1, 0, 0);
