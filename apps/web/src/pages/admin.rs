@@ -315,6 +315,16 @@ pub fn AdminPage() -> impl IntoView {
 
     let page_users = Memo::new(move |_| sorted_users.get());
 
+    let change_page_size = move |value: String| {
+        if let Ok(value) = value.parse::<i32>() {
+            if PAGE_SIZE_OPTIONS.contains(&value) {
+                set_page_size.set(value);
+                set_page.set(1);
+                reload_users();
+            }
+        }
+    };
+
     view! {
         <div class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
             <section>
