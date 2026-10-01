@@ -161,62 +161,28 @@ pub fn AdminPage() -> impl IntoView {
         });
     };
 
-    let save_user = move |event: leptos::ev::SubmitEvent| {
+    let save_changes = move |event: leptos::ev::SubmitEvent| {
         event.prevent_default();
         let Some(user_id) = selected.get() else {
             return;
         };
         let email = edit_email.get();
         let role = edit_role.get();
+        let premium_active = premium_active.get();
+        let premium_expires = premium_expires.get();
 
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            let email_result = api_json::<UserResponse>(
+            let premium_expires_at = date_to_timestamp(&premium_expires);
+            match api_json::<UserResponse>(
                 gloo_net::http::Method::PATCH,
                 &format!("/api/v1/admin/users/{user_id}"),
-                Some(serde_json::json!({ "email": email }).to_string()),
-            )
-            .await;
-
-            if let Err(error) = email_result {
-                set_status.set(error);
-                return;
-            }
-
-            match api_json::<UserResponse>(
-                gloo_net::http::Method::PUT,
-                &format!("/api/v1/admin/users/{user_id}/role"),
-                Some(serde_json::json!({ "role": role }).to_string()),
-            )
-            .await
-            {
-                Ok(_) => {
-                    set_status.set("User changes saved.".to_owned());
-                    reload_users();
-                }
-                Err(error) => set_status.set(error),
-            }
-        });
-    };
-
-    let save_premium = move |event: leptos::ev::SubmitEvent| {
-        event.prevent_default();
-        let Some(user_id) = selected.get() else {
-            return;
-        };
-        let active = premium_active.get();
-        let expiry = premium_expires.get();
-
-        #[cfg(feature = "hydrate")]
-        leptos::task::spawn_local(async move {
-            let expires_at = date_to_timestamp(&expiry);
-            match api_json::<UserResponse>(
-                gloo_net::http::Method::PUT,
-                &format!("/api/v1/admin/users/{user_id}/entitlements/premium"),
                 Some(
                     serde_json::json!({
-                        "active": active,
-                        "expires_at": expires_at
+                        "email": email,
+                        "role": role,
+                        "premium_active": premium_active,
+                        "premium_expires_at": premium_expires_at
                     })
                     .to_string(),
                 ),
@@ -224,32 +190,8 @@ pub fn AdminPage() -> impl IntoView {
             .await
             {
                 Ok(_) => {
-                    set_status.set("Premium entitlement saved.".to_owned());
-                    reload_users();
-                }
-                Err(error) => set_status.set(error),
-            }
-        });
-    };
-
-    let revoke_premium = move |_| {
-        let Some(user_id) = selected.get() else {
-            return;
-        };
-
-        #[cfg(feature = "hydrate")]
-        leptos::task::spawn_local(async move {
-            match api_json::<UserResponse>(
-                gloo_net::http::Method::DELETE,
-                &format!("/api/v1/admin/users/{user_id}/entitlements/premium"),
-                None,
-            )
-            .await
-            {
-                Ok(_) => {
-                    set_premium_active.set(false);
-                    set_premium_expires.set(String::new());
-                    set_status.set("Premium entitlement revoked.".to_owned());
+                    set_status.set("User changes saved.".to_owned());
+                    set_selected.set(None);
                     reload_users();
                 }
                 Err(error) => set_status.set(error),
