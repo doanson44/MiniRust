@@ -1,6 +1,6 @@
 # Authentication Architecture
 
-MiniRust uses passwordless email verification codes for the initial authentication flow.
+MiniRust uses email verification links for registration and passwordless email verification codes for login.
 
 ## Account model
 
@@ -16,11 +16,12 @@ A user can therefore be both Premium and Admin. The client cannot select either 
 
 ### Registration
 
-1. POST /api/v1/auth/register/request-code
-2. The backend normalizes the email and creates a short-lived, single-use challenge.
-3. The code is sent through the EmailSender application port.
-4. POST /api/v1/auth/register/verify-code
-5. Successful verification creates the user and a server-side session in one MariaDB transaction.
+1. POST /api/v1/auth/register/request-verification
+2. The backend normalizes the email and creates a short-lived, single-use registration challenge.
+3. A cryptographically random verification token is generated and only its SHA-256 hash is persisted.
+4. The token is sent through the EmailSender application port as a link to the Leptos UI at /register/verify?token=....
+5. The UI extracts the token and POSTs it to /api/v1/auth/register/verify.
+6. Successful verification creates the user and a server-side session in one MariaDB transaction.
 
 ### Login
 
@@ -30,8 +31,16 @@ A user can therefore be both Premium and Admin. The client cannot select either 
 
 Registration and login request endpoints return the same public success shape for existing/non-existing accounts to reduce email-account enumeration.
 
-## OTP security
+## Verification security
 
+Registration links:
+- use a 32-byte cryptographically random token encoded as URL-safe base64 without padding
+- have a ten-minute lifetime
+- are single-use
+- only the SHA-256 token hash is persisted
+- are never logged
+
+Login OTPs:
 - six numeric digits
 - ten-minute lifetime
 - five failed attempts per challenge
@@ -80,7 +89,7 @@ Later migrations add the navigation registry used by the web transport:
 
 The application layer owns the authentication workflow and exposes AuthRepository and EmailSender ports. The database crate implements AuthRepository; an external email provider will implement EmailSender.
 
-The current API wires UnavailableEmailSender intentionally. Authentication persistence and HTTP contracts are therefore in place, but actual email delivery is not enabled until a concrete provider adapter is added. No OTP is printed to logs as a development shortcut.
+The current API wires UnavailableEmailSender intentionally. Authentication persistence and HTTP contracts are therefore in place, but actual email delivery is not enabled until a concrete provider adapter is added. The registration flow therefore requires a real EmailSender adapter before users can receive verification links. No OTP or verification token is printed to logs as a development shortcut.
 
 
 ## Bootstrap admin
