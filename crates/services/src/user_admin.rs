@@ -2,7 +2,7 @@
 
 use minirust_core::EntityId;
 
-use crate::{UserAccess, UserLocale};
+use crate::{Page, Pagination, UserAccess, UserLocale};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AdminUserRole {
@@ -71,7 +71,7 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
 
     async fn find_user(&self, email: &str) -> Result<Option<UserAccess>, UserAdminError>;
 
-    async fn list_users(&self, now: i64) -> Result<Vec<UserAccess>, UserAdminError>;
+    async fn list_users(&self, now: i64, pagination: Pagination) -> Result<Page<UserAccess>, UserAdminError>;
 
     async fn find_user_by_id(
         &self,
@@ -151,8 +151,8 @@ where
             .ok_or(UserAdminError::NotFound)
     }
 
-    pub async fn list(&self) -> Result<Vec<UserAccess>, UserAdminError> {
-        self.repository.list_users(now()).await
+    pub async fn list(&self, pagination: Pagination) -> Result<Page<UserAccess>, UserAdminError> {
+        self.repository.list_users(now(), pagination).await
     }
 
     pub async fn update_user(
@@ -394,13 +394,13 @@ where
 
 pub enum UserAdminQuery {
     GetUser { user_id: EntityId },
-    ListUsers,
+    ListUsers { pagination: Pagination },
     GetPremium { user_id: EntityId },
 }
 
 pub enum UserAdminQueryResult {
     User(UserAccess),
-    Users(Vec<UserAccess>),
+    Users(Page<UserAccess>),
     Premium(PremiumEntitlement),
 }
 
@@ -436,7 +436,11 @@ where
                 .get_by_id(user_id)
                 .await
                 .map(UserAdminQueryResult::User),
-            UserAdminQuery::ListUsers => self.service.list().await.map(UserAdminQueryResult::Users),
+            UserAdminQuery::ListUsers { pagination } => self
+                .service
+                .list(pagination)
+                .await
+                .map(UserAdminQueryResult::Users),
             UserAdminQuery::GetPremium { user_id } => self
                 .service
                 .get_premium(user_id)
