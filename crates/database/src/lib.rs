@@ -116,7 +116,7 @@ impl Database {
 
         sqlx::query(
             "INSERT INTO auth_challenges
-                (id, email, purpose, code_hash, attempts, max_attempts, expires_at, created_at)
+                (id, email, purpose, secret_hash, attempts, max_attempts, expires_at, created_at)
              VALUES (?, ?, 'login', ?, 0, 5, ?, ?)",
         )
         .bind(challenge_id.as_uuid().as_bytes().as_slice())
