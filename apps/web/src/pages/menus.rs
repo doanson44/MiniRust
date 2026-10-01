@@ -2,10 +2,10 @@ use leptos::prelude::*;
 
 #[cfg(feature = "hydrate")]
 use crate::api::{api_json, api_json_with_meta};
+use crate::models::query::{ALL_PAGE_SIZE, PAGE_SIZE_OPTIONS};
+use crate::types::MenuResponse;
 #[cfg(feature = "hydrate")]
 use crate::types::{MenuListData, PaginationMeta};
-use crate::types::MenuResponse;
-use crate::models::query::{ALL_PAGE_SIZE, PAGE_SIZE_OPTIONS};
 
 /// Admin page that lists every system menu and marks which account tiers may open it.
 ///
@@ -30,7 +30,11 @@ pub fn MenuAdminPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             match api_json_with_meta::<MenuListData, PaginationMeta>(
                 gloo_net::http::Method::GET,
-                &format!("/api/v1/admin/menus?page={}&page_size={}", page.get_untracked(), page_size.get_untracked()),
+                &format!(
+                    "/api/v1/admin/menus?page={}&page_size={}",
+                    page.get_untracked(),
+                    page_size.get_untracked()
+                ),
                 None,
             )
             .await
@@ -38,7 +42,7 @@ pub fn MenuAdminPage() -> impl IntoView {
                 Ok(response) => {
                     set_menus.set(response.data.menus);
                     set_total_pages.set(response.meta.total_pages.max(1));
-                },
+                }
                 Err(error) => set_status.set(error),
             }
         });
