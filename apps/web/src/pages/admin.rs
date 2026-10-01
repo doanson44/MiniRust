@@ -1,10 +1,10 @@
 use leptos::prelude::*;
 
 #[cfg(feature = "hydrate")]
-use crate::api::{api_empty, api_json};
+use crate::api::{api_empty, api_json, api_json_with_meta};
 use crate::types::UserResponse;
 #[cfg(feature = "hydrate")]
-use crate::types::{PremiumResponse, UserListResponse};
+use crate::types::{PaginationMeta, PremiumResponse, UserListData};
 
 const PAGE_SIZE: usize = 10;
 
@@ -69,14 +69,14 @@ pub fn AdminPage() -> impl IntoView {
                     set_current_user_id.set(Some(current_user.id));
                 }
 
-                match api_json::<UserListResponse>(
+                match api_json_with_meta::<UserListData, PaginationMeta>(
                     gloo_net::http::Method::GET,
                     "/api/v1/admin/users?page_size=-1",
                     None,
                 )
                 .await
                 {
-                    Ok(response) => set_users.set(response.users),
+                    Ok(response) => set_users.set(response.data.users),
                     Err(error) => set_status.set(error),
                 }
             }
@@ -87,14 +87,14 @@ pub fn AdminPage() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local({
             async move {
-                match api_json::<UserListResponse>(
+                match api_json_with_meta::<UserListData, PaginationMeta>(
                     gloo_net::http::Method::GET,
-                    "/api/v1/admin/users",
+                    "/api/v1/admin/users?page_size=-1",
                     None,
                 )
                 .await
                 {
-                    Ok(response) => set_users.set(response.users),
+                    Ok(response) => set_users.set(response.data.users),
                     Err(error) => set_status.set(error),
                 }
             }

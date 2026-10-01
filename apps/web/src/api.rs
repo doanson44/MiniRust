@@ -1,5 +1,5 @@
 #[cfg(feature = "hydrate")]
-use crate::types::{ApiEnvelope, ApiProblem};
+use crate::types::{ApiProblem, ApiResponse, ApiResponseWithMeta};
 #[cfg(feature = "hydrate")]
 use serde::Deserialize;
 
@@ -48,9 +48,25 @@ pub async fn api_json<T: for<'de> Deserialize<'de>>(
         return Err(api_error(response).await);
     }
     response
-        .json::<ApiEnvelope<T>>()
+        .json::<ApiResponse<T>>()
         .await
         .map(|envelope| envelope.data)
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(feature = "hydrate")]
+pub async fn api_json_with_meta<T: for<'de> Deserialize<'de>, M: for<'de> Deserialize<'de>>(
+    method: gloo_net::http::Method,
+    path: &str,
+    body: Option<String>,
+) -> Result<ApiResponseWithMeta<T, M>, String> {
+    let response = api_request(method, path, body).await?;
+    if !response.ok() {
+        return Err(api_error(response).await);
+    }
+    response
+        .json::<ApiResponseWithMeta<T, M>>()
+        .await
         .map_err(|error| error.to_string())
 }
 

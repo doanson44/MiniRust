@@ -1,3 +1,4 @@
+pub use crate::models::response::{ApiPage, ApiResponse, ApiResponseWithMeta, PaginationMeta};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -10,12 +11,6 @@ pub struct UserResponse {
     pub avatar_url: Option<String>,
     pub is_locked: bool,
     pub locale: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
-pub struct ApiEnvelope<T> {
-    pub data: T,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -34,15 +29,19 @@ pub struct MenuResponse {
 
 #[derive(Clone, Debug, Deserialize)]
 #[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
-pub struct MenuListResponse {
+pub struct MenuListData {
     pub menus: Vec<MenuResponse>,
 }
 
+pub type MenuListResponse = ApiResponse<MenuListData>;
+
 #[derive(Clone, Debug, Deserialize)]
 #[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
-pub struct UserListResponse {
+pub struct UserListData {
     pub users: Vec<UserResponse>,
 }
+
+pub type UserListResponse = ApiPage<UserListData>;
 
 #[derive(Clone, Debug, Deserialize)]
 #[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
