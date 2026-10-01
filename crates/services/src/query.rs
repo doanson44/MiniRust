@@ -18,6 +18,7 @@ impl Default for PaginationRequest {
 
 impl PaginationRequest {
     pub const MAX_PAGE_SIZE: u32 = 100;
+    const MAX_PAGE_SIZE_I32: i32 = Self::MAX_PAGE_SIZE as i32;
 
     pub fn normalize(self) -> Result<Pagination, PaginationError> {
         if self.page == 0 {
@@ -26,7 +27,7 @@ impl PaginationRequest {
 
         match self.page_size {
             -1 => Ok(Pagination::All),
-            1..=(Self::MAX_PAGE_SIZE as i32) => Ok(Pagination::Paged {
+            1..=Self::MAX_PAGE_SIZE_I32 => Ok(Pagination::Paged {
                 page: self.page,
                 page_size: self.page_size as u32,
             }),
