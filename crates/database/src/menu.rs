@@ -1,5 +1,5 @@
 use minirust_core::EntityId;
-use minirust_services::{Menu, MenuAccess, MenuError, MenuRepository};
+use minirust_services::{Menu, MenuAccess, MenuError, MenuRepository, Page, Pagination, PaginationMeta};
 use sqlx::Row;
 use tracing::error;
 
@@ -20,8 +20,8 @@ impl MenuRepository for Database {
             .transpose()
     }
 
-    async fn list_menus(&self) -> Result<Vec<Menu>, MenuError> {
-        self.list(false).await
+    async fn list_menus(&self, pagination: Pagination) -> Result<Page<Menu>, MenuError> {
+        self.list(false, pagination).await
     }
 
     async fn list_active_menus(&self) -> Result<Vec<Menu>, MenuError> {
@@ -80,7 +80,7 @@ impl Database {
          WHERE id = ?"
     }
 
-    async fn list(&self, active_only: bool) -> Result<Vec<Menu>, MenuError> {
+    async fn list(&self, active_only: bool, pagination: Pagination) -> Result<Page<Menu>, MenuError> {
         let sql = if active_only {
             "SELECT id, parent_id, name, path, icon, allow_user, allow_premium, sort_order, is_active
              FROM menus
@@ -92,17 +92,40 @@ impl Database {
              ORDER BY sort_order, name"
         };
 
-        let rows = sqlx::query(sql)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|error| {
-                error!(%error, "failed to list menus");
-                MenuError::Persistence
-            })?;
+        let rows = match pagination {
+            Pagination::All => sqlx::query(sql).fetch_all(&self.pool).await,
+            Pagination::Paged { page_size, .. } => sqlx::query(&format!("{sql} LIMIT ? OFFSET ?"))
+                .bind(i64::from(page_size))
+                .bind(pagination.offset() as i64)
+                .fetch_all(&self.pool)
+                .await,
+        }
+        .map_err(|error| {
+            error!(%error, "failed to list menus");
+            MenuError::Persistence
+        })?;
 
-        rows.iter()
+        let total = sqlx::query_scalar::<_, i64>(if active_only {
+            "SELECT COUNT(*) FROM menus WHERE is_active = 1"
+        } else {
+            "SELECT COUNT(*) FROM menus"
+        })
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|error| {
+            error!(%error, "failed to count menus");
+            MenuError::Persistence
+        })? as u64;
+
+        let items = rows
+            .iter()
             .map(|row| row_to_menu(row).map_err(|_| MenuError::Persistence))
-            .collect()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Page {
+            items,
+            meta: PaginationMeta::from_pagination(pagination, total),
+        })
     }
 }
 
