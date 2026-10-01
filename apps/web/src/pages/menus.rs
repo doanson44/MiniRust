@@ -5,6 +5,7 @@ use crate::api::{api_json, api_json_with_meta};
 #[cfg(feature = "hydrate")]
 use crate::types::{MenuListData, PaginationMeta};
 use crate::types::MenuResponse;
+use crate::models::query::{ALL_PAGE_SIZE, PAGE_SIZE_OPTIONS};
 
 /// Admin page that lists every system menu and marks which account tiers may open it.
 ///
@@ -16,6 +17,7 @@ pub fn MenuAdminPage() -> impl IntoView {
     let (menus, set_menus) = signal(Vec::<MenuResponse>::new());
     let (status, set_status) = signal(String::new());
     let (page, set_page) = signal(1u32);
+    let (page_size, set_page_size) = signal(20i32);
     let (total_pages, set_total_pages) = signal(1u32);
 
     let locale = use_context::<ReadSignal<String>>().unwrap_or_else(|| signal("vi".to_owned()).0);
@@ -28,7 +30,7 @@ pub fn MenuAdminPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             match api_json_with_meta::<MenuListData, PaginationMeta>(
                 gloo_net::http::Method::GET,
-                &format!("/api/v1/admin/menus?page={}&page_size=20", page.get_untracked()),
+                &format!("/api/v1/admin/menus?page={}&page_size={}", page.get_untracked(), page_size.get_untracked()),
                 None,
             )
             .await
@@ -44,6 +46,16 @@ pub fn MenuAdminPage() -> impl IntoView {
 
     #[cfg(feature = "hydrate")]
     reload();
+
+    let change_page_size = move |value: String| {
+        if let Ok(value) = value.parse::<i32>() {
+            if PAGE_SIZE_OPTIONS.contains(&value) {
+                set_page_size.set(value);
+                set_page.set(1);
+                reload();
+            }
+        }
+    };
 
     let update_access = move |menu: MenuResponse, allow_user: bool, allow_premium: bool| {
         let saved_message = if locale.get_untracked() == "vi" {
@@ -162,7 +174,20 @@ pub fn MenuAdminPage() -> impl IntoView {
                 </table>
             </section>
 
-            <div class="flex items-center justify-between border-t border-white/10 px-4 py-4 text-sm text-slate-400">
+            <div class="flex items-center justify-between gap-4 border-t border-white/10 px-4 py-4 text-sm text-slate-400">
+                <label class="flex items-center gap-2">
+                    <span>"Items per page"</span>
+                    <select
+                        prop:value=move || page_size.get().to_string()
+                        on:change=move |ev| change_page_size(event_target_value(&ev))
+                        class="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-white"
+                    >
+                        {PAGE_SIZE_OPTIONS.into_iter().map(|size| {
+                            let label = if size == ALL_PAGE_SIZE { "All".to_owned() } else { size.to_string() };
+                            view! { <option value=size.to_string()>{label}</option> }
+                        }).collect_view()}
+                    </select>
+                </label>
                 <span>{move || format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())}</span>
                 <div class="flex gap-2">
                     <button type="button" disabled=move || page.get() <= 1
