@@ -58,17 +58,42 @@ pub fn LoginPage() -> impl IntoView {
                 <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Sign in"</p>
                 <h1 class="mt-3 text-3xl font-black text-white">"Access your account"</h1>
                 <p class="mt-3 text-sm leading-6 text-slate-400">"Passwordless authentication uses a verification code."</p>
-                <form on:submit=submit class="mt-8 space-y-4">
-                    <label class="block text-sm font-semibold text-slate-200">"Email"
-                        <input type="email" required prop:value=email on:input=move |ev| set_email.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
-                    </label>
-                    <Show when=move || requested.get()>
-                        <label class="block text-sm font-semibold text-slate-200">"Code"
-                            <input type="text" inputmode="numeric" maxlength="6" prop:value=code on:input=move |ev| set_code.set(event_target_value(&ev)) class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"/>
+                <Show
+                    when=move || !requested.get()
+                    fallback=move || view! {
+                        <form on:submit=submit class="mt-8 space-y-4">
+                            <label class="block text-sm font-semibold text-slate-200">"Verification code"
+                                <input
+                                    type="text"
+                                    inputmode="numeric"
+                                    maxlength="6"
+                                    required
+                                    prop:value=code
+                                    on:input=move |ev| set_code.set(event_target_value(&ev))
+                                    class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                                />
+                            </label>
+                            <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">
+                                "Verify and continue"
+                            </button>
+                        </form>
+                    }
+                >
+                    <form on:submit=submit class="mt-8 space-y-4">
+                        <label class="block text-sm font-semibold text-slate-200">"Email"
+                            <input
+                                type="email"
+                                required
+                                prop:value=email
+                                on:input=move |ev| set_email.set(event_target_value(&ev))
+                                class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            />
                         </label>
-                    </Show>
-                    <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">{move || if requested.get() { "Verify and continue" } else { "Send code" }}</button>
-                </form>
+                        <button type="submit" class="w-full rounded-xl bg-cyan-300 px-4 py-3 font-bold text-slate-950">
+                            "Send code"
+                        </button>
+                    </form>
+                </Show>
                 <p class="mt-4 text-sm text-slate-400">{status}</p>
                 <p class="mt-8 text-sm text-slate-500">"New here? " <a href="/register" class="font-semibold text-cyan-300">"Create an account"</a></p>
             </section>
