@@ -88,17 +88,21 @@ pub fn AdminPage() -> impl IntoView {
     }
 
     let reload_users = move || {
+        let current_page = page.get_untracked();
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local({
             async move {
                 match api_json_with_meta::<UserListData, PaginationMeta>(
                     gloo_net::http::Method::GET,
-                    "/api/v1/admin/users?page_size=-1",
+                    &format!("/api/v1/admin/users?page={}&page_size={PAGE_SIZE}", current_page),
                     None,
                 )
                 .await
                 {
-                    Ok(response) => set_users.set(response.data.users),
+                    Ok(response) => {
+                        set_users.set(response.data.users);
+                        set_total_pages.set(response.meta.total_pages.max(1));
+                    },
                     Err(error) => set_status.set(error),
                 }
             }
