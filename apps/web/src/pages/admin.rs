@@ -434,7 +434,7 @@ pub fn AdminPage() -> impl IntoView {
                                         .get()
                                         .is_some_and(|current_id| current_id == user.id);
                                     let edit_user = user.clone();
-                                    let delete_user = user.clone();
+                                    let delete_user_id = user.id.clone();
 
                                     view! {
                                         <tr class="border-t border-white/10">
@@ -465,7 +465,14 @@ pub fn AdminPage() -> impl IntoView {
                                                     <Show when=move || !is_self>
                                                         <button
                                                             type="button"
-                                                            on:click=move |_| set_delete_candidate.set(Some(delete_user.clone()))
+                                                            on:click=move |_| {
+                                                                let user_id = delete_user_id.clone();
+                                                                let candidate = users
+                                                                    .get()
+                                                                    .into_iter()
+                                                                    .find(|candidate| candidate.id == user_id);
+                                                                set_delete_candidate.set(candidate);
+                                                            }
                                                             class="rounded-lg bg-red-300/10 px-3 py-2 text-red-200 hover:bg-red-300/20"
                                                         >
                                                             "Delete"
