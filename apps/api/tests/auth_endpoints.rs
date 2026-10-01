@@ -674,6 +674,50 @@ async fn admin_user_endpoints_require_authentication() {
     }
 }
 #[tokio::test]
+async fn removed_admin_user_update_endpoints_are_not_available() {
+    let app = test_app().await;
+    let (cookie, _) = admin_cookie(&app).await;
+
+    let role = app
+        .router()
+        .oneshot(
+            Request::put("/api/v1/admin/users/user@example.com/role")
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(r#"{"role":"admin"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(role.status(), StatusCode::NOT_FOUND);
+
+    let premium_update = app
+        .router()
+        .oneshot(
+            Request::put("/api/v1/admin/users/user@example.com/entitlements/premium")
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(r#"{"active":true,"expires_at":null}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(premium_update.status(), StatusCode::METHOD_NOT_ALLOWED);
+
+    let premium_revoke = app
+        .router()
+        .oneshot(
+            Request::delete("/api/v1/admin/users/user@example.com/entitlements/premium")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(premium_revoke.status(), StatusCode::METHOD_NOT_ALLOWED);
+}
+
+#[tokio::test]
 async fn authenticated_user_can_update_and_read_locale() {
     let app = test_app().await;
     let (cookie, _) = admin_cookie(&app).await;
