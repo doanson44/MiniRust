@@ -229,7 +229,6 @@ async fn local_registration_returns_verification_link() {
     assert!(verify.headers().contains_key("set-cookie"));
 }
 
-
 #[tokio::test]
 async fn register_existing_email_reports_already_registered() {
     let app = test_app().await;
