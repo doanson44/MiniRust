@@ -427,12 +427,16 @@ where
             && purpose == ChallengePurpose::Login
             && self.repository.is_bootstrap_admin(&email).await?
         {
-            return Ok(CodeRequestAccepted { verification_token: None });
+            return Ok(CodeRequestAccepted {
+                verification_token: None,
+            });
         }
 
         // Both existing and non-existing accounts receive the same public result.
         if !should_send {
-            return Ok(CodeRequestAccepted { verification_token: None });
+            return Ok(CodeRequestAccepted {
+                verification_token: None,
+            });
         }
 
         let now = now()?;
