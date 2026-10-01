@@ -33,7 +33,7 @@ pub struct MenuListData {
     pub menus: Vec<MenuResponse>,
 }
 
-pub type MenuListResponse = MenuListData;
+pub type MenuListResponse = ApiPage<MenuListData>;
 
 #[derive(Clone, Debug, Deserialize)]
 #[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
