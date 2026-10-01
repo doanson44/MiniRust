@@ -173,12 +173,20 @@ where
         new_email: &str,
     ) -> Result<UserAccess, UserAdminError> {
         let new_email = normalize_email(new_email)?;
-        if self.repository.find_user_by_id(user_id).await?.is_none() {
-            return Err(UserAdminError::NotFound);
+        let current_user = self
+            .repository
+            .find_user_by_id(user_id)
+            .await?
+            .ok_or(UserAdminError::NotFound)?;
+
+        if current_user.email == new_email {
+            return Ok(current_user);
         }
+
         if self.repository.find_user(&new_email).await?.is_some() {
             return Err(UserAdminError::EmailAlreadyExists);
         }
+
         self.repository.update_user_email(user_id, &new_email).await
     }
 
