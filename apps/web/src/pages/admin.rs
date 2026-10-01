@@ -54,6 +54,8 @@ pub fn AdminPage() -> impl IntoView {
     let (role_filter, set_role_filter) = signal("all".to_owned());
     let (premium_filter, set_premium_filter) = signal("all".to_owned());
     let (status_filter, set_status_filter) = signal("all".to_owned());
+    let (sort_column, set_sort_column) = signal("email".to_owned());
+    let (sort_desc, set_sort_desc) = signal(false);
     let (page, set_page) = signal(1usize);
 
     #[cfg(feature = "hydrate")]
@@ -269,12 +271,45 @@ pub fn AdminPage() -> impl IntoView {
             .collect::<Vec<_>>()
     });
 
-    let total_pages = Memo::new(move |_| filtered_users.get().len().div_ceil(PAGE_SIZE).max(1));
+    let sort_users = move |column: &'static str| {
+        if sort_column.get().as_str() == column {
+            set_sort_desc.update(|descending| *descending = !*descending);
+        } else {
+            set_sort_column.set(column.to_owned());
+            set_sort_desc.set(false);
+        }
+        set_page.set(1);
+    };
+
+    let sorted_users = Memo::new(move |_| {
+        let mut users = filtered_users.get();
+        let column = sort_column.get();
+        let descending = sort_desc.get();
+
+        users.sort_by(|left, right| {
+            let ordering = match column.as_str() {
+                "role" => left.is_admin.cmp(&right.is_admin),
+                "premium" => left.is_premium.cmp(&right.is_premium),
+                "status" => left.is_locked.cmp(&right.is_locked),
+                _ => left.email.to_ascii_lowercase().cmp(&right.email.to_ascii_lowercase()),
+            };
+
+            if descending {
+                ordering.reverse()
+            } else {
+                ordering
+            }
+        });
+
+        users
+    });
+
+    let total_pages = Memo::new(move |_| sorted_users.get().len().div_ceil(PAGE_SIZE).max(1));
 
     let page_users = Memo::new(move |_| {
         let total = total_pages.get();
         let current_page = page.get().min(total).max(1);
-        filtered_users
+        sorted_users
             .get()
             .into_iter()
             .skip((current_page - 1) * PAGE_SIZE)
@@ -365,10 +400,70 @@ pub fn AdminPage() -> impl IntoView {
                     <table class="w-full min-w-[760px] text-left">
                         <thead>
                             <tr class="text-xs uppercase tracking-widest text-slate-500">
-                                <th class="px-4 py-4">"Email"</th>
-                                <th class="px-4 py-4">"Role"</th>
-                                <th class="px-4 py-4">"Premium"</th>
-                                <th class="px-4 py-4">"Status"</th>
+                                <th class="px-4 py-4">
+                                    <button
+                                        type="button"
+                                        on:click=move |_| sort_users("email")
+                                        class="inline-flex items-center gap-2 hover:text-white"
+                                    >
+                                        "Email"
+                                        <span class="text-sm">
+                                            {move || if sort_column.get() == "email" {
+                                                if sort_desc.get() { "↓" } else { "↑" }
+                                            } else {
+                                                "↕"
+                                            }}
+                                        </span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-4">
+                                    <button
+                                        type="button"
+                                        on:click=move |_| sort_users("role")
+                                        class="inline-flex items-center gap-2 hover:text-white"
+                                    >
+                                        "Role"
+                                        <span class="text-sm">
+                                            {move || if sort_column.get() == "role" {
+                                                if sort_desc.get() { "↓" } else { "↑" }
+                                            } else {
+                                                "↕"
+                                            }}
+                                        </span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-4">
+                                    <button
+                                        type="button"
+                                        on:click=move |_| sort_users("premium")
+                                        class="inline-flex items-center gap-2 hover:text-white"
+                                    >
+                                        "Premium"
+                                        <span class="text-sm">
+                                            {move || if sort_column.get() == "premium" {
+                                                if sort_desc.get() { "↓" } else { "↑" }
+                                            } else {
+                                                "↕"
+                                            }}
+                                        </span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-4">
+                                    <button
+                                        type="button"
+                                        on:click=move |_| sort_users("status")
+                                        class="inline-flex items-center gap-2 hover:text-white"
+                                    >
+                                        "Status"
+                                        <span class="text-sm">
+                                            {move || if sort_column.get() == "status" {
+                                                if sort_desc.get() { "↓" } else { "↑" }
+                                            } else {
+                                                "↕"
+                                            }}
+                                        </span>
+                                    </button>
+                                </th>
                                 <th class="px-4 py-4">"Actions"</th>
                             </tr>
                         </thead>
