@@ -570,7 +570,7 @@ pub fn AdminPage() -> impl IntoView {
                         <div class="flex gap-2">
                             <button
                                 type="button"
-                                disabled=move || page.get() <= 1
+                                disabled=move || { page.get() <= 1 }
                                 on:click=move |_| {
                                     set_page.update(|value| *value = value.saturating_sub(1).max(1));
                                     reload_users();
@@ -581,7 +581,7 @@ pub fn AdminPage() -> impl IntoView {
                             </button>
                             <button
                                 type="button"
-                                disabled=move || page.get() >= total_pages.get()
+                                disabled=move || { page.get() >= total_pages.get() }
                                 on:click=move |_| {
                                     set_page.update(|value| *value += 1);
                                     reload_users();
