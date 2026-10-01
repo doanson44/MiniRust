@@ -247,7 +247,6 @@ impl AuthRepository for Database {
         tx.commit().await.map_err(|_| AuthError::Persistence)?;
         Ok(user)
     }
-
     async fn consume_login_code(
         &self,
         challenge_id: EntityId,
