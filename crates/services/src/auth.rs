@@ -291,7 +291,12 @@ where
             max_attempts: 1,
         };
         let token = generate_verification_token()?;
-        let token_hash = hash_verification_token(&self.secret, challenge.id, &email, &token)?;
+        let token_hash = {
+            let bytes = Sha256::digest(token.as_bytes());
+            let mut hash = [0u8; 32];
+            hash.copy_from_slice(&bytes);
+            hash
+        };
 
         self.repository
             .create_challenge(
@@ -526,24 +531,6 @@ fn generate_verification_token() -> Result<String, AuthError> {
     let mut bytes = [0u8; 32];
     fill(&mut bytes).map_err(|_| AuthError::Randomness)?;
     Ok(URL_SAFE_NO_PAD.encode(bytes))
-}
-
-fn hash_verification_token(
-    secret: &[u8],
-    challenge_id: EntityId,
-    email: &str,
-    token: &str,
-) -> Result<[u8; 32], AuthError> {
-    let mut mac = HmacSha256::new_from_slice(secret).map_err(|_| AuthError::InvalidSecret)?;
-    mac.update(challenge_id.as_uuid().as_bytes());
-    mac.update(b"registration");
-    mac.update(email.as_bytes());
-    mac.update(token.as_bytes());
-
-    let bytes = mac.finalize().into_bytes();
-    let mut result = [0u8; 32];
-    result.copy_from_slice(&bytes);
-    Ok(result)
 }
 
 fn generate_session_token() -> Result<String, AuthError> {
