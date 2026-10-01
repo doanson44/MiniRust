@@ -261,8 +261,8 @@ Do not claim verification unless the commands were actually executed.
 ## Current verification state
 
 Documentation describes the repository state but does not imply that the latest commit has passed CI. Build, lint, test, formatting, and frontend verification claims must be based on actual command output or a GitHub Actions result for the exact commit.
-- `POST /api/v1/auth/register/request-code` — request registration code.
-- `POST /api/v1/auth/register/verify-code` — verify registration code and create session.
+- `POST /api/v1/auth/register/request-verification` — request registration code.
+- `POST /api/v1/auth/register/verify` — verify registration code and create session.
 - `POST /api/v1/auth/login/request-code` — request login code.
 - `POST /api/v1/auth/login/verify-code` — verify login code and create session.
 - `POST /api/v1/auth/logout` — clear current session.
