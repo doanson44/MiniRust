@@ -338,7 +338,7 @@ pub fn AdminPage() -> impl IntoView {
     view! {
         <div class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
             <section>
-                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Administration"</p>
+                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"User Management"</p>
                 <h1 class="mt-3 text-4xl font-black text-white">"Users"</h1>
                 <p class="mt-3 text-sm text-slate-400">{status}</p>
             </section>
