@@ -2,10 +2,10 @@ use leptos::prelude::*;
 
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json, api_json_with_meta};
+use crate::models::query::{ALL_PAGE_SIZE, PAGE_SIZE_OPTIONS};
 use crate::types::UserResponse;
 #[cfg(feature = "hydrate")]
 use crate::types::{PaginationMeta, PremiumResponse, UserListData};
-use crate::models::query::{ALL_PAGE_SIZE, PAGE_SIZE_OPTIONS};
 
 #[cfg(feature = "hydrate")]
 fn timestamp_to_date(timestamp: i64) -> String {
@@ -72,7 +72,11 @@ pub fn AdminPage() -> impl IntoView {
 
                 match api_json_with_meta::<UserListData, PaginationMeta>(
                     gloo_net::http::Method::GET,
-                    &format!("/api/v1/admin/users?page={}&page_size={}", page.get_untracked(), page_size.get_untracked()),
+                    &format!(
+                        "/api/v1/admin/users?page={}&page_size={}",
+                        page.get_untracked(),
+                        page_size.get_untracked()
+                    ),
                     None,
                 )
                 .await
@@ -80,7 +84,7 @@ pub fn AdminPage() -> impl IntoView {
                     Ok(response) => {
                         set_users.set(response.data.users);
                         set_total_pages.set(response.meta.total_pages.max(1));
-                    },
+                    }
                     Err(error) => set_status.set(error),
                 }
             }
@@ -95,7 +99,10 @@ pub fn AdminPage() -> impl IntoView {
             async move {
                 match api_json_with_meta::<UserListData, PaginationMeta>(
                     gloo_net::http::Method::GET,
-                    &format!("/api/v1/admin/users?page={}&page_size={}", current_page, current_page_size),
+                    &format!(
+                        "/api/v1/admin/users?page={}&page_size={}",
+                        current_page, current_page_size
+                    ),
                     None,
                 )
                 .await
@@ -103,7 +110,7 @@ pub fn AdminPage() -> impl IntoView {
                     Ok(response) => {
                         set_users.set(response.data.users);
                         set_total_pages.set(response.meta.total_pages.max(1));
-                    },
+                    }
                     Err(error) => set_status.set(error),
                 }
             }
@@ -300,7 +307,10 @@ pub fn AdminPage() -> impl IntoView {
                 "role" => left.is_admin.cmp(&right.is_admin),
                 "premium" => left.is_premium.cmp(&right.is_premium),
                 "status" => left.is_locked.cmp(&right.is_locked),
-                _ => left.email.to_ascii_lowercase().cmp(&right.email.to_ascii_lowercase()),
+                _ => left
+                    .email
+                    .to_ascii_lowercase()
+                    .cmp(&right.email.to_ascii_lowercase()),
             };
 
             if descending {
