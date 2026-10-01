@@ -38,6 +38,7 @@ use std::net::SocketAddr;
 use tower_http::trace::TraceLayer;
 
 mod api;
+pub mod models;
 mod pages;
 pub mod types;
 
