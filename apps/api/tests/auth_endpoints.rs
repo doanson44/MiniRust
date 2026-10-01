@@ -177,9 +177,7 @@ async fn register_verify_rejects_unknown_code() {
         .oneshot(
             Request::post("/api/v1/auth/register/verify")
                 .header("content-type", "application/json")
-                .body(Body::from(
-                    r#"{"token":"invalid-token"}"#,
-                ))
+                .body(Body::from(r#"{"token":"invalid-token"}"#))
                 .unwrap(),
         )
         .await
