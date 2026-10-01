@@ -35,6 +35,7 @@ pub(crate) struct AuthTokenRequest {
 #[derive(Serialize)]
 pub(crate) struct CodeRequestResponse {
     accepted: bool,
+    verification_url: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -122,10 +123,24 @@ pub async fn register_request_verification(
         })
         .await
     {
-        Ok(_) => (
-            StatusCode::OK,
-            Json(ApiResponse::new(CodeRequestResponse { accepted: true })),
-        )
+        Ok(AuthCommandResult::CodeRequested(result)) => {
+            let verification_url = if !state.secure_cookies {
+                result
+                    .verification_token
+                    .map(|token| format!("/register/verify?token={token}"))
+            } else {
+                None
+            };
+
+            (
+                StatusCode::OK,
+                Json(ApiResponse::new(CodeRequestResponse {
+                    accepted: true,
+                    verification_url,
+                })),
+            )
+                .into_response()
+        }
             .into_response(),
         Err(error) => auth_error_response(error, locale).into_response(),
     }
@@ -165,9 +180,12 @@ pub async fn login_request_code(
         })
         .await
     {
-        Ok(_) => (
+        Ok(AuthCommandResult::CodeRequested(result)) => (
             StatusCode::OK,
-            Json(ApiResponse::new(CodeRequestResponse { accepted: true })),
+            Json(ApiResponse::new(CodeRequestResponse {
+                accepted: true,
+                verification_url: None,
+            })),
         )
             .into_response(),
         Err(error) => auth_error_response(error, locale).into_response(),
