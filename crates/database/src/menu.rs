@@ -27,7 +27,7 @@ impl MenuRepository for Database {
     }
 
     async fn list_active_menus(&self) -> Result<Vec<Menu>, MenuError> {
-        self.list(true).await
+        self.list(true, Pagination::All).await.map(|page| page.items)
     }
 
     async fn parent_exists(&self, parent_id: EntityId) -> Result<bool, MenuError> {
