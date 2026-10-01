@@ -189,6 +189,49 @@ async fn register_verify_rejects_unknown_code() {
 }
 
 #[tokio::test]
+async fn local_registration_returns_verification_link() {
+    let app = test_app().await;
+
+    let response = app
+        .router()
+        .oneshot(
+            Request::post("/api/v1/auth/register/request-verification")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"email":"local@example.com"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let verification_url = body["data"]["verification_url"]
+        .as_str()
+        .expect("local registration must return a verification link");
+    assert!(verification_url.starts_with("/register/verify?token="));
+
+    let token = verification_url
+        .strip_prefix("/register/verify?token=")
+        .unwrap();
+    let verify = app
+        .router()
+        .oneshot(
+            Request::post("/api/v1/auth/register/verify")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::json!({"token": token}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(verify.status(), StatusCode::OK);
+    assert!(verify.headers().contains_key("set-cookie"));
+}
+
+#[tokio::test]
 async fn login_verify_rejects_unknown_code() {
     let app = test_app().await;
 
