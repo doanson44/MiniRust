@@ -32,16 +32,11 @@ pub struct SearchQuery {
     pub search: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SortDirection {
+    #[default]
     Asc,
     Desc,
-}
-
-impl Default for SortDirection {
-    fn default() -> Self {
-        Self::Asc
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
