@@ -42,7 +42,8 @@ mod pages;
 pub mod types;
 
 use pages::{
-    AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, MenuAdminPage, ProfilePage, RegisterPage, RegisterVerifyPage,
+    AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, MenuAdminPage, ProfilePage, RegisterPage,
+    RegisterVerifyPage,
 };
 
 #[cfg(feature = "ssr")]
