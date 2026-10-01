@@ -434,7 +434,7 @@ pub fn AdminPage() -> impl IntoView {
                                         .get()
                                         .is_some_and(|current_id| current_id == user.id);
                                     let edit_user = user.clone();
-                                    let delete_user_id = user.id.clone();
+                                    let delete_user_id = StoredValue::new(user.id.clone());
 
                                     view! {
                                         <tr class="border-t border-white/10">
@@ -466,7 +466,7 @@ pub fn AdminPage() -> impl IntoView {
                                                         <button
                                                             type="button"
                                                             on:click=move |_| {
-                                                                let user_id = delete_user_id.clone();
+                                                                let user_id = delete_user_id.get_value();
                                                                 let candidate = users
                                                                     .get()
                                                                     .into_iter()
