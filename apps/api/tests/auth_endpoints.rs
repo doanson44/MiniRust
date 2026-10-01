@@ -568,6 +568,42 @@ async fn admin_user_crud_and_modal_update() {
     assert_eq!(premium_body["data"]["active"], true);
     assert_eq!(premium_body["data"]["expires_at"], 4102444800_i64);
 
+    let no_expiry = app
+        .router()
+        .oneshot(
+            Request::patch(format!("/api/v1/admin/users/{user_id}"))
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(
+                    r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":null}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(no_expiry.status(), StatusCode::OK);
+
+    let premium_get = app
+        .router()
+        .oneshot(
+            Request::get(format!(
+                "/api/v1/admin/users/{user_id}/entitlements/premium"
+            ))
+            .header("cookie", &cookie)
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(premium_get.status(), StatusCode::OK);
+
+    let premium_body = axum::body::to_bytes(premium_get.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let premium_body: serde_json::Value = serde_json::from_slice(&premium_body).unwrap();
+    assert_eq!(premium_body["data"]["active"], true);
+    assert!(premium_body["data"]["expires_at"].is_null());
+
     let invalid_role = app
         .router()
         .oneshot(
