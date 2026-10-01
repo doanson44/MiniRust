@@ -191,8 +191,8 @@ pub fn AppLayout() -> impl IntoView {
                                         on:click=move |_| set_sidebar_open.set(false)
                                     >
                                         {move || {
-                                            if locale.get() == "vi" && menu.path == "/admin" {
-                                                "Quản trị".to_owned()
+                                            if menu.path == "/admin" {
+                                                "User Management".to_owned()
                                             } else {
                                                 menu.name.clone()
                                             }
