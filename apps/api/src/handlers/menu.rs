@@ -4,7 +4,9 @@ use axum::response::IntoResponse;
 use axum::Json;
 use axum_extra::extract::cookie::CookieJar;
 use minirust_services::cqrs::{AsyncCommandHandler, AsyncQueryHandler};
-use minirust_services::{Menu, MenuAccess, MenuCommand, MenuQuery, PaginationMeta, PaginationRequest, UpdateMenu};
+use minirust_services::{
+    Menu, MenuAccess, MenuCommand, MenuQuery, PaginationMeta, PaginationRequest, UpdateMenu,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::handlers::auth::{authorize_admin, current_authenticated_user};
