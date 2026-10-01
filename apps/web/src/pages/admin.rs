@@ -516,9 +516,6 @@ pub fn AdminPage() -> impl IntoView {
                                         <h3 class="text-lg font-bold text-white">"Premium"</h3>
                                         <p class="mt-1 text-sm text-slate-500">"Choose an optional expiry date."</p>
                                     </div>
-                                    <span class="text-sm text-slate-400">
-                                        {move || if premium_active.get() { "Active" } else { "Inactive" }}
-                                    </span>
                                 </div>
 
                                 <div class="mt-4 flex flex-col gap-3">
