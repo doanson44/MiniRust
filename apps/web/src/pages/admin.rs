@@ -481,7 +481,7 @@ pub fn AdminPage() -> impl IntoView {
                             </button>
                         </div>
 
-                        <form on:submit=save_user class="mt-6 space-y-5">
+                        <form on:submit=save_changes class="mt-6 space-y-5">
                             <div class="grid gap-4 md:grid-cols-2">
                                 <label class="block">
                                     <span class="text-sm font-medium text-slate-300">"Email"</span>
@@ -505,52 +505,45 @@ pub fn AdminPage() -> impl IntoView {
                                     </select>
                                 </label>
                             </div>
-                            <button type="submit" class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950">
-                                "Save user changes"
-                            </button>
-                        </form>
 
-                        <div class="mt-8 border-t border-white/10 pt-6">
-                            <div class="flex items-center justify-between gap-4">
-                                <div>
-                                    <h3 class="text-lg font-bold text-white">"Premium"</h3>
-                                    <p class="mt-1 text-sm text-slate-500">"Choose an optional expiry date."</p>
+                            <div class="border-t border-white/10 pt-6">
+                                <div class="flex items-center justify-between gap-4">
+                                    <div>
+                                        <h3 class="text-lg font-bold text-white">"Premium"</h3>
+                                        <p class="mt-1 text-sm text-slate-500">"Choose an optional expiry date."</p>
+                                    </div>
+                                    <span class="text-sm text-slate-400">
+                                        {move || if premium_active.get() { "Active" } else { "Inactive" }}
+                                    </span>
                                 </div>
-                                <span class="text-sm text-slate-400">
-                                    {move || if premium_active.get() { "Active" } else { "Inactive" }}
-                                </span>
+
+                                <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                                    <label class="block flex-1">
+                                        <span class="text-sm font-medium text-slate-300">"Premium expiry"</span>
+                                        <input
+                                            type="date"
+                                            prop:value=premium_expires
+                                            on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
+                                            class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                                        />
+                                    </label>
+                                    <label class="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">
+                                        <input
+                                            type="checkbox"
+                                            prop:checked=premium_active
+                                            on:change=move |ev| set_premium_active.set(event_target_checked(&ev))
+                                        />
+                                        "Premium active"
+                                    </label>
+                                </div>
                             </div>
 
-                            <form on:submit=save_premium class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                                <label class="block flex-1">
-                                    <span class="text-sm font-medium text-slate-300">"Premium expiry"</span>
-                                    <input
-                                        type="date"
-                                        prop:value=premium_expires
-                                        on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
-                                        class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                                    />
-                                </label>
-                                <label class="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">
-                                    <input
-                                        type="checkbox"
-                                        prop:checked=premium_active
-                                        on:change=move |ev| set_premium_active.set(event_target_checked(&ev))
-                                    />
-                                    "Premium active"
-                                </label>
+                            <div class="flex justify-end">
                                 <button type="submit" class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950">
-                                    "Save Premium"
+                                    "Save Changes"
                                 </button>
-                                <button
-                                    type="button"
-                                    on:click=revoke_premium
-                                    class="rounded-xl bg-red-300/10 px-5 py-3 text-red-200"
-                                >
-                                    "Revoke"
-                                </button>
-                            </form>
-                        </div>
+                            </div>
+                        </form>
 
                         <Show when=move || selected.get().and_then(|id| users.get().into_iter().find(|user| user.id == id)).is_some_and(|user| user.is_locked)>
                             <div class="mt-8 border-t border-white/10 pt-6">
