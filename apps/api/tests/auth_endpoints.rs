@@ -649,6 +649,19 @@ async fn admin_user_crud_and_role_assignment() {
         .unwrap();
     assert_eq!(protected_delete.status(), StatusCode::CONFLICT);
 
+    // The currently authenticated admin cannot delete their own account through the admin endpoint.
+    let self_delete = app
+        .router()
+        .oneshot(
+            Request::delete(format!("/api/v1/admin/users/{admin_id}"))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(self_delete.status(), StatusCode::CONFLICT);
+
     let delete = app
         .router()
         .oneshot(
