@@ -6,7 +6,7 @@ use crate::types::UserResponse;
 #[cfg(feature = "hydrate")]
 use crate::types::{PaginationMeta, PremiumResponse, UserListData};
 
-const PAGE_SIZE: usize = 10;
+const PAGE_SIZE: usize = 20;
 
 #[cfg(feature = "hydrate")]
 fn timestamp_to_date(timestamp: i64) -> String {
@@ -57,6 +57,7 @@ pub fn AdminPage() -> impl IntoView {
     let (sort_column, set_sort_column) = signal("email".to_owned());
     let (sort_desc, set_sort_desc) = signal(false);
     let (page, set_page) = signal(1usize);
+    let (total_pages, set_total_pages) = signal(1u32);
 
     #[cfg(feature = "hydrate")]
     {
@@ -71,12 +72,15 @@ pub fn AdminPage() -> impl IntoView {
 
                 match api_json_with_meta::<UserListData, PaginationMeta>(
                     gloo_net::http::Method::GET,
-                    "/api/v1/admin/users?page_size=-1",
+                    &format!("/api/v1/admin/users?page={}&page_size={PAGE_SIZE}", page.get_untracked()),
                     None,
                 )
                 .await
                 {
-                    Ok(response) => set_users.set(response.data.users),
+                    Ok(response) => {
+                        set_users.set(response.data.users);
+                        set_total_pages.set(response.meta.total_pages.max(1));
+                    },
                     Err(error) => set_status.set(error),
                 }
             }
@@ -304,18 +308,7 @@ pub fn AdminPage() -> impl IntoView {
         users
     });
 
-    let total_pages = Memo::new(move |_| sorted_users.get().len().div_ceil(PAGE_SIZE).max(1));
-
-    let page_users = Memo::new(move |_| {
-        let total = total_pages.get();
-        let current_page = page.get().min(total).max(1);
-        sorted_users
-            .get()
-            .into_iter()
-            .skip((current_page - 1) * PAGE_SIZE)
-            .take(PAGE_SIZE)
-            .collect::<Vec<_>>()
-    });
+    let page_users = Memo::new(move |_| sorted_users.get());
 
     view! {
         <div class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
@@ -536,7 +529,8 @@ pub fn AdminPage() -> impl IntoView {
                             <button
                                 type="button"
                                 disabled=move || page.get() <= 1
-                                on:click=move |_| set_page.update(|value| *value = value.saturating_sub(1).max(1))
+                                on:click=move |_| set_page.update(|value| *value = value.saturating_sub(1).max(1));
+                                reload_users()
                                 class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40"
                             >
                                 "Previous"
@@ -544,7 +538,8 @@ pub fn AdminPage() -> impl IntoView {
                             <button
                                 type="button"
                                 disabled=move || page.get() >= total_pages.get()
-                                on:click=move |_| set_page.update(|value| *value += 1)
+                                on:click=move |_| set_page.update(|value| *value += 1);
+                                reload_users()
                                 class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40"
                             >
                                 "Next"
