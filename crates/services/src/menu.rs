@@ -4,6 +4,7 @@ use minirust_core::EntityId;
 
 use crate::auth::UserAccess;
 use crate::cqrs::{AsyncCommandHandler, AsyncQueryHandler, Command, Query};
+use crate::{Page, Pagination, PaginationMeta};
 
 /// Which account tiers may open a menu.
 ///
@@ -101,7 +102,7 @@ impl std::error::Error for MenuError {}
 #[allow(async_fn_in_trait)]
 pub trait MenuRepository: Clone + Send + Sync + 'static {
     async fn find_menu(&self, menu_id: EntityId) -> Result<Option<Menu>, MenuError>;
-    async fn list_menus(&self) -> Result<Vec<Menu>, MenuError>;
+    async fn list_menus(&self, pagination: Pagination) -> Result<Page<Menu>, MenuError>;
     async fn list_active_menus(&self) -> Result<Vec<Menu>, MenuError>;
     async fn parent_exists(&self, parent_id: EntityId) -> Result<bool, MenuError>;
     async fn update_menu(&self, menu: &Menu) -> Result<Menu, MenuError>;
@@ -120,9 +121,9 @@ where
         Self { repository }
     }
 
-    pub async fn list(&self, actor: &UserAccess) -> Result<Vec<Menu>, MenuError> {
+    pub async fn list(&self, actor: &UserAccess, pagination: Pagination) -> Result<Page<Menu>, MenuError> {
         require_admin(actor)?;
-        self.repository.list_menus().await
+        self.repository.list_menus(pagination).await
     }
 
     pub async fn list_for_user(&self, actor: &UserAccess) -> Result<Vec<Menu>, MenuError> {
@@ -305,12 +306,12 @@ where
 }
 
 pub enum MenuQuery {
-    List { actor: UserAccess },
+    List { actor: UserAccess, pagination: Pagination },
     ListForUser { actor: UserAccess },
 }
 
 impl Query for MenuQuery {
-    type Output = Result<Vec<Menu>, MenuError>;
+    type Output = Result<Page<Menu>, MenuError>;
 }
 
 #[derive(Clone)]
@@ -336,7 +337,7 @@ where
 {
     async fn handle(&self, query: MenuQuery) -> Result<Vec<Menu>, MenuError> {
         match query {
-            MenuQuery::List { actor } => self.service.list(&actor).await,
+            MenuQuery::List { actor, pagination } => self.service.list(&actor, pagination).await,
             MenuQuery::ListForUser { actor } => self.service.list_for_user(&actor).await,
         }
     }
@@ -383,8 +384,13 @@ mod tests {
             Ok(self.menus.iter().find(|menu| menu.id == menu_id).cloned())
         }
 
-        async fn list_menus(&self) -> Result<Vec<Menu>, MenuError> {
-            Ok(self.menus.clone())
+        async fn list_menus(&self, pagination: Pagination) -> Result<Page<Menu>, MenuError> {
+            let total = self.menus.len() as u64;
+            let items = match pagination {
+                Pagination::All => self.menus.clone(),
+                Pagination::Paged { page_size, .. } => self.menus.iter().skip(pagination.offset() as usize).take(page_size as usize).cloned().collect(),
+            };
+            Ok(Page { items, meta: PaginationMeta::from_pagination(pagination, total) })
         }
 
         async fn list_active_menus(&self) -> Result<Vec<Menu>, MenuError> {
