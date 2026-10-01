@@ -42,7 +42,7 @@ mod pages;
 pub mod types;
 
 use pages::{
-    AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, MenuAdminPage, ProfilePage, RegisterPage,
+    AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, MenuAdminPage, ProfilePage, RegisterPage, RegisterVerifyPage,
 };
 
 #[cfg(feature = "ssr")]
@@ -125,6 +125,7 @@ fn App() -> impl IntoView {
                 }/>
                 <Route path=path!("/login") view=LoginPage/>
                 <Route path=path!("/register") view=RegisterPage/>
+                <Route path=path!("/register/verify") view=RegisterVerifyPage/>
                 <ParentRoute path=path!("/app") view=AppLayout>
                     <Route path=path!("") view=AppPage/>
                 </ParentRoute>
@@ -186,7 +187,7 @@ async fn auth_guard(
     next: middleware::Next,
 ) -> impl IntoResponse {
     let path = request.uri().path().to_owned();
-    let is_auth_page = matches!(path.as_str(), "/login" | "/register");
+    let is_auth_page = matches!(path.as_str(), "/login" | "/register" | "/register/verify");
     let is_root = path == "/";
     let is_admin_area = path == "/admin" || path.starts_with("/admin/");
     let is_protected = is_root || path == "/app" || path.starts_with("/profile") || is_admin_area;
