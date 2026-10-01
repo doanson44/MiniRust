@@ -1,14 +1,14 @@
-use axum::extract::{rejection::JsonRejection, Path, State};
+use axum::extract::{rejection::JsonRejection, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 use axum_extra::extract::cookie::CookieJar;
 use minirust_services::cqrs::{AsyncCommandHandler, AsyncQueryHandler};
-use minirust_services::{Menu, MenuAccess, MenuCommand, MenuQuery, UpdateMenu};
+use minirust_services::{Menu, MenuAccess, MenuCommand, MenuQuery, PaginationMeta, PaginationRequest, UpdateMenu};
 use serde::{Deserialize, Serialize};
 
 use crate::handlers::auth::{authorize_admin, current_authenticated_user};
-use crate::response::{ApiResponse, Locale, ProblemDetails};
+use crate::response::{ApiResponse, ApiResponseWithMeta, Locale, ProblemDetails};
 use crate::{json_rejection_response, parse_user_id, AppState};
 
 #[derive(Deserialize)]
@@ -39,6 +39,31 @@ pub(crate) struct MenuResponse {
 #[derive(Serialize)]
 pub(crate) struct MenuListResponse {
     menus: Vec<MenuResponse>,
+}
+
+#[derive(Deserialize, Default)]
+pub(crate) struct MenuListQuery {
+    page: Option<u32>,
+    page_size: Option<i32>,
+}
+
+#[derive(Serialize)]
+pub(crate) struct MenuListMeta {
+    page: u32,
+    page_size: i32,
+    total: u64,
+    total_pages: u32,
+}
+
+impl From<PaginationMeta> for MenuListMeta {
+    fn from(meta: PaginationMeta) -> Self {
+        Self {
+            page: meta.page,
+            page_size: meta.page_size,
+            total: meta.total,
+            total_pages: meta.total_pages,
+        }
+    }
 }
 
 pub async fn list_for_user(
@@ -72,6 +97,7 @@ pub async fn list_admin(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
+    Query(query): Query<MenuListQuery>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     let actor = match authorize_admin(&state, &jar, locale).await {
@@ -79,12 +105,29 @@ pub async fn list_admin(
         Err(response) => return response,
     };
 
-    match state.menu_queries.handle(MenuQuery::List { actor }).await {
+    let pagination = match (PaginationRequest {
+        page: query.page.unwrap_or(1),
+        page_size: query.page_size.unwrap_or(20),
+    })
+    .normalize()
+    {
+        Ok(pagination) => pagination,
+        Err(_) => return ProblemDetails::bad_request(locale).into_response(),
+    };
+
+    match state
+        .menu_queries
+        .handle(MenuQuery::List { actor, pagination })
+        .await
+    {
         Ok(menus) => (
             StatusCode::OK,
-            Json(ApiResponse::new(MenuListResponse {
-                menus: menus.into_iter().map(menu_response).collect(),
-            })),
+            Json(ApiResponseWithMeta::new(
+                MenuListResponse {
+                    menus: menus.items.into_iter().map(menu_response).collect(),
+                },
+                MenuListMeta::from(menus.meta),
+            )),
         )
             .into_response(),
         Err(error) => ProblemDetails::menu(&error, locale).into_response(),
