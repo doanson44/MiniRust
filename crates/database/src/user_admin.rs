@@ -120,10 +120,13 @@ impl UserAdminRepository for Database {
             .collect()
     }
 
-    async fn update_user_email(
+    async fn update_user(
         &self,
         user_id: EntityId,
         new_email: &str,
+        role: AdminUserRole,
+        premium_active: bool,
+        premium_expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError> {
         let mut tx = self
             .pool
@@ -151,129 +154,46 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?
             != 0;
 
-        if bootstrap_admin {
+        if bootstrap_admin && current_email != new_email {
             return Err(UserAdminError::ProtectedUser);
         }
-
-        let result = sqlx::query("UPDATE users SET email = ? WHERE id = ?")
-            .bind(new_email)
-            .bind(user_id.as_uuid().as_bytes().as_slice())
-            .execute(&mut *tx)
-            .await;
-
-        if let Err(error) = result {
-            if error
-                .as_database_error()
-                .and_then(|database| database.code().map(|code| code == "1062"))
-                .unwrap_or(false)
-            {
-                return Err(UserAdminError::EmailAlreadyExists);
-            }
-            return Err(UserAdminError::Persistence);
-        }
-
-        sqlx::query(
-            "DELETE FROM auth_challenges
-             WHERE email = ?",
-        )
-        .bind(current_email)
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?;
-
-        tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
-        self.find_user_by_id(user_id)
-            .await?
-            .ok_or(UserAdminError::NotFound)
-    }
-
-    async fn delete_user(&self, user_id: EntityId) -> Result<(), UserAdminError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-
-        let row = sqlx::query(
-            "SELECT email, bootstrap_admin
-             FROM users
-             WHERE id = ?
-             FOR UPDATE",
-        )
-        .bind(user_id.as_uuid().as_bytes().as_slice())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?
-        .ok_or(UserAdminError::NotFound)?;
-
-        let email = row
-            .try_get::<String, _>("email")
-            .map_err(|_| UserAdminError::Persistence)?;
-        let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
-            .map_err(|_| UserAdminError::Persistence)?
-            != 0;
-
-        if bootstrap_admin {
-            return Err(UserAdminError::ProtectedUser);
-        }
-
-        sqlx::query("DELETE FROM auth_challenges WHERE email = ?")
-            .bind(email)
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-
-        sqlx::query("DELETE FROM users WHERE id = ?")
-            .bind(user_id.as_uuid().as_bytes().as_slice())
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-
-        tx.commit().await.map_err(|_| UserAdminError::Persistence)
-    }
-
-    async fn set_admin_role(
-        &self,
-        user_id: EntityId,
-        role: AdminUserRole,
-    ) -> Result<UserAccess, UserAdminError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-
-        let row = sqlx::query(
-            "SELECT bootstrap_admin
-             FROM users
-             WHERE id = ?
-             FOR UPDATE",
-        )
-        .bind(user_id.as_uuid().as_bytes().as_slice())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?
-        .ok_or(UserAdminError::NotFound)?;
-
-        let bootstrap_admin = row
-            .try_get::<i64, _>("bootstrap_admin")
-            .map_err(|_| UserAdminError::Persistence)?
-            != 0;
-
         if bootstrap_admin && role == AdminUserRole::None {
             return Err(UserAdminError::ProtectedUser);
+        }
+
+        if current_email != new_email {
+            let result = sqlx::query("UPDATE users SET email = ? WHERE id = ?")
+                .bind(new_email)
+                .bind(user_id.as_uuid().as_bytes().as_slice())
+                .execute(&mut *tx)
+                .await;
+
+            if let Err(error) = result {
+                if error
+                    .as_database_error()
+                    .and_then(|database| database.code().map(|code| code == "1062"))
+                    .unwrap_or(false)
+                {
+                    return Err(UserAdminError::EmailAlreadyExists);
+                }
+                return Err(UserAdminError::Persistence);
+            }
+
+            sqlx::query("DELETE FROM auth_challenges WHERE email = ?")
+                .bind(current_email)
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| UserAdminError::Persistence)?;
         }
 
         match role {
             AdminUserRole::Admin => {
                 sqlx::query(
                     "INSERT INTO user_roles (user_id, role)
-                     VALUES (?, ?)
+                     VALUES (?, 'admin')
                      ON DUPLICATE KEY UPDATE role = VALUES(role)",
                 )
                 .bind(user_id.as_uuid().as_bytes().as_slice())
-                .bind(role.as_str())
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| UserAdminError::Persistence)?;
@@ -289,6 +209,20 @@ impl UserAdminRepository for Database {
                 .map_err(|_| UserAdminError::Persistence)?;
             }
         }
+
+        sqlx::query(
+            "INSERT INTO user_entitlements (user_id, entitlement, active, expires_at)
+             VALUES (?, 'premium', ?, ?)
+             ON DUPLICATE KEY UPDATE
+                 active = VALUES(active),
+                 expires_at = VALUES(expires_at)",
+        )
+        .bind(user_id.as_uuid().as_bytes().as_slice())
+        .bind(if premium_active { 1_i64 } else { 0_i64 })
+        .bind(premium_expires_at)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?;
 
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
         self.find_user_by_id(user_id)
@@ -321,52 +255,6 @@ impl UserAdminRepository for Database {
                 .try_get("expires_at")
                 .map_err(|_| UserAdminError::Persistence)?,
         })
-    }
-
-    async fn revoke_premium(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError> {
-        self.set_premium(user_id, false, None).await
-    }
-
-    async fn set_premium(
-        &self,
-        user_id: EntityId,
-        active: bool,
-        expires_at: Option<i64>,
-    ) -> Result<UserAccess, UserAdminError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-
-        let exists = sqlx::query("SELECT 1 FROM users WHERE id = ? FOR UPDATE")
-            .bind(user_id.as_uuid().as_bytes().as_slice())
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|_| UserAdminError::Persistence)?
-            .is_some();
-        if !exists {
-            return Err(UserAdminError::NotFound);
-        }
-
-        sqlx::query(
-            "INSERT INTO user_entitlements (user_id, entitlement, active, expires_at)
-             VALUES (?, 'premium', ?, ?)
-             ON DUPLICATE KEY UPDATE
-                 active = VALUES(active),
-                 expires_at = VALUES(expires_at)",
-        )
-        .bind(user_id.as_uuid().as_bytes().as_slice())
-        .bind(if active { 1_i64 } else { 0_i64 })
-        .bind(expires_at)
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?;
-
-        tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
-        self.find_user_by_id(user_id)
-            .await?
-            .ok_or(UserAdminError::NotFound)
     }
 
     async fn update_profile(
