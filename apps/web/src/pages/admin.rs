@@ -43,6 +43,7 @@ pub fn AdminPage() -> impl IntoView {
     let (new_email, set_new_email) = signal(String::new());
 
     let (selected, set_selected) = signal(None::<String>);
+    let (delete_candidate, set_delete_candidate) = signal(None::<UserResponse>);
     let (edit_email, set_edit_email) = signal(String::new());
     let (edit_role, set_edit_role) = signal("none".to_owned());
     let (premium_active, set_premium_active) = signal(false);
@@ -462,7 +463,7 @@ pub fn AdminPage() -> impl IntoView {
                                                     <Show when=move || !is_self>
                                                         <button
                                                             type="button"
-                                                            on:click=move |_| delete_user(user.id.clone())
+                                                            on:click=move |_| set_delete_candidate.set(Some(user.clone()))
                                                             class="rounded-lg bg-red-300/10 px-3 py-2 text-red-200 hover:bg-red-300/20"
                                                         >
                                                             "Delete"
@@ -503,109 +504,166 @@ pub fn AdminPage() -> impl IntoView {
             </section>
 
             <Show when=move || selected.get().is_some()>
-                <section class="rounded-3xl border border-cyan-300/20 bg-white/[0.03] p-6">
-                    <div class="flex items-center justify-between gap-4">
-                        <div>
-                            <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Edit user"</p>
-                            <h2 class="mt-2 text-xl font-bold text-white">{move || edit_email.get()}</h2>
-                        </div>
-                        <button
-                            type="button"
-                            on:click=move |_| set_selected.set(None)
-                            class="rounded-lg border border-white/10 px-3 py-2 text-slate-300"
-                        >
-                            "Close"
-                        </button>
-                    </div>
-
-                    <form on:submit=save_user class="mt-6 space-y-5">
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <label class="block">
-                                <span class="text-sm font-medium text-slate-300">"Email"</span>
-                                <input
-                                    type="email"
-                                    required
-                                    prop:value=edit_email
-                                    on:input=move |ev| set_edit_email.set(event_target_value(&ev))
-                                    class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                                />
-                            </label>
-                            <label class="block">
-                                <span class="text-sm font-medium text-slate-300">"Role"</span>
-                                <select
-                                    prop:value=edit_role
-                                    on:change=move |ev| set_edit_role.set(event_target_value(&ev))
-                                    class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                                >
-                                    <option value="none">"User"</option>
-                                    <option value="admin">"Admin"</option>
-                                </select>
-                            </label>
-                        </div>
-                        <button type="submit" class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950">
-                            "Save user changes"
-                        </button>
-                    </form>
-
-                    <div class="mt-8 border-t border-white/10 pt-6">
+                <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+                    <button
+                        type="button"
+                        aria-label="Close edit dialog"
+                        class="absolute inset-0 cursor-default"
+                        on:click=move |_| set_selected.set(None)
+                    ></button>
+                    <section
+                        role="dialog"
+                        aria-modal="true"
+                        class="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl"
+                    >
                         <div class="flex items-center justify-between gap-4">
                             <div>
-                                <h3 class="text-lg font-bold text-white">"Premium"</h3>
-                                <p class="mt-1 text-sm text-slate-500">"Choose an optional expiry date. The date is applied through the existing Premium entitlement API."</p>
+                                <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">"Edit user"</p>
+                                <h2 class="mt-2 text-xl font-bold text-white">{move || edit_email.get()}</h2>
                             </div>
-                            <span class="text-sm text-slate-400">
-                                {move || if premium_active.get() { "Active" } else { "Inactive" }}
-                            </span>
-                        </div>
-
-                        <form on:submit=save_premium class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                            <label class="block flex-1">
-                                <span class="text-sm font-medium text-slate-300">"Premium expiry"</span>
-                                <input
-                                    type="date"
-                                    prop:value=premium_expires
-                                    on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
-                                    class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                                />
-                            </label>
-                            <label class="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">
-                                <input
-                                    type="checkbox"
-                                    prop:checked=premium_active
-                                    on:change=move |ev| set_premium_active.set(event_target_checked(&ev))
-                                />
-                                "Premium active"
-                            </label>
-                            <button type="submit" class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950">
-                                "Save Premium"
-                            </button>
                             <button
                                 type="button"
-                                on:click=revoke_premium
-                                class="rounded-xl bg-red-300/10 px-5 py-3 text-red-200"
+                                on:click=move |_| set_selected.set(None)
+                                class="rounded-lg border border-white/10 px-3 py-2 text-slate-300"
                             >
-                                "Revoke"
+                                "Close"
+                            </button>
+                        </div>
+
+                        <form on:submit=save_user class="mt-6 space-y-5">
+                            <div class="grid gap-4 md:grid-cols-2">
+                                <label class="block">
+                                    <span class="text-sm font-medium text-slate-300">"Email"</span>
+                                    <input
+                                        type="email"
+                                        required
+                                        prop:value=edit_email
+                                        on:input=move |ev| set_edit_email.set(event_target_value(&ev))
+                                        class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                                    />
+                                </label>
+                                <label class="block">
+                                    <span class="text-sm font-medium text-slate-300">"Role"</span>
+                                    <select
+                                        prop:value=edit_role
+                                        on:change=move |ev| set_edit_role.set(event_target_value(&ev))
+                                        class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                                    >
+                                        <option value="none">"User"</option>
+                                        <option value="admin">"Admin"</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <button type="submit" class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950">
+                                "Save user changes"
                             </button>
                         </form>
-                    </div>
 
-                    <Show when=move || selected.get().and_then(|id| users.get().into_iter().find(|user| user.id == id)).is_some_and(|user| user.is_locked)>
                         <div class="mt-8 border-t border-white/10 pt-6">
-                            <h3 class="text-lg font-bold text-white">"Account status"</h3>
+                            <div class="flex items-center justify-between gap-4">
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">"Premium"</h3>
+                                    <p class="mt-1 text-sm text-slate-500">"Choose an optional expiry date."</p>
+                                </div>
+                                <span class="text-sm text-slate-400">
+                                    {move || if premium_active.get() { "Active" } else { "Inactive" }}
+                                </span>
+                            </div>
+
+                            <form on:submit=save_premium class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                                <label class="block flex-1">
+                                    <span class="text-sm font-medium text-slate-300">"Premium expiry"</span>
+                                    <input
+                                        type="date"
+                                        prop:value=premium_expires
+                                        on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
+                                        class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                                    />
+                                </label>
+                                <label class="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">
+                                    <input
+                                        type="checkbox"
+                                        prop:checked=premium_active
+                                        on:change=move |ev| set_premium_active.set(event_target_checked(&ev))
+                                    />
+                                    "Premium active"
+                                </label>
+                                <button type="submit" class="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950">
+                                    "Save Premium"
+                                </button>
+                                <button
+                                    type="button"
+                                    on:click=revoke_premium
+                                    class="rounded-xl bg-red-300/10 px-5 py-3 text-red-200"
+                                >
+                                    "Revoke"
+                                </button>
+                            </form>
+                        </div>
+
+                        <Show when=move || selected.get().and_then(|id| users.get().into_iter().find(|user| user.id == id)).is_some_and(|user| user.is_locked)>
+                            <div class="mt-8 border-t border-white/10 pt-6">
+                                <h3 class="text-lg font-bold text-white">"Account status"</h3>
+                                <button
+                                    type="button"
+                                    on:click=move |_| {
+                                        if let Some(user_id) = selected.get() {
+                                            unlock_user(user_id);
+                                        }
+                                    }
+                                    class="mt-3 rounded-xl bg-amber-300/10 px-5 py-3 text-amber-200"
+                                >
+                                    "Unlock user"
+                                </button>
+                            </div>
+                        </Show>
+                    </section>
+                </div>
+            </Show>
+
+            <Show when=move || delete_candidate.get().is_some()>
+                <div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+                    <button
+                        type="button"
+                        aria-label="Close delete confirmation"
+                        class="absolute inset-0 cursor-default"
+                        on:click=move |_| set_delete_candidate.set(None)
+                    ></button>
+                    <section
+                        role="alertdialog"
+                        aria-modal="true"
+                        class="relative z-10 w-full max-w-md rounded-3xl border border-red-300/20 bg-slate-900 p-6 shadow-2xl"
+                    >
+                        <p class="text-sm font-bold uppercase tracking-widest text-red-300">"Delete user"</p>
+                        <h2 class="mt-3 text-xl font-bold text-white">"Are you sure?"</h2>
+                        <p class="mt-3 text-sm leading-6 text-slate-400">
+                            "This will permanently delete "
+                            {move || delete_candidate.get().map(|user| user.email)}
+                            ". This action cannot be undone."
+                        </p>
+                        <div class="mt-6 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                on:click=move |_| set_delete_candidate.set(None)
+                                class="rounded-xl border border-white/10 px-4 py-2 text-slate-300"
+                            >
+                                "Cancel"
+                            </button>
                             <button
                                 type="button"
                                 on:click=move |_| {
-                                    if let Some(user_id) = selected.get() {
-                                        unlock_user(user_id);
+                                    if let Some(user) = delete_candidate.get() {
+                                        set_delete_candidate.set(None);
+                                        delete_user(user.id);
                                     }
                                 }
-                                class="mt-3 rounded-xl bg-amber-300/10 px-5 py-3 text-amber-200"
+                                class="rounded-xl bg-red-400 px-4 py-2 font-bold text-slate-950"
                             >
-                                "Unlock user"
+                                "Delete user"
                             </button>
                         </div>
-                    </Show>
-                </section>
+                    </section>
+                </div>
             </Show>
         </div>
     }
