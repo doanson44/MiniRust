@@ -568,6 +568,21 @@ async fn admin_user_crud_and_modal_update() {
     assert_eq!(premium_body["data"]["active"], true);
     assert_eq!(premium_body["data"]["expires_at"], 4102444800_i64);
 
+    let invalid_role = app
+        .router()
+        .oneshot(
+            Request::patch(format!("/api/v1/admin/users/{user_id}"))
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(
+                    r#"{"email":"updated@example.com","role":"owner","premium_active":true,"premium_expires_at":4102444800}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(invalid_role.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
     let invalid_expiry = app
         .router()
         .oneshot(
