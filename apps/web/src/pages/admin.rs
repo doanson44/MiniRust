@@ -5,8 +5,7 @@ use crate::api::{api_empty, api_json, api_json_with_meta};
 use crate::types::UserResponse;
 #[cfg(feature = "hydrate")]
 use crate::types::{PaginationMeta, PremiumResponse, UserListData};
-
-const PAGE_SIZE: usize = 20;
+use crate::models::query::{ALL_PAGE_SIZE, PAGE_SIZE_OPTIONS};
 
 #[cfg(feature = "hydrate")]
 fn timestamp_to_date(timestamp: i64) -> String {
@@ -56,7 +55,8 @@ pub fn AdminPage() -> impl IntoView {
     let (status_filter, set_status_filter) = signal("all".to_owned());
     let (sort_column, set_sort_column) = signal("email".to_owned());
     let (sort_desc, set_sort_desc) = signal(false);
-    let (page, set_page) = signal(1usize);
+    let (page, set_page) = signal(1u32);
+    let (page_size, set_page_size) = signal(20i32);
     let (total_pages, set_total_pages) = signal(1u32);
 
     #[cfg(feature = "hydrate")]
@@ -72,7 +72,7 @@ pub fn AdminPage() -> impl IntoView {
 
                 match api_json_with_meta::<UserListData, PaginationMeta>(
                     gloo_net::http::Method::GET,
-                    &format!("/api/v1/admin/users?page={}&page_size={PAGE_SIZE}", page.get_untracked()),
+                    &format!("/api/v1/admin/users?page={}&page_size={}", page.get_untracked(), page_size.get_untracked()),
                     None,
                 )
                 .await
@@ -89,12 +89,13 @@ pub fn AdminPage() -> impl IntoView {
 
     let reload_users = move || {
         let current_page = page.get_untracked();
+        let current_page_size = page_size.get_untracked();
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local({
             async move {
                 match api_json_with_meta::<UserListData, PaginationMeta>(
                     gloo_net::http::Method::GET,
-                    &format!("/api/v1/admin/users?page={}&page_size={PAGE_SIZE}", current_page),
+                    &format!("/api/v1/admin/users?page={}&page_size={}", current_page, current_page_size),
                     None,
                 )
                 .await
@@ -345,6 +346,19 @@ pub fn AdminPage() -> impl IntoView {
 
             <section class="space-y-4">
                 <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <label class="text-sm text-slate-400">
+                        <span class="mb-2 block">"Items per page"</span>
+                        <select
+                            prop:value=move || page_size.get().to_string()
+                            on:change=move |ev| change_page_size(event_target_value(&ev))
+                            class="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white"
+                        >
+                            {PAGE_SIZE_OPTIONS.into_iter().map(|size| {
+                                let label = if size == ALL_PAGE_SIZE { "All".to_owned() } else { size.to_string() };
+                                view! { <option value=size.to_string()>{label}</option> }
+                            }).collect_view()}
+                        </select>
+                    </label>
                     <input
                         type="search"
                         placeholder="Search email or name..."
@@ -527,7 +541,11 @@ pub fn AdminPage() -> impl IntoView {
                     </table>
                     <div class="flex items-center justify-between border-t border-white/10 px-4 py-4 text-sm text-slate-400">
                         <span>
-                            {move || format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())}
+                            {move || if page_size.get() == ALL_PAGE_SIZE {
+                                format!("All · {} items", users.get().len())
+                            } else {
+                                format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())
+                            }}
                         </span>
                         <div class="flex gap-2">
                             <button
