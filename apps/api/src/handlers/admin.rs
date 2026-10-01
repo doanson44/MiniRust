@@ -1,11 +1,12 @@
-use axum::extract::{rejection::JsonRejection, Path, State};
+use axum::extract::{rejection::JsonRejection, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 use axum_extra::extract::cookie::CookieJar;
 use minirust_services::cqrs::{AsyncCommandHandler, AsyncQueryHandler};
 use minirust_services::{
-    UserAdminCommand, UserAdminCommandResult, UserAdminQuery, UserAdminQueryResult,
+    PaginationMeta, PaginationRequest, UserAdminCommand, UserAdminCommandResult, UserAdminQuery,
+    UserAdminQueryResult,
 };
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +32,31 @@ pub struct AdminUserListResponse {
     pub users: Vec<crate::AuthUserResponse>,
 }
 
+#[derive(Deserialize, Default)]
+pub(crate) struct AdminUserListQuery {
+    page: Option<u32>,
+    page_size: Option<i32>,
+}
+
+#[derive(Serialize)]
+pub struct AdminUserListMeta {
+    pub page: u32,
+    pub page_size: i32,
+    pub total: u64,
+    pub total_pages: u32,
+}
+
+impl From<PaginationMeta> for AdminUserListMeta {
+    fn from(meta: PaginationMeta) -> Self {
+        Self {
+            page: meta.page,
+            page_size: meta.page_size,
+            total: meta.total,
+            total_pages: meta.total_pages,
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub(crate) struct AdminPremiumResponse {
     active: bool,
@@ -41,17 +67,32 @@ pub async fn list(
     headers: HeaderMap,
     State(state): State<AppState>,
     jar: CookieJar,
+    Query(query): Query<AdminUserListQuery>,
 ) -> impl IntoResponse {
     let locale = Locale::from_accept_language(&headers);
     if let Err(response) = authorize_admin(&state, &jar, locale).await {
         return response;
     }
 
-    match state.user_queries.handle(UserAdminQuery::ListUsers).await {
+    let pagination = match (PaginationRequest {
+        page: query.page.unwrap_or(1),
+        page_size: query.page_size.unwrap_or(20),
+    })
+    .normalize()
+    {
+        Ok(pagination) => pagination,
+        Err(_) => return ProblemDetails::bad_request(locale).into_response(),
+    };
+
+    match state
+        .user_queries
+        .handle(UserAdminQuery::ListUsers { pagination })
+        .await
+    {
         Ok(UserAdminQueryResult::Users(users)) => (
             StatusCode::OK,
             Json(ApiResponse::new(AdminUserListResponse {
-                users: users.into_iter().map(auth_user_response).collect(),
+                users: users.items.into_iter().map(auth_user_response).collect(),
             })),
         )
             .into_response(),
