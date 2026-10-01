@@ -191,62 +191,6 @@ impl AuthRepository for Database {
         tx.commit().await.map_err(|_| AuthError::Persistence)?;
         Ok(user)
     }
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|_| AuthError::Persistence)?;
-        let challenge = lock_challenge(&mut tx, challenge_id).await?;
-
-        validate_challenge(&challenge, email, ChallengePurpose::Registration, now)?;
-
-        if challenge.secret_hash != secret_hash {
-            let error = record_failed_attempt(
-                &mut tx,
-                challenge_id,
-                challenge.attempts,
-                challenge.max_attempts,
-            )
-            .await?;
-            tx.commit().await.map_err(|_| AuthError::Persistence)?;
-            return Err(error);
-        }
-
-        let insert = sqlx::query(
-            "INSERT INTO users (id, email, bootstrap_admin, created_at) VALUES (?, ?, 0, ?)",
-        )
-        .bind(user_id.as_uuid().as_bytes().as_slice())
-        .bind(email)
-        .bind(now)
-        .execute(&mut *tx)
-        .await;
-
-        if let Err(error) = insert {
-            if error
-                .as_database_error()
-                .and_then(|database| database.code())
-                .map(|code| code == "1062")
-                .unwrap_or(false)
-            {
-                return Err(AuthError::EmailAlreadyExists);
-            }
-            return Err(AuthError::Persistence);
-        }
-
-        consume_challenge(&mut tx, challenge_id, now).await?;
-        insert_session(
-            &mut tx,
-            user_id,
-            session_token_hash,
-            now,
-            session_expires_at,
-        )
-        .await?;
-
-        let user = self.user_by_id(&mut tx, user_id, now).await?;
-        tx.commit().await.map_err(|_| AuthError::Persistence)?;
-        Ok(user)
-    }
     async fn consume_login_code(
         &self,
         challenge_id: EntityId,
