@@ -121,7 +121,11 @@ where
         Self { repository }
     }
 
-    pub async fn list(&self, actor: &UserAccess, pagination: Pagination) -> Result<Page<Menu>, MenuError> {
+    pub async fn list(
+        &self,
+        actor: &UserAccess,
+        pagination: Pagination,
+    ) -> Result<Page<Menu>, MenuError> {
         require_admin(actor)?;
         self.repository.list_menus(pagination).await
     }
@@ -306,8 +310,13 @@ where
 }
 
 pub enum MenuQuery {
-    List { actor: UserAccess, pagination: Pagination },
-    ListForUser { actor: UserAccess },
+    List {
+        actor: UserAccess,
+        pagination: Pagination,
+    },
+    ListForUser {
+        actor: UserAccess,
+    },
 }
 
 impl Query for MenuQuery {
@@ -388,9 +397,18 @@ mod tests {
             let total = self.menus.len() as u64;
             let items = match pagination {
                 Pagination::All => self.menus.clone(),
-                Pagination::Paged { page_size, .. } => self.menus.iter().skip(pagination.offset() as usize).take(page_size as usize).cloned().collect(),
+                Pagination::Paged { page_size, .. } => self
+                    .menus
+                    .iter()
+                    .skip(pagination.offset() as usize)
+                    .take(page_size as usize)
+                    .cloned()
+                    .collect(),
             };
-            Ok(Page { items, meta: PaginationMeta::from_pagination(pagination, total) })
+            Ok(Page {
+                items,
+                meta: PaginationMeta::from_pagination(pagination, total),
+            })
         }
 
         async fn list_active_menus(&self) -> Result<Vec<Menu>, MenuError> {
