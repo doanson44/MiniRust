@@ -290,7 +290,7 @@ pub fn AdminPage() -> impl IntoView {
         });
     };
 
-    let filtered_users = move || {
+    let filtered_users = Memo::new(move |_| {
         let query = search.get().trim().to_ascii_lowercase();
         let role = role_filter.get();
         let premium = premium_filter.get();
@@ -319,19 +319,20 @@ pub fn AdminPage() -> impl IntoView {
                 matches_search && matches_role && matches_premium && matches_status
             })
             .collect::<Vec<_>>()
-    };
+    });
 
-    let total_pages = move || filtered_users().len().div_ceil(PAGE_SIZE).max(1);
+    let total_pages = Memo::new(move |_| filtered_users.get().len().div_ceil(PAGE_SIZE).max(1));
 
-    let page_users = move || {
-        let total = total_pages();
+    let page_users = Memo::new(move |_| {
+        let total = total_pages.get();
         let current_page = page.get().min(total).max(1);
-        filtered_users()
+        filtered_users
+            .get()
             .into_iter()
             .skip((current_page - 1) * PAGE_SIZE)
             .take(PAGE_SIZE)
             .collect::<Vec<_>>()
-    };
+    });
 
     view! {
         <div class="mx-auto max-w-7xl space-y-8 px-5 py-12 sm:px-8 lg:px-10">
@@ -425,7 +426,7 @@ pub fn AdminPage() -> impl IntoView {
                         </thead>
                         <tbody>
                             <For
-                                each=move || page_users()
+                                each=move || page_users.get()
                                 key=|user| user.id.clone()
                                 children=move |user| {
                                     let is_self = current_user_id
@@ -477,7 +478,7 @@ pub fn AdminPage() -> impl IntoView {
                     </table>
                     <div class="flex items-center justify-between border-t border-white/10 px-4 py-4 text-sm text-slate-400">
                         <span>
-                            {move || format!("Page {} of {}", page.get().min(total_pages()), total_pages())}
+                            {move || format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())}
                         </span>
                         <div class="flex gap-2">
                             <button
@@ -490,7 +491,7 @@ pub fn AdminPage() -> impl IntoView {
                             </button>
                             <button
                                 type="button"
-                                disabled=move || page.get() >= total_pages()
+                                disabled=move || page.get() >= total_pages.get()
                                 on:click=move |_| set_page.update(|value| *value += 1)
                                 class="rounded-lg border border-white/10 px-3 py-2 disabled:opacity-40"
                             >
