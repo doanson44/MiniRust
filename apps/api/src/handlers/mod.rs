@@ -55,14 +55,8 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/admin/users/{user_id}/unlock", post(admin::unlock))
         .route(
-            "/api/v1/admin/users/{user_id}/role",
-            put(admin::assign_role),
-        )
-        .route(
             "/api/v1/admin/users/{user_id}/entitlements/premium",
-            get(admin::get_premium)
-                .put(admin::set_premium)
-                .delete(admin::revoke_premium),
+            get(admin::get_premium),
         )
         .route("/api/v1/openapi.json", get(openapi::openapi))
         .route("/swagger", get(openapi::swagger_ui))
