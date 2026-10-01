@@ -230,6 +230,52 @@ impl UserAdminRepository for Database {
             .ok_or(UserAdminError::NotFound)
     }
 
+    async fn delete_user(&self, user_id: EntityId) -> Result<(), UserAdminError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        let row = sqlx::query(
+            "SELECT email, bootstrap_admin
+             FROM users
+             WHERE id = ?
+             FOR UPDATE",
+        )
+        .bind(user_id.as_uuid().as_bytes().as_slice())
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?
+        .ok_or(UserAdminError::NotFound)?;
+
+        let email = row
+            .try_get::<String, _>("email")
+            .map_err(|_| UserAdminError::Persistence)?;
+        let bootstrap_admin = row
+            .try_get::<i64, _>("bootstrap_admin")
+            .map_err(|_| UserAdminError::Persistence)?
+            != 0;
+
+        if bootstrap_admin {
+            return Err(UserAdminError::ProtectedUser);
+        }
+
+        sqlx::query("DELETE FROM auth_challenges WHERE email = ?")
+            .bind(email)
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        sqlx::query("DELETE FROM users WHERE id = ?")
+            .bind(user_id.as_uuid().as_bytes().as_slice())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        tx.commit().await.map_err(|_| UserAdminError::Persistence)
+    }
+
     async fn get_premium(&self, user_id: EntityId) -> Result<PremiumEntitlement, UserAdminError> {
         let row = sqlx::query(
             "SELECT ue.active, ue.expires_at
