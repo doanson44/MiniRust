@@ -3,6 +3,7 @@ use crate::types::MenuListResponse;
 use crate::types::{MenuResponse, UserResponse};
 use leptos::prelude::*;
 use leptos_router::components::Outlet;
+use leptos_router::hooks::use_location;
 
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json};
@@ -14,6 +15,7 @@ pub fn AppLayout() -> impl IntoView {
     let (menu_open, set_menu_open) = signal(false);
     let (sidebar_open, set_sidebar_open) = signal(false);
     let (menus, set_menus) = signal(Vec::<MenuResponse>::new());
+    let location = use_location();
 
     #[cfg(feature = "hydrate")]
     {
@@ -71,8 +73,9 @@ pub fn AppLayout() -> impl IntoView {
                     <div class="flex items-center gap-3">
                         <button
                             type="button"
-                            class="rounded-lg p-2 text-slate-300 hover:bg-white/10 lg:hidden"
-                            aria-label="Open navigation"
+                            class="rounded-lg p-2 text-slate-300 hover:bg-white/10"
+                            aria-label="Toggle navigation"
+                            aria-expanded=move || sidebar_open.get()
                             on:click=move |_| set_sidebar_open.update(|open| *open = !*open)
                         >
                             "☰"
@@ -157,14 +160,14 @@ pub fn AppLayout() -> impl IntoView {
                 <Show when=move || sidebar_open.get()>
                     <button
                         type="button"
-                        class="fixed inset-0 z-20 bg-black/60 lg:hidden"
+                        class="fixed inset-0 z-20 bg-black/60"
                         aria-label="Close navigation"
                         on:click=move |_| set_sidebar_open.set(false)
                     ></button>
                 </Show>
 
                 <aside class=move || format!(
-                    "fixed inset-y-0 left-0 z-30 w-64 transform border-r border-white/10 bg-slate-950 pt-16 transition-transform lg:static lg:translate-x-0 {}",
+                    "fixed inset-y-0 left-0 z-30 w-64 transform border-r border-white/10 bg-slate-950 pt-16 transition-transform duration-200 {}",
                     if sidebar_open.get() { "translate-x-0" } else { "-translate-x-full" }
                 )>
                     <nav class="flex h-full flex-col gap-1 p-4" aria-label="Application navigation">
@@ -172,10 +175,19 @@ pub fn AppLayout() -> impl IntoView {
                             each=move || menus.get()
                             key=|menu| menu.id.clone()
                             children=move |menu| {
+                                let path = menu.path.clone();
                                 view! {
                                     <a
                                         href=menu.path
-                                        class="rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+                                        class=move || {
+                                            let current = location.pathname.get();
+                                            let is_active = current == path || current.starts_with(&format!("{}/", path));
+                                            if is_active {
+                                                "rounded-xl px-3 py-2.5 text-sm font-semibold bg-white/15 text-white"
+                                            } else {
+                                                "rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+                                            }
+                                        }
                                         on:click=move |_| set_sidebar_open.set(false)
                                     >
                                         {menu.name}
