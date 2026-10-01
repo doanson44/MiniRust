@@ -142,6 +142,7 @@ pub async fn register_request_verification(
                 .into_response()
         }
         Err(error) => auth_error_response(error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
@@ -188,6 +189,7 @@ pub async fn login_request_code(
         )
             .into_response(),
         Err(error) => auth_error_response(error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
 }
 
