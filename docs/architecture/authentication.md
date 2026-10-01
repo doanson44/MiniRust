@@ -29,7 +29,7 @@ A user can therefore be both Premium and Admin. The client cannot select either 
 2. POST /api/v1/auth/login/verify-code
 3. Successful verification creates a server-side session.
 
-Registration and login request endpoints return the same public success shape for existing/non-existing accounts to reduce email-account enumeration.
+Registration now reports when the submitted email already belongs to an account so the UI can direct the user to login. This intentionally exposes account existence for the registration UX; login continues to use an enumeration-resistant response.
 
 ## Verification security
 
