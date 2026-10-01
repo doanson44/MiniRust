@@ -84,13 +84,14 @@ pub async fn list_for_user(
         .handle(MenuQuery::ListForUser { actor })
         .await
     {
-        Ok(menus) => (
+        Ok(minirust_services::menu::MenuQueryResult::ListForUser(menus)) => (
             StatusCode::OK,
             Json(ApiResponse::new(MenuListResponse {
                 menus: menus.into_iter().map(menu_response).collect(),
             })),
         )
             .into_response(),
+        Ok(_) => ProblemDetails::bad_request(locale).into_response(),
         Err(error) => ProblemDetails::menu(&error, locale).into_response(),
     }
 }
@@ -122,7 +123,7 @@ pub async fn list_admin(
         .handle(MenuQuery::List { actor, pagination })
         .await
     {
-        Ok(menus) => (
+        Ok(minirust_services::menu::MenuQueryResult::List(menus)) => (
             StatusCode::OK,
             Json(ApiResponseWithMeta::new(
                 MenuListResponse {
@@ -132,6 +133,7 @@ pub async fn list_admin(
             )),
         )
             .into_response(),
+        Ok(_) => ProblemDetails::bad_request(locale).into_response(),
         Err(error) => ProblemDetails::menu(&error, locale).into_response(),
     }
 }
