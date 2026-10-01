@@ -191,7 +191,10 @@ async fn auth_guard(
     let path = request.uri().path().to_owned();
     let is_auth_page = matches!(path.as_str(), "/login" | "/register" | "/register/verify");
     let is_root = path == "/";
-    let is_admin_area = path == "/admin/users" || path.starts_with("/admin/users/") || path == "/admin/menus" || path.starts_with("/admin/menus/");
+    let is_admin_area = path == "/admin/users"
+        || path.starts_with("/admin/users/")
+        || path == "/admin/menus"
+        || path.starts_with("/admin/menus/");
     let is_protected = is_root || path == "/app" || path.starts_with("/profile") || is_admin_area;
 
     if !is_auth_page && !is_root && !is_protected {
