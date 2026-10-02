@@ -180,6 +180,7 @@ USER_NOT_FOUND
 EMAIL_ALREADY_EXISTS
 PROTECTED_USER
 FORBIDDEN
+CANNOT_CHANGE_OWN_ROLE
 ```
 
 `FORBIDDEN` is returned when the caller is authenticated but does not have the admin system role.
