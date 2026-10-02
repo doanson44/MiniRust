@@ -120,8 +120,10 @@ pub fn AdminPage() -> impl IntoView {
                 match api_json_with_meta::<UserListData, PaginationMeta>(
                     gloo_net::http::Method::GET,
                     &format!(
-                        "/api/v1/admin/users?page={}&page_size={}",
-                        current_page, current_page_size
+                        "/api/v1/admin/users?page={}&page_size={}&_={}",
+                        current_page,
+                        current_page_size,
+                        js_sys::Date::now() as i64
                     ),
                     None,
                 )
