@@ -13,7 +13,6 @@ minirust-core.workspace = true
 minirust-database.workspace = true
 minirust-observability.workspace = true
 minirust-services.workspace = true
-lettre.workspace = true
 serde.workspace = true
 serde_json = "1"
 tokio.workspace = true
