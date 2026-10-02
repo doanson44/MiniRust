@@ -91,6 +91,106 @@ pub const TH: &str = "px-4 py-4";
 /// Table body row.
 pub const TR: &str = "border-t border-line";
 
+// ── Toasts ────────────────────────────────────────────────────────────────────
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ToastVariant {
+    Success,
+    Error,
+}
+
+#[derive(Clone, Copy)]
+pub struct ToastController {
+    pub show: Callback<(String, ToastVariant)>,
+}
+
+impl ToastController {
+    pub fn success(self, message: impl Into<String>) {
+        self.show.run((message.into(), ToastVariant::Success));
+    }
+
+    pub fn error(self, message: impl Into<String>) {
+        self.show.run((message.into(), ToastVariant::Error));
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct ToastState {
+    id: u64,
+    message: String,
+    variant: ToastVariant,
+}
+
+#[component]
+pub fn GlobalToast() -> impl IntoView {
+    let (toast, set_toast) = signal(None::<ToastState>);
+    let (next_id, set_next_id) = signal(0u64);
+
+    let show = Callback::new(move |(message, variant): (String, ToastVariant)| {
+        let id = next_id.get_untracked().wrapping_add(1);
+        set_next_id.set(id);
+        set_toast.set(Some(ToastState {
+            id,
+            message,
+            variant,
+        }));
+
+        #[cfg(feature = "hydrate")]
+        {
+            let set_toast = set_toast;
+            wasm_bindgen_futures::spawn_local(async move {
+                gloo_timers::future::TimeoutFuture::new(3_500).await;
+                if toast.get_untracked().is_some_and(|current| current.id == id) {
+                    set_toast.set(None);
+                }
+            });
+        }
+    });
+
+    let controller = ToastController { show };
+    provide_context(controller);
+
+    view! {
+        <div
+            class="pointer-events-none fixed inset-x-4 top-20 z-[100] flex justify-end sm:left-auto sm:right-6 sm:w-full sm:max-w-md"
+            aria-live="polite"
+            aria-atomic="true"
+        >
+            <Show when=move || toast.get().is_some()>
+                {move || {
+                    toast.get().map(|current| {
+                        let is_error = current.variant == ToastVariant::Error;
+                        view! {
+                            <div class=move || format!(
+                                "pointer-events-auto flex w-full items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur {}",
+                                if is_error {
+                                    "border-danger/30 bg-danger/10 text-danger"
+                                } else {
+                                    "border-accent/30 bg-accent/10 text-foreground"
+                                }
+                            )>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-semibold">
+                                        {current.message}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    aria-label="Dismiss notification"
+                                    class="shrink-0 rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                    on:click=move |_| set_toast.set(None)
+                                >
+                                    "×"
+                                </button>
+                            </div>
+                        }
+                    })
+                }}
+            </Show>
+        </div>
+    }
+}
+
 // ── Components ───────────────────────────────────────────────────────────────
 
 /// A labelled form control. Wrapping the control inside `<label>` gives it an
