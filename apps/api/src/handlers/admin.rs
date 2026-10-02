@@ -145,7 +145,7 @@ pub async fn create(
         .await
     {
         Ok(UserAdminCommandResult::User(user)) => {
-            if body.send_invite {
+            if body.send_invite && state.email_enabled {
                 match state
                     .auth_commands
                     .handle(minirust_services::AuthCommand::RequestLoginCode { email: body.email })
