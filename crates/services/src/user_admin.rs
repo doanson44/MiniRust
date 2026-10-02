@@ -107,8 +107,6 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
         user_id: EntityId,
         locale: UserLocale,
     ) -> Result<UserAccess, UserAdminError>;
-    async fn lock_user(&self, user_id: EntityId) -> Result<(), UserAdminError>;
-    async fn unlock_user(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -136,6 +134,7 @@ where
         role: AdminUserRole,
         premium_active: bool,
         premium_expires_at: Option<i64>,
+        is_locked: bool,
     ) -> Result<UserAccess, UserAdminError> {
         if role != AdminUserRole::Admin {
             if let Some(expires_at) = premium_expires_at {
@@ -205,7 +204,7 @@ where
         }
 
         self.repository
-            .update_user(user_id, role, premium_active, premium_expires_at)
+            .update_user(user_id, role, premium_active, premium_expires_at, is_locked)
             .await
     }
 
@@ -241,13 +240,6 @@ where
         self.repository.update_locale(user_id, locale).await
     }
 
-    pub async fn lock(&self, user_id: EntityId) -> Result<(), UserAdminError> {
-        self.repository.lock_user(user_id).await
-    }
-
-    pub async fn unlock(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError> {
-        self.repository.unlock_user(user_id).await
-    }
 }
 
 fn normalize_full_name(value: Option<&str>) -> Result<Option<String>, UserAdminError> {
@@ -309,6 +301,7 @@ pub enum UserAdminCommand {
         role: AdminUserRole,
         premium_active: bool,
         premium_expires_at: Option<i64>,
+        is_locked: bool,
     },
     DeleteUser {
         user_id: EntityId,
@@ -321,12 +314,6 @@ pub enum UserAdminCommand {
     SetLocale {
         user_id: EntityId,
         locale: UserLocale,
-    },
-    LockUser {
-        user_id: EntityId,
-    },
-    UnlockUser {
-        user_id: EntityId,
     },
 }
 
