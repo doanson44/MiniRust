@@ -260,7 +260,10 @@ impl fmt::Display for ConfigError {
             Self::InvalidAddress { host, port, source } => {
                 write!(formatter, "invalid server address {host}:{port}: {source}")
             }
-            Self::IncompleteSmtpConfig(name) => write!(formatter, "incomplete SMTP configuration: {name} is required"),
+            Self::IncompleteSmtpConfig(name) => write!(
+                formatter,
+                "incomplete SMTP configuration: {name} is required"
+            ),
             Self::InvalidMaxConnections { name, value } => {
                 write!(
                     formatter,
@@ -276,7 +279,10 @@ impl std::error::Error for ConfigError {
         match self {
             Self::InvalidPort { source, .. } => Some(source),
             Self::InvalidAddress { source, .. } => Some(source),
-            Self::Dotenv(_) | Self::MissingRequired(_) | Self::InvalidMaxConnections { .. } | Self::IncompleteSmtpConfig(_) => None,
+            Self::Dotenv(_)
+            | Self::MissingRequired(_)
+            | Self::InvalidMaxConnections { .. }
+            | Self::IncompleteSmtpConfig(_) => None,
         }
     }
 }
@@ -372,13 +378,28 @@ fn read_smtp() -> Result<Option<SmtpConfig>, ConfigError> {
     let username = read_optional(ENV_SMTP_USERNAME);
     let password = read_optional(ENV_SMTP_PASSWORD);
     let from_email = read_optional(ENV_SMTP_FROM_EMAIL);
-    if username.is_none() && password.is_none() && from_email.is_none() { return Ok(None); }
-    let username = username.ok_or_else(|| ConfigError::IncompleteSmtpConfig(ENV_SMTP_USERNAME.to_owned()))?;
-    let password = password.ok_or_else(|| ConfigError::IncompleteSmtpConfig(ENV_SMTP_PASSWORD.to_owned()))?;
-    let from_email = from_email.ok_or_else(|| ConfigError::IncompleteSmtpConfig(ENV_SMTP_FROM_EMAIL.to_owned()))?;
+    if username.is_none() && password.is_none() && from_email.is_none() {
+        return Ok(None);
+    }
+    let username =
+        username.ok_or_else(|| ConfigError::IncompleteSmtpConfig(ENV_SMTP_USERNAME.to_owned()))?;
+    let password =
+        password.ok_or_else(|| ConfigError::IncompleteSmtpConfig(ENV_SMTP_PASSWORD.to_owned()))?;
+    let from_email = from_email
+        .ok_or_else(|| ConfigError::IncompleteSmtpConfig(ENV_SMTP_FROM_EMAIL.to_owned()))?;
     let host = read_or_default(ENV_SMTP_HOST, DEFAULT_SMTP_HOST);
-    let port = match env::var(ENV_SMTP_PORT) { Ok(value) if !value.is_empty() => parse_port(ENV_SMTP_PORT, &value)?, _ => DEFAULT_SMTP_PORT };
-    Ok(Some(SmtpConfig { host, port, username, password, from_email, from_name: read_optional(ENV_SMTP_FROM_NAME) }))
+    let port = match env::var(ENV_SMTP_PORT) {
+        Ok(value) if !value.is_empty() => parse_port(ENV_SMTP_PORT, &value)?,
+        _ => DEFAULT_SMTP_PORT,
+    };
+    Ok(Some(SmtpConfig {
+        host,
+        port,
+        username,
+        password,
+        from_email,
+        from_name: read_optional(ENV_SMTP_FROM_NAME),
+    }))
 }
 
 fn read_max_connections() -> Result<u32, ConfigError> {
