@@ -13,11 +13,11 @@ use crate::api::{api_empty, api_json};
 #[component]
 pub fn AppLayout() -> impl IntoView {
     let (locale, set_locale) = signal("vi".to_owned());
-    let (user, set_user) = signal(None::<UserResponse>);
+    let (user, _set_user) = signal(None::<UserResponse>);
     let (menu_open, set_menu_open) = signal(false);
     let (sidebar_open, set_sidebar_open) = signal(false);
-    let (menus, set_menus) = signal(Vec::<MenuResponse>::new());
-    let (menus_loaded, set_menus_loaded) = signal(false);
+    let (menus, _set_menus) = signal(Vec::<MenuResponse>::new());
+    let (menus_loaded, _set_menus_loaded) = signal(false);
     let location = use_location();
 
     #[cfg(feature = "hydrate")]
@@ -27,18 +27,18 @@ pub fn AppLayout() -> impl IntoView {
                 api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None).await
             {
                 set_locale.set(current_user.locale.clone());
-                set_user.set(Some(current_user));
+                _set_user.set(Some(current_user));
 
                 if let Ok(menu_response) =
                     api_json::<MenuListResponse>(gloo_net::http::Method::GET, "/api/v1/menus", None)
                         .await
                 {
-                    set_menus.set(menu_response.menus);
+                    _set_menus.set(menu_response.menus);
                 }
 
                 // Resolve the surface even when the request failed, so a failure
                 // shows the empty state instead of an endless spinner.
-                set_menus_loaded.set(true);
+                _set_menus_loaded.set(true);
             }
         });
     }
