@@ -376,9 +376,16 @@ impl UserAdminRepository for Database {
                     .map_err(|_| UserAdminError::Persistence)?
                     .unwrap_or(0)
                     != 0,
-            expires_at: row
-                .try_get("expires_at")
-                .map_err(|_| UserAdminError::Persistence)?,
+            expires_at: if row
+                .try_get::<i64, _>("is_admin")
+                .map_err(|_| UserAdminError::Persistence)?
+                != 0
+            {
+                None
+            } else {
+                row.try_get("expires_at")
+                    .map_err(|_| UserAdminError::Persistence)?
+            },
         })
     }
 
