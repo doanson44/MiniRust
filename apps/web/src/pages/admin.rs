@@ -8,7 +8,7 @@ use crate::types::UserResponse;
 use crate::types::{PaginationMeta, PremiumResponse, UserListData};
 
 use super::ui::{
-    EmptyState, Field, LoadingState, Modal, PageSizeSelect, Pagination, SortHeader, ToggleRow,
+    EmptyState, Field, GlobalToast, LoadingState, Modal, PageSizeSelect, Pagination, SortHeader, ToastController, ToggleRow,
     BTN_DANGER, BTN_DANGER_SM, BTN_PRIMARY, BTN_SECONDARY_SM, EYEBROW, INPUT, PAGE_SHELL,
     PAGE_TITLE, SELECT, SELECT_CHEVRON, TABLE_SHELL, TH, TR,
 };
@@ -44,7 +44,6 @@ fn date_to_timestamp(value: &str) -> Option<i64> {
 pub fn AdminPage() -> impl IntoView {
     let (users, set_users) = signal(Vec::<UserResponse>::new());
     let (current_user_id, set_current_user_id) = signal(None::<String>);
-    let (status, set_status) = signal(String::new());
 
     // ── Create modal state ───────────────────────────────────────────────
     let (show_create, set_show_create) = signal(false);
@@ -75,6 +74,7 @@ pub fn AdminPage() -> impl IntoView {
     let (page_size, set_page_size) = signal(20i32);
     let (total_pages, set_total_pages) = signal(1u32);
     let (loading, set_loading) = signal(false);
+    let toast = use_context::<ToastController>().expect("AppLayout must provide ToastController");
 
     #[cfg(feature = "hydrate")]
     {
@@ -103,7 +103,7 @@ pub fn AdminPage() -> impl IntoView {
                         set_users.set(response.data.users);
                         set_total_pages.set(response.meta.total_pages.max(1));
                     }
-                    Err(error) => set_status.set(error),
+                    Err(error) => toast.error(error),
                 }
                 set_loading.set(false);
             }
@@ -176,10 +176,10 @@ pub fn AdminPage() -> impl IntoView {
                     set_new_premium_active.set(false);
                     set_new_premium_expires.set(String::new());
                     set_show_create.set(false);
-                    set_status.set(if send_invite {
-                        "User created and login email sent.".to_owned()
+                    toast.success(if send_invite {
+                        "User created and login email sent."
                     } else {
-                        "User created.".to_owned()
+                        "User created."
                     });
                     reload_users();
                 }
@@ -208,7 +208,7 @@ pub fn AdminPage() -> impl IntoView {
             .await
             {
                 Ok(()) => {
-                    set_status.set("User deleted.".to_owned());
+                    toast.success("User deleted.");
                     if selected.get().as_deref() == Some(user_id.as_str()) {
                         set_selected.set(None);
                     }
@@ -230,7 +230,7 @@ pub fn AdminPage() -> impl IntoView {
             .await
             {
                 Ok(()) => {
-                    set_status.set("Sign-in access disabled.".to_owned());
+                    toast.success("Sign-in access disabled.");
                     set_selected.set(None);
                     reload_users();
                 }
@@ -250,7 +250,7 @@ pub fn AdminPage() -> impl IntoView {
             .await
             {
                 Ok(_) => {
-                    set_status.set("Sign-in access enabled.".to_owned());
+                    toast.success("Sign-in access enabled.");
                     reload_users();
                 }
                 Err(error) => set_status.set(error),
@@ -308,7 +308,7 @@ pub fn AdminPage() -> impl IntoView {
                             )
                             .await
                             {
-                                set_status.set(error);
+                                toast.error(error);
                                 return;
                             }
                         } else {
@@ -333,7 +333,7 @@ pub fn AdminPage() -> impl IntoView {
                             *user = updated_user;
                         }
                     });
-                    set_status.set("User changes saved.".to_owned());
+                    toast.success("User changes saved.");
                     set_selected(None);
                     reload_users();
                 }
@@ -466,7 +466,6 @@ pub fn AdminPage() -> impl IntoView {
                 <div>
                     <p class=EYEBROW>"User Management"</p>
                     <h1 class=PAGE_TITLE>"Users"</h1>
-                    <p class="mt-2 text-sm text-subtle-foreground">{status}</p>
                 </div>
                 <button
                     type="button"
