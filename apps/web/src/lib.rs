@@ -41,11 +41,11 @@ pub mod models;
 mod pages;
 pub mod types;
 
+use pages::ui::GlobalToast;
 use pages::{
     AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, MenuAdminPage, ProfilePage, RegisterPage,
     RegisterVerifyPage,
 };
-use pages::ui::GlobalToast;
 
 #[cfg(feature = "ssr")]
 const CSS: &str = include_str!("generated.css");
