@@ -8,7 +8,7 @@ use crate::types::UserResponse;
 use crate::types::{PaginationMeta, PremiumResponse, UserListData};
 
 use super::ui::{
-    EmptyState, Field, GlobalToast, LoadingState, Modal, PageSizeSelect, Pagination, SortHeader, ToastController, ToggleRow,
+    EmptyState, Field, LoadingState, Modal, PageSizeSelect, Pagination, SortHeader, ToastController, ToggleRow,
     BTN_DANGER, BTN_DANGER_SM, BTN_PRIMARY, BTN_SECONDARY_SM, EYEBROW, INPUT, PAGE_SHELL,
     PAGE_TITLE, SELECT, SELECT_CHEVRON, TABLE_SHELL, TH, TR,
 };
@@ -74,7 +74,9 @@ pub fn AdminPage() -> impl IntoView {
     let (page_size, set_page_size) = signal(20i32);
     let (total_pages, set_total_pages) = signal(1u32);
     let (loading, set_loading) = signal(false);
-    let toast = use_context::<ToastController>().expect("AppLayout must provide ToastController");
+    let toast = use_context::<ToastController>().unwrap_or_else(|| ToastController {
+        show: Callback::new(|_| {}),
+    });
 
     #[cfg(feature = "hydrate")]
     {
