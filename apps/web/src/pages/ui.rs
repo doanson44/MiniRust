@@ -224,20 +224,6 @@ pub fn EmptyState(children: Children) -> impl IntoView {
     }
 }
 
-/// Error state. Announced as an alert so it is not missed by screen readers.
-#[allow(dead_code)]
-#[component]
-pub fn ErrorState(message: String) -> impl IntoView {
-    view! {
-        <p
-            role="alert"
-            class="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
-        >
-            {message}
-        </p>
-    }
-}
-
 /// Sortable table header cell. Renders the sort direction as text so the state
 /// is available without colour or glyph recognition alone.
 #[component]
