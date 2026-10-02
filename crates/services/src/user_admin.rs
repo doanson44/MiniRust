@@ -161,7 +161,13 @@ where
                 role
             };
             self.repository
-                .update_user(user.id, effective_role, premium_active, premium_expires_at)
+                .update_user(
+                    user.id,
+                    effective_role,
+                    premium_active,
+                    premium_expires_at,
+                    is_locked,
+                )
                 .await?
         } else {
             user
@@ -361,7 +367,7 @@ where
                 premium_expires_at,
             } => self
                 .service
-                .create(&email, role, premium_active, premium_expires_at)
+                .create(&email, role, premium_active, premium_expires_at, false)
                 .await
                 .map(UserAdminCommandResult::User),
             UserAdminCommand::UpdateUser {
