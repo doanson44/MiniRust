@@ -102,6 +102,16 @@ pub fn AppLayout() -> impl IntoView {
                             <option value="en">"English"</option>
                         </select>
 
+                        <Show when=move || user.get().map(|u| u.is_premium).unwrap_or(false)>
+                            <span
+                                class="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-amber-200 shadow-[0_0_18px_rgba(252,211,77,0.12)]"
+                                title=move || if locale.get() == "vi" { "Tài khoản Premium" } else { "Premium account" }
+                            >
+                                <span aria-hidden="true" class="text-sm">"♛"</span>
+                                <span>"Premium"</span>
+                            </span>
+                        </Show>
+
                         <button
                             type="button"
                             class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
