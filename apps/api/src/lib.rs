@@ -23,7 +23,7 @@ use response::{Locale, ProblemDetails};
 use serde::Serialize;
 use uuid::Uuid;
 
-use email::SmtpEmailSender;
+pub use email::SmtpEmailSender;
 
 pub use handlers::router;
 
