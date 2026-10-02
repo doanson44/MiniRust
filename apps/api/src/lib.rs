@@ -167,7 +167,7 @@ pub(crate) fn app_error_response(error: AppError, locale: Locale) -> ProblemDeta
 }
 
 pub(crate) fn json_rejection_response(rejection: JsonRejection, locale: Locale) -> ProblemDetails {
-    if rejection.status() == StatusCode::BAD_REQUEST {
+    if rejection.status().is_client_error() {
         ProblemDetails::bad_request(locale)
     } else {
         tracing::error!(%rejection, "request body extraction failed");
