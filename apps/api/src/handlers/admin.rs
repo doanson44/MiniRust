@@ -152,7 +152,13 @@ pub async fn create(
                     .await
                 {
                     Ok(minirust_services::AuthCommandResult::CodeRequested(_)) => {}
-                    Err(error) => return crate::auth_error_response(error, locale).into_response(),
+                    Err(error) => {
+                        let _ = state
+                            .user_commands
+                            .handle(UserAdminCommand::DeleteUser { user_id: user.id })
+                            .await;
+                        return crate::auth_error_response(error, locale).into_response();
+                    }
                     Ok(_) => return ProblemDetails::internal(locale).into_response(),
                 }
             }
