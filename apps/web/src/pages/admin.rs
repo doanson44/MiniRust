@@ -298,27 +298,43 @@ pub fn AdminPage() -> impl IntoView {
             )
             .await
             {
-                Ok(_) => {
+                Ok(updated_user) => {
                     if toggle_lock {
                         if locked_target {
-                            let _ = api_empty(
+                            if let Err(error) = api_empty(
                                 gloo_net::http::Method::POST,
                                 &format!("/api/v1/admin/users/{user_id}/lock"),
                                 None,
                             )
-                            .await;
+                            .await
+                            {
+                                set_status.set(error);
+                                return;
+                            }
                         } else {
-                            let _ = api_json::<UserResponse>(
+                            match api_json::<UserResponse>(
                                 gloo_net::http::Method::POST,
                                 &format!("/api/v1/admin/users/{user_id}/unlock"),
                                 None,
                             )
-                            .await;
+                            .await
+                            {
+                                Ok(_) => {}
+                                Err(error) => {
+                                    set_status.set(error);
+                                    return;
+                                }
+                            }
                         }
                     }
 
+                    set_users.update(|users| {
+                        if let Some(user) = users.iter_mut().find(|user| user.id == updated_user.id) {
+                            *user = updated_user;
+                        }
+                    });
                     set_status.set("User changes saved.".to_owned());
-                    set_selected.set(None);
+                    set_selected(None);
                     reload_users();
                 }
                 Err(error) => set_status.set(error),
@@ -519,7 +535,7 @@ pub fn AdminPage() -> impl IntoView {
                         >
                             <option value="all" class="bg-canvas-raised text-foreground">"All account states"</option>
                             <option value="active" class="bg-canvas-raised text-foreground">"Active"</option>
-                            <option value="locked" class="bg-canvas-raised text-foreground">"Locked"</option>
+                            <option value="locked" class="bg-canvas-raised text-foreground">"Sign-in disabled"</option>
                         </select>
                         <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
                     </div>
@@ -583,7 +599,7 @@ pub fn AdminPage() -> impl IntoView {
                                                 {if user.is_premium { "Active" } else { "Inactive" }}
                                             </td>
                                             <td class="px-4 py-4 text-sm text-subtle-foreground">
-                                                {if user.is_locked { "Locked" } else { "Active" }}
+                                                {if user.is_locked { "Sign-in disabled" } else { "Active" }}
                                             </td>
                                             <td class="px-4 py-4 text-sm">
                                                 <div class="flex flex-wrap gap-2">
@@ -906,7 +922,7 @@ pub fn AdminPage() -> impl IntoView {
                                     </div>
                                 </Field>
                             </Show>
-                            // Locked slide toggle; the current user cannot lock their own account.
+                            // Sign-in access toggle; the current user cannot disable their own account.
                             <Show when=move || {
                                 !current_user_id
                                     .get()
@@ -915,16 +931,16 @@ pub fn AdminPage() -> impl IntoView {
                             <div class=move || format!("flex items-center justify-between gap-4 rounded-xl border px-4 py-3 {}", if edit_locked.get() { "border-amber-300/20 bg-amber-300/5" } else { "border-line bg-canvas" })>
                                 <div>
                                     <p class=move || format!("text-sm font-medium {}", if edit_locked.get() { "text-amber-200" } else { "text-muted-foreground" })>
-                                        "Locked"
+                                        "Sign-in access"
                                     </p>
                                     <p class="text-xs text-faint-foreground">
-                                        {move || if edit_locked.get() { "User cannot log in" } else { "User can log in normally" }}
+                                        {move || if edit_locked.get() { "User cannot sign in" } else { "User can sign in normally" }}
                                     </p>
                                 </div>
                                 <button
                                     type="button"
                                     role="switch"
-                                    aria-label="Locked"
+                                    aria-label="Disable sign-in access"
                                     aria-checked=move || edit_locked.get().to_string()
                                     on:click=move |_| set_edit_locked.update(|v| *v = !*v)
                                     class=move || format!("relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas {}", if edit_locked.get() { "bg-amber-400" } else { "bg-accent" })
