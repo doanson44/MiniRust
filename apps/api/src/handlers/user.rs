@@ -124,7 +124,7 @@ pub async fn lock(
 
     match state
         .user_commands
-        .handle(UserAdminCommand::LockUser { user_id: user.id })
+        .handle(UserAdminCommand::LockOwnAccount { user_id: user.id })
         .await
     {
         Ok(UserAdminCommandResult::Locked) => (
