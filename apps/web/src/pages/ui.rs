@@ -119,6 +119,7 @@ impl ToastController {
     }
 }
 
+#[cfg(feature = "hydrate")]
 #[derive(Clone, PartialEq, Eq)]
 struct ToastState {
     id: u64,
