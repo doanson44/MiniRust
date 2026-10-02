@@ -713,6 +713,11 @@ where
                 .request_login_code(&email)
                 .await
                 .map(AuthCommandResult::CodeRequested),
+            AuthCommand::RequestInvitationCode { email } => self
+                .service
+                .request_invitation_code(&email)
+                .await
+                .map(AuthCommandResult::CodeRequested),
             AuthCommand::VerifyRegistration { token } => self
                 .service
                 .verify_registration(&token)
