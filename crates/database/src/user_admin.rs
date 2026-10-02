@@ -233,19 +233,21 @@ impl UserAdminRepository for Database {
             }
         }
 
-        sqlx::query(
-            "INSERT INTO user_entitlements (user_id, entitlement, active, expires_at)
-             VALUES (?, 'premium', ?, ?)
-             ON DUPLICATE KEY UPDATE
-                 active = VALUES(active),
-                 expires_at = VALUES(expires_at)",
-        )
-        .bind(user_id.as_uuid().as_bytes().as_slice())
-        .bind(if premium_active { 1_i64 } else { 0_i64 })
-        .bind(premium_expires_at)
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| UserAdminError::Persistence)?;
+        if role != AdminUserRole::Admin {
+            sqlx::query(
+                "INSERT INTO user_entitlements (user_id, entitlement, active, expires_at)
+                 VALUES (?, 'premium', ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                     active = VALUES(active),
+                     expires_at = VALUES(expires_at)",
+            )
+            .bind(user_id.as_uuid().as_bytes().as_slice())
+            .bind(if premium_active { 1_i64 } else { 0_i64 })
+            .bind(premium_expires_at)
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+        }
 
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
         self.find_user_by_id(user_id)
