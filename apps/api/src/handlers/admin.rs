@@ -148,9 +148,7 @@ pub async fn create(
             if body.send_invite {
                 match state
                     .auth_commands
-                    .handle(minirust_services::AuthCommand::RequestLoginCode {
-                        email: body.email,
-                    })
+                    .handle(minirust_services::AuthCommand::RequestLoginCode { email: body.email })
                     .await
                 {
                     Ok(minirust_services::AuthCommandResult::CodeRequested(_)) => {}
