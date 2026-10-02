@@ -12,6 +12,7 @@ use minirust_services::{AuthError, ChallengePurpose, EmailSender};
 pub struct SmtpEmailSender {
     transport: Option<Arc<AsyncSmtpTransport<Tokio1Executor>>>,
     from: Option<Mailbox>,
+    local: bool,
 }
 
 impl SmtpEmailSender {
@@ -19,6 +20,16 @@ impl SmtpEmailSender {
         Self {
             transport: None,
             from: None,
+            local: false,
+        }
+    }
+
+    /// Creates an in-memory sender for integration tests; it never contacts SMTP.
+    pub fn local_for_tests() -> Self {
+        Self {
+            transport: None,
+            from: None,
+            local: true,
         }
     }
 
@@ -40,6 +51,7 @@ impl SmtpEmailSender {
         Ok(Self {
             transport: Some(Arc::new(transport)),
             from: Some(from),
+            local: false,
         })
     }
 
@@ -48,6 +60,10 @@ impl SmtpEmailSender {
     }
 
     async fn send(&self, recipient: &str, subject: &str, body: String) -> Result<(), AuthError> {
+        if self.local {
+            tracing::info!(recipient = %recipient, subject, "local test email delivery simulated");
+            return Ok(());
+        }
         let (Some(transport), Some(from)) = (&self.transport, &self.from) else {
             return Err(AuthError::EmailDeliveryUnavailable);
         };
