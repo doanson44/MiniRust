@@ -14,6 +14,7 @@ use sha2::{Digest, Sha256};
 const OTP_DIGITS: u32 = 1_000_000;
 const OTP_MAX_ATTEMPTS: u8 = 5;
 const OTP_TTL_SECONDS: i64 = 10 * 60;
+const INVITATION_TTL_SECONDS: i64 = 24 * 60 * 60;
 const SESSION_TTL_SECONDS: i64 = 30 * 24 * 60 * 60;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -22,6 +23,7 @@ type HmacSha256 = Hmac<Sha256>;
 pub enum ChallengePurpose {
     Registration,
     Login,
+    Invitation,
 }
 
 impl ChallengePurpose {
@@ -29,6 +31,7 @@ impl ChallengePurpose {
         match self {
             Self::Registration => "registration",
             Self::Login => "login",
+            Self::Invitation => "invitation",
         }
     }
 
@@ -36,6 +39,7 @@ impl ChallengePurpose {
         match value {
             "registration" => Ok(Self::Registration),
             "login" => Ok(Self::Login),
+            "invitation" => Ok(Self::Invitation),
             _ => Err(AuthError::Persistence),
         }
     }
@@ -163,6 +167,14 @@ pub trait AuthRepository: Clone + Send + Sync + 'static {
         created_at: i64,
     ) -> Result<(), AuthError>;
 
+    async fn consume_invitation_token(
+        &self,
+        token_hash: [u8; 32],
+        now: i64,
+        session_token_hash: [u8; 32],
+        session_expires_at: i64,
+    ) -> Result<UserAccess, AuthError>;
+
     async fn consume_registration_token(
         &self,
         token_hash: [u8; 32],
@@ -232,15 +244,15 @@ pub enum ConfiguredEmailSender {
 }
 
 impl EmailSender for ConfiguredEmailSender {
-    async fn send_invitation_code(
+    async fn send_invitation_link(
         &self,
         email: &str,
-        code: &str,
+        token: &str,
     ) -> Result<(), AuthError> {
         match self {
             Self::Local => {
                 tracing::info!(email = %email, "local invitation email simulated");
-                let _ = code;
+                let _ = token;
                 Ok(())
             }
             Self::Unavailable => Err(AuthError::EmailDeliveryUnavailable),
@@ -280,10 +292,10 @@ impl EmailSender for ConfiguredEmailSender {
 }
 
 impl EmailSender for UnavailableEmailSender {
-    async fn send_invitation_code(
+    async fn send_invitation_link(
         &self,
         _email: &str,
-        _code: &str,
+        _token: &str,
     ) -> Result<(), AuthError> {
         Err(AuthError::EmailDeliveryUnavailable)
     }
@@ -390,11 +402,69 @@ where
         self.request_code(email, ChallengePurpose::Login, false).await
     }
 
-    pub async fn request_invitation_code(
+    pub async fn request_invitation(
         &self,
         email: &str,
     ) -> Result<CodeRequestAccepted, AuthError> {
-        self.request_code(email, ChallengePurpose::Login, true).await
+        let email = normalize_email(email)?;
+        if !self.repository.user_exists(&email).await? {
+            return Ok(CodeRequestAccepted {
+                verification_token: None,
+                email_exists: false,
+            });
+        }
+
+        let now = now()?;
+        let challenge = Challenge {
+            id: EntityId::new(),
+            expires_at: now + INVITATION_TTL_SECONDS,
+            max_attempts: 1,
+        };
+        let token = generate_verification_token()?;
+        let token_hash: [u8; 32] = Sha256::digest(token.as_bytes()).into();
+
+        self.repository
+            .create_challenge(
+                challenge,
+                &email,
+                ChallengePurpose::Invitation,
+                token_hash,
+                now,
+            )
+            .await?;
+
+        if let Err(error) = self.email_sender.send_invitation_link(&email, &token).await {
+            let _ = self.repository.discard_challenge(challenge.id).await;
+            return Err(error);
+        }
+
+        Ok(CodeRequestAccepted {
+            verification_token: None,
+            email_exists: true,
+        })
+    }
+
+    pub async fn verify_invitation(&self, token: &str) -> Result<Session, AuthError> {
+        if token.is_empty() || token.len() > 256 {
+            return Err(AuthError::InvalidVerificationToken);
+        }
+
+        let now = now()?;
+        let token_hash: [u8; 32] = Sha256::digest(token.as_bytes()).into();
+        let session_token = generate_session_token()?;
+        let session_token_hash = hash_session_token(&session_token);
+        let expires_at = now + SESSION_TTL_SECONDS;
+
+        let user = self
+            .repository
+            .consume_invitation_token(token_hash, now, session_token_hash, expires_at)
+            .await?;
+
+        Ok(Session {
+            user,
+            token: session_token,
+            expires_at,
+        })
     }
 
     pub async fn verify_registration(&self, token: &str) -> Result<Session, AuthError> {
@@ -660,8 +730,9 @@ use crate::cqrs::{AsyncCommandHandler, AsyncQueryHandler, Command, Query};
 pub enum AuthCommand {
     RequestRegistrationVerification { email: String },
     RequestLoginCode { email: String },
-    RequestInvitationCode { email: String },
+    RequestInvitation { email: String },
     VerifyRegistration { token: String },
+    VerifyInvitation { token: String },
     VerifyLoginCode { email: String, code: String },
     Logout { token: String },
 }
@@ -713,11 +784,16 @@ where
                 .request_login_code(&email)
                 .await
                 .map(AuthCommandResult::CodeRequested),
-            AuthCommand::RequestInvitationCode { email } => self
+            AuthCommand::RequestInvitation { email } => self
                 .service
-                .request_invitation_code(&email)
+                .request_invitation(&email)
                 .await
                 .map(AuthCommandResult::CodeRequested),
+            AuthCommand::VerifyInvitation { token } => self
+                .service
+                .verify_invitation(&token)
+                .await
+                .map(AuthCommandResult::Session),
             AuthCommand::VerifyRegistration { token } => self
                 .service
                 .verify_registration(&token)
