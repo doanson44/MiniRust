@@ -137,9 +137,11 @@ where
         premium_active: bool,
         premium_expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError> {
-        if let Some(expires_at) = premium_expires_at {
-            if expires_at <= now() {
-                return Err(UserAdminError::InvalidPremiumExpiry);
+        if role != AdminUserRole::Admin {
+            if let Some(expires_at) = premium_expires_at {
+                if expires_at <= now() {
+                    return Err(UserAdminError::InvalidPremiumExpiry);
+                }
             }
         }
 
@@ -194,9 +196,11 @@ where
         premium_active: bool,
         premium_expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError> {
-        if let Some(expires_at) = premium_expires_at {
-            if expires_at <= now() {
-                return Err(UserAdminError::InvalidPremiumExpiry);
+        if role != AdminUserRole::Admin {
+            if let Some(expires_at) = premium_expires_at {
+                if expires_at <= now() {
+                    return Err(UserAdminError::InvalidPremiumExpiry);
+                }
             }
         }
 
