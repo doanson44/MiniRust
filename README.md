@@ -163,11 +163,21 @@ Docker must be running when database integration tests execute. No separate test
 | `MINIRUST_DB_MAX_CONNECTIONS` | `10` | MariaDB connection pool size |
 | `MINIRUST_DATABASE_URL` | — | Full SQLx URL; overrides every `MINIRUST_DB_*` variable |
 | `MINIRUST_AUTH_SECRET` | required | Authentication/session secret |
+| `MINIRUST_SMTP_HOST` | `smtp.gmail.com` when SMTP is configured | SMTP relay host |
+| `MINIRUST_SMTP_PORT` | `587` when SMTP is configured | SMTP STARTTLS port |
+| `MINIRUST_SMTP_USERNAME` | — | SMTP username; required to enable SMTP |
+| `MINIRUST_SMTP_PASSWORD` | — | SMTP password/app password; required to enable SMTP |
+| `MINIRUST_SMTP_FROM_EMAIL` | — | Sender email; required to enable SMTP |
+| `MINIRUST_SMTP_FROM_NAME` | — | Optional sender display name |
 | `MINIRUST_ADMIN_EMAIL` | `admin@minirust.local` in development | Bootstrap administrator email |
 | `MINIRUST_ADMIN_OTP` | `123456` in development | Bootstrap administrator OTP |
 | `MINIRUST_DOMAIN` | required by production Compose | Public HTTPS domain for Caddy |
 
 Do not use development defaults for production secrets or credentials.
+
+Email delivery is optional. When SMTP username, password, and sender email are not configured, MiniRust keeps email delivery disabled and authentication requests that require email return the existing `EMAIL_DELIVERY_UNAVAILABLE` behavior. When SMTP is configured, the API uses Gmail-compatible SMTP STARTTLS by default.
+
+For Gmail, use an App Password rather than the normal account password. Google requires 2-Step Verification for App Passwords. citeturn1search0turn0search4
 
 ### Logging
 
