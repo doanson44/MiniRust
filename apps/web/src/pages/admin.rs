@@ -773,11 +773,28 @@ pub fn AdminPage() -> impl IntoView {
                     <p class="mt-1 truncate text-sm text-muted-foreground" title=move || edit_email.get()>{move || edit_email.get()}</p>
                 </div>
                 <form id="edit-user-form" on:submit=save_changes class="mt-5 space-y-4">
-                    <Field label="Role".to_owned()>
+                    <Field
+                        label="Role".to_owned()
+                        description=move || {
+                            if current_user_id
+                                .get()
+                                .is_some_and(|id| selected.get().as_deref() == Some(id.as_str()))
+                            {
+                                "Your own role cannot be changed."
+                            } else {
+                                ""
+                            }
+                        }
+                    >
                         <div class="relative">
                             <select
                                 aria-label="Role"
                                 prop:value=edit_role
+                                disabled=move || {
+                                    current_user_id
+                                        .get()
+                                        .is_some_and(|id| selected.get().as_deref() == Some(id.as_str()))
+                                }
                                 on:change=move |ev| set_edit_role.set(event_target_value(&ev))
                                 class=SELECT
                             >
@@ -812,7 +829,7 @@ pub fn AdminPage() -> impl IntoView {
                                             aria-label="Open premium expiry date picker"
                                             on:click=move |_| {
                                                 if let Some(input) = premium_expires_input.get() {
-                                                    input.click();
+                                                    let _ = input.show_picker();
                                                 }
                                             }
                                             class=BTN_SECONDARY_SM
@@ -822,11 +839,16 @@ pub fn AdminPage() -> impl IntoView {
                                     </div>
                                 </Field>
                             </Show>
-                            // Active / Locked slide toggle
+                            // Locked slide toggle; the current user cannot lock their own account.
+                            <Show when=move || {
+                                !current_user_id
+                                    .get()
+                                    .is_some_and(|id| selected.get().as_deref() == Some(id.as_str()))
+                            }>
                             <div class=move || format!("flex items-center justify-between gap-4 rounded-xl border px-4 py-3 {}", if edit_locked.get() { "border-amber-300/20 bg-amber-300/5" } else { "border-line bg-canvas" })>
                                 <div>
                                     <p class=move || format!("text-sm font-medium {}", if edit_locked.get() { "text-amber-200" } else { "text-muted-foreground" })>
-                                        {move || if edit_locked.get() { "Account locked" } else { "Account active" }}
+                                        {move || if edit_locked.get() { "Locked" } else { "Not locked" }}
                                     </p>
                                     <p class="text-xs text-faint-foreground">
                                         {move || if edit_locked.get() { "User cannot log in" } else { "User can log in normally" }}
@@ -835,14 +857,15 @@ pub fn AdminPage() -> impl IntoView {
                                 <button
                                     type="button"
                                     role="switch"
-                                    aria-label="Account active"
-                                    aria-checked=move || (!edit_locked.get()).to_string()
+                                    aria-label="Locked"
+                                    aria-checked=move || edit_locked.get().to_string()
                                     on:click=move |_| set_edit_locked.update(|v| *v = !*v)
                                     class=move || format!("relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas {}", if edit_locked.get() { "bg-amber-400" } else { "bg-accent" })
                                 >
                                     <span class=move || format!("pointer-events-none inline-block size-5 rounded-full bg-white shadow transition {}", if edit_locked.get() { "translate-x-5" } else { "translate-x-0" }) />
                                 </button>
                             </div>
+                            </Show>
                         </form>
                 <div class="mt-6 flex justify-end gap-3 border-t border-line pt-5">
                     <button type="button" on:click=move |_| set_selected.set(None) class=BTN_SECONDARY_SM>"Cancel"</button>
