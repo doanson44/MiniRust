@@ -755,13 +755,15 @@ pub fn AdminPage() -> impl IntoView {
                             <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
                         </div>
                     </Field>
-                    <ToggleRow
-                        title="Premium".to_owned()
-                        description="Grant premium access immediately".to_owned()
-                        checked=new_premium_active
-                        on_toggle=Callback::new(move |_| set_new_premium_active.update(|v| *v = !*v))
-                    />
-                    <Show when=move || new_premium_active.get()>
+                    <Show when=move || new_role.get() != "admin">
+                        <ToggleRow
+                            title="Premium".to_owned()
+                            description="Grant premium access immediately".to_owned()
+                            checked=new_premium_active
+                            on_toggle=Callback::new(move |_| set_new_premium_active.update(|v| *v = !*v))
+                        />
+                    </Show>
+                    <Show when=move || new_role.get() != "admin" && new_premium_active.get()>
                         <Field
                             label="Premium expiry (optional)".to_owned()
                             description="Leave empty for no expiry.".to_owned()
@@ -867,14 +869,16 @@ pub fn AdminPage() -> impl IntoView {
                             <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
                         </div>
                     </Field>
-                    <ToggleRow
-                        title="Premium".to_owned()
-                        description="Grant premium access".to_owned()
-                        checked=premium_active
-                        on_toggle=Callback::new(move |_| set_premium_active.update(|v| *v = !*v))
-                    />
+                    <Show when=move || edit_role.get() != "admin">
+                        <ToggleRow
+                            title="Premium".to_owned()
+                            description="Grant premium access".to_owned()
+                            checked=premium_active
+                            on_toggle=Callback::new(move |_| set_premium_active.update(|v| *v = !*v))
+                        />
+                    </Show>
                             // Premium expiry
-                            <Show when=move || premium_active.get()>
+                            <Show when=move || edit_role.get() != "admin" && premium_active.get()>
                                 <Field label="Premium expiry (optional)".to_owned() description="Leave empty for no expiry.".to_owned()>
                                     <div class="flex gap-2">
                                         <div class="min-w-0 flex-1">
