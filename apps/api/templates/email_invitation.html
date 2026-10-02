@@ -9,7 +9,8 @@
         .logo { font-size: 24px; font-weight: 800; color: #67e8f9; text-align: center; margin-bottom: 30px; letter-spacing: -0.5px; }
         .content { text-align: center; }
         .title { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #ffffff; }
-        .code-box { background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; font-size: 36px; font-weight: 700; letter-spacing: 6px; padding: 20px; margin: 30px 0; color: #67e8f9; }
+        .button { display: inline-block; background-color: #67e8f9; color: #020617 !important; text-decoration: none; font-weight: 700; padding: 14px 24px; border-radius: 8px; margin: 24px 0; }
+        .link { word-break: break-all; font-size: 13px; color: #94a3b8; }
         .footer { font-size: 13px; color: #94a3b8; text-align: center; margin-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 20px; }
     </style>
 </head>
@@ -19,9 +20,10 @@
         <div class="content">
             <div class="title">Bạn được mời sử dụng MiniRust / You are invited to MiniRust</div>
             <p>Quản trị viên đã tạo tài khoản cho địa chỉ email này. / An administrator created an account for this email address.</p>
-            <p>Sử dụng mã dưới đây để đăng nhập lần đầu. / Use the code below to sign in for the first time.</p>
-            <div class="code-box">{code}</div>
-            <p style="font-size: 14px; color: #94a3b8;">Mã có hiệu lực trong 10 phút / Valid for 10 minutes</p>
+            <p>Nhấn nút bên dưới để chấp nhận lời mời và đăng nhập. / Click below to accept the invitation and sign in.</p>
+            <a class="button" href="{link}">Chấp nhận lời mời / Accept invitation</a>
+            <p class="link">{link}</p>
+            <p style="font-size: 14px; color: #94a3b8;">Liên kết có hiệu lực trong 24 giờ / Link valid for 24 hours</p>
         </div>
         <div class="footer">
             Nếu bạn không mong đợi lời mời này, bạn có thể bỏ qua email này.<br>
