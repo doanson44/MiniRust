@@ -137,6 +137,12 @@ where
         premium_active: bool,
         premium_expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError> {
+        if let Some(expires_at) = premium_expires_at {
+            if expires_at <= now() {
+                return Err(UserAdminError::InvalidPremiumExpiry);
+            }
+        }
+
         let email = normalize_email(email)?;
         if self.repository.find_user(&email).await?.is_some() {
             return Err(UserAdminError::EmailAlreadyExists);
@@ -153,7 +159,7 @@ where
                 role
             };
             self.repository
-                 .update_user(user.id, effective_role, premium_active, premium_expires_at)
+                .update_user(user.id, effective_role, premium_active, premium_expires_at)
                 .await?
         } else {
             user
