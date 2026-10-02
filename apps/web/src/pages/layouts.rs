@@ -56,7 +56,7 @@ pub fn AppLayout() -> impl IntoView {
             .await
             {
                 set_locale.set(current_user.locale.clone());
-                set_user.set(Some(current_user));
+                _set_user.set(Some(current_user));
             }
         });
     };
