@@ -13,6 +13,28 @@ pub struct UserResponse {
     pub locale: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct MenuResponse {
+    pub id: String,
+    pub parent_id: Option<String>,
+    pub name: String,
+    pub path: String,
+    pub icon: Option<String>,
+    pub allow_user: bool,
+    pub allow_premium: bool,
+    pub sort_order: i32,
+    pub is_active: bool,
+}
+
+#[cfg(feature = "hydrate")]
+pub type MenuListResponse = MenuListData;
+
+#[cfg(feature = "hydrate")]
+#[derive(Clone, Debug, Deserialize)]
+pub struct MenuListData {
+    pub menus: Vec<MenuResponse>,
+}
+
 #[cfg(feature = "hydrate")]
 #[derive(Clone, Debug, Deserialize)]
 pub struct UserListData {
