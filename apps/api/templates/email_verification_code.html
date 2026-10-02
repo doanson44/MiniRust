@@ -1,30 +1,152 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Mã xác minh / Verification code</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifying it's you / Xác minh danh tính</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #020617; color: #ffffff; line-height: 1.5; padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; background-color: rgba(255, 255, 255, 0.03); padding: 40px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); }
-        .logo { font-size: 24px; font-weight: 800; color: #67e8f9; text-align: center; margin-bottom: 30px; letter-spacing: -0.5px; }
-        .content { text-align: center; }
-        .title { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #ffffff; }
-        .code-box { background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; font-size: 36px; font-weight: 700; letter-spacing: 6px; padding: 20px; margin: 30px 0; color: #67e8f9; }
-        .footer { font-size: 13px; color: #94a3b8; text-align: center; margin-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 20px; }
+        body {
+            margin: 0;
+            padding: 24px 16px;
+            background: #f4f5f7;
+            color: #172b4d;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 520px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid #dfe1e6;
+            border-radius: 12px;
+            padding: 40px 32px;
+        }
+
+        .logo {
+            margin-bottom: 32px;
+            color: #172b4d;
+            font-size: 22px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .title {
+            margin: 0 0 8px;
+            color: #172b4d;
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .subtitle {
+            margin: 0 0 24px;
+            color: #5e6c84;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .message {
+            margin: 0 0 20px;
+            color: #344563;
+            font-size: 15px;
+            text-align: center;
+        }
+
+        .code-box {
+            margin: 24px 0;
+            padding: 20px 16px;
+            background: #f7f8fa;
+            border: 1px solid #dfe1e6;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .code-label {
+            display: block;
+            margin-bottom: 10px;
+            color: #5e6c84;
+            font-size: 14px;
+        }
+
+        .code {
+            display: block;
+            color: #172b4d;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            line-height: 1.2;
+        }
+
+        .expiry {
+            margin: 0;
+            color: #5e6c84;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .security {
+            margin: 28px 0 0;
+            padding-top: 20px;
+            border-top: 1px solid #ebecf0;
+            color: #6b778c;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .footer {
+            margin-top: 24px;
+            color: #7a869a;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        @media only screen and (max-width: 480px) {
+            .container {
+                padding: 32px 20px;
+            }
+
+            .code {
+                font-size: 28px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="logo">MiniRust</div>
-        <div class="content">
-            <div class="title">Mã xác minh của bạn / Your verification code</div>
-            <p>Vui lòng sử dụng mã dưới đây để tiếp tục. / Please use the code below to continue.</p>
-            <div class="code-box">{code}</div>
-            <p style="font-size: 14px; color: #94a3b8;">(Mã này có hiệu lực trong 10 phút / Valid for 10 minutes)</p>
+
+        <h1 class="title">Verifying it's you</h1>
+        <p class="subtitle">Xác minh danh tính của bạn</p>
+
+        <p class="message">
+            Use the verification code below to continue signing in.
+            <br>
+            Sử dụng mã xác minh bên dưới để tiếp tục đăng nhập.
+        </p>
+
+        <div class="code-box">
+            <span class="code-label">Your verification code is / Mã xác minh của bạn là</span>
+            <strong class="code">{code}</strong>
         </div>
+
+        <p class="expiry">
+            This code expires in 10 minutes.
+            <br>
+            Mã này có hiệu lực trong 10 phút.
+        </p>
+
+        <p class="security">
+            Never share this code with anyone.
+            <br>
+            Không chia sẻ mã này với bất kỳ ai.
+        </p>
+
         <div class="footer">
-            Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.<br>
-            If you didn't request this code, please ignore this email.
+            If you didn't request this code, you can safely ignore this email.
+            <br>
+            Nếu bạn không yêu cầu mã này, bạn có thể bỏ qua email này.
         </div>
     </div>
 </body>
