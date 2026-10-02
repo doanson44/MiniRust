@@ -337,7 +337,7 @@ pub fn AdminPage() -> impl IntoView {
                         }
                     });
                     toast.success("User changes saved.");
-                    set_selected(None);
+                    set_selected.set(None);
                     reload_users();
                 }
                 Err(error) => toast.error(error),
