@@ -431,5 +431,4 @@ impl UserAdminRepository for Database {
             .ok_or(UserAdminError::NotFound)
     }
 
-
 }
