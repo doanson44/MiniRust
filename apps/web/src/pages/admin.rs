@@ -74,6 +74,7 @@ pub fn AdminPage() -> impl IntoView {
     let (page_size, set_page_size) = signal(20i32);
     let (total_pages, set_total_pages) = signal(1u32);
     let (loading, set_loading) = signal(false);
+    #[cfg(feature = "hydrate")]
     let toast = use_context::<ToastController>().unwrap_or_else(|| ToastController {
         show: Callback::new(|_| {}),
     });
