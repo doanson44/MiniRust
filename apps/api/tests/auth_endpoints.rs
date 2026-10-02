@@ -44,6 +44,24 @@ async fn login_request_rejects_invalid_email() {
 }
 
 #[tokio::test]
+async fn invitation_verify_rejects_unknown_token() {
+    let app = test_app().await;
+
+    let response = app
+        .router()
+        .oneshot(
+            Request::post("/api/v1/auth/invitation/verify")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"token":"invalid-invitation-token"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
 async fn register_verify_rejects_unknown_code() {
     let app = test_app().await;
 
