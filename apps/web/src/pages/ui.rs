@@ -9,6 +9,8 @@
 //! static literals — never build a class name from a `format!` argument.
 
 use leptos::prelude::*;
+#[cfg(feature = "hydrate")]
+use wasm_bindgen::JsCast;
 
 // ── Layout ───────────────────────────────────────────────────────────────────
 
