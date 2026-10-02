@@ -322,7 +322,6 @@ pub enum UserAdminCommand {
 pub enum UserAdminCommandResult {
     User(UserAccess),
     Deleted,
-    Locked,
 }
 
 impl Command for UserAdminCommand {
@@ -371,9 +370,10 @@ where
                 role,
                 premium_active,
                 premium_expires_at,
+                is_locked,
             } => self
                 .service
-                .update_user(user_id, role, premium_active, premium_expires_at)
+                .update_user(user_id, role, premium_active, premium_expires_at, is_locked)
                 .await
                 .map(UserAdminCommandResult::User),
             UserAdminCommand::DeleteUser { user_id } => self
@@ -393,16 +393,6 @@ where
             UserAdminCommand::SetLocale { user_id, locale } => self
                 .service
                 .update_locale(user_id, locale)
-                .await
-                .map(UserAdminCommandResult::User),
-            UserAdminCommand::LockUser { user_id } => self
-                .service
-                .lock(user_id)
-                .await
-                .map(|_| UserAdminCommandResult::Locked),
-            UserAdminCommand::UnlockUser { user_id } => self
-                .service
-                .unlock(user_id)
                 .await
                 .map(UserAdminCommandResult::User),
         }
