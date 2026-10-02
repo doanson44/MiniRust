@@ -263,7 +263,7 @@ pub fn MenuAdminPage() -> impl IntoView {
                                                 on:change=move |ev| update_access(menu_for_premium.clone(), allow_user, event_target_checked(&ev))
                                                 class=CHECKBOX
                                             />
-                                            <span class="text-xs text-muted-foreground>Premium"</span>
+                                            <span class="text-xs text-muted-foreground">"Premium"</span>
                                         </label>
                                     </div>
                                 </li>
