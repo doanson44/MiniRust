@@ -51,6 +51,8 @@ pub fn AdminPage() -> impl IntoView {
     let (new_email, set_new_email) = signal(String::new());
     let (new_role, set_new_role) = signal("none".to_owned());
     let (new_premium_active, set_new_premium_active) = signal(false);
+    let (new_premium_expires, set_new_premium_expires) = signal(String::new());
+    let new_premium_expires_input = NodeRef::<leptos::html::Input>::new();
 
     // ── Edit dialog state ────────────────────────────────────────────────
     let (selected, set_selected) = signal(None::<String>);
@@ -136,13 +138,20 @@ pub fn AdminPage() -> impl IntoView {
         });
     };
 
-    let create_user = move |event: leptos::ev::SubmitEvent| {
-        event.prevent_default();
+    let create_user_with_invite = move |send_invite: bool| {
         let email = new_email.get();
         let role = new_role.get();
         let premium_active = new_premium_active.get();
+        let premium_expires = new_premium_expires.get();
+
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
+            let premium_expires_at = if premium_active {
+                date_to_timestamp(&premium_expires)
+            } else {
+                None
+            };
+
             match api_json::<UserResponse>(
                 gloo_net::http::Method::POST,
                 "/api/v1/admin/users",
@@ -150,7 +159,9 @@ pub fn AdminPage() -> impl IntoView {
                     serde_json::json!({
                         "email": email,
                         "role": role,
-                        "premium_active": premium_active
+                        "premium_active": premium_active,
+                        "premium_expires_at": premium_expires_at,
+                        "send_invite": send_invite
                     })
                     .to_string(),
                 ),
@@ -161,13 +172,27 @@ pub fn AdminPage() -> impl IntoView {
                     set_new_email.set(String::new());
                     set_new_role.set("none".to_owned());
                     set_new_premium_active.set(false);
+                    set_new_premium_expires.set(String::new());
                     set_show_create.set(false);
-                    set_status.set("User created.".to_owned());
+                    set_status.set(if send_invite {
+                        "User created and login email sent.".to_owned()
+                    } else {
+                        "User created.".to_owned()
+                    });
                     reload_users();
                 }
                 Err(error) => set_status.set(error),
             }
         });
+    };
+
+    let create_user = move |event: leptos::ev::SubmitEvent| {
+        event.prevent_default();
+        create_user_with_invite(false);
+    };
+
+    let create_and_send_email = move |_| {
+        create_user_with_invite(true);
     };
 
     let delete_user = move |user_id: String| {
@@ -734,6 +759,37 @@ pub fn AdminPage() -> impl IntoView {
                         checked=new_premium_active
                         on_toggle=Callback::new(move |_| set_new_premium_active.update(|v| *v = !*v))
                     />
+                    <Show when=move || new_premium_active.get()>
+                        <Field
+                            label="Premium expiry (optional)".to_owned()
+                            description="Leave empty for no expiry.".to_owned()
+                        >
+                            <div class="flex gap-2">
+                                <div class="min-w-0 flex-1">
+                                    <input
+                                        node_ref=new_premium_expires_input
+                                        type="date"
+                                        aria-label="Premium expiry date"
+                                        prop:value=new_premium_expires
+                                        on:input=move |ev| set_new_premium_expires.set(event_target_value(&ev))
+                                        class=INPUT
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    aria-label="Open premium expiry date picker"
+                                    on:click=move |_| {
+                                        if let Some(input) = new_premium_expires_input.get() {
+                                            let _ = input.show_picker();
+                                        }
+                                    }
+                                    class=BTN_SECONDARY_SM
+                                >
+                                    <span aria-hidden="true">"📅"</span>
+                                </button>
+                            </div>
+                        </Field>
+                    </Show>
                     <p class="text-xs text-faint-foreground">"New users are always created as Active."</p>
                 </form>
                 <div class="mt-6 flex justify-end gap-3 border-t border-line pt-5">
@@ -744,7 +800,14 @@ pub fn AdminPage() -> impl IntoView {
                     >
                         "Cancel"
                     </button>
-                    <button type="submit" form="create-user-form" class=BTN_PRIMARY>"Create user"</button>
+                    <button type="submit" form="create-user-form" class=BTN_SECONDARY_SM>"Create user"</button>
+                    <button
+                        type="button"
+                        on:click=create_and_send_email
+                        class=BTN_PRIMARY
+                    >
+                        "Create and send email"
+                    </button>
                 </div>
             </Modal>
 
