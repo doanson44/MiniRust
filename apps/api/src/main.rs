@@ -1,4 +1,4 @@
-use minirust_api::{router, AppState, SmtpEmailSender};
+use minirust_api::{router, AppState};
 use minirust_config::{Config, ServerKind};
 use minirust_database::Database;
 use minirust_observability::init as init_logging;
@@ -38,12 +38,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!(environment = %config.environment, address = %addr, "starting MiniRust API");
 
     let auth_secret = config.auth_secret()?;
-    let email_sender = SmtpEmailSender::from_config(config.smtp.as_ref())?;
-    let state = AppState::with_email_sender(
+    let state = AppState::new(
         database,
         auth_secret.as_bytes().to_vec(),
         matches!(config.environment, minirust_config::Environment::Production),
-        email_sender,
     )?;
 
     axum::serve(listener, router(state))
