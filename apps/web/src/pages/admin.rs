@@ -840,15 +840,13 @@ pub fn AdminPage() -> impl IntoView {
                 <form id="edit-user-form" on:submit=save_changes class="mt-5 space-y-4">
                     <Field
                         label="Role".to_owned()
-                        description=move || {
-                            if current_user_id
-                                .get()
-                                .is_some_and(|id| selected.get().as_deref() == Some(id.as_str()))
-                            {
-                                "Your own role cannot be changed."
-                            } else {
-                                ""
-                            }
+                        description=if current_user_id
+                            .get()
+                            .is_some_and(|id| selected.get().as_deref() == Some(id.as_str()))
+                        {
+                            Some("Your own role cannot be changed.".to_owned())
+                        } else {
+                            None
                         }
                     >
                         <div class="relative">
