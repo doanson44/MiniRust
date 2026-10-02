@@ -690,6 +690,26 @@ async fn admin_user_crud_and_modal_update() {
         .await
         .unwrap();
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+
+    let recreate = app
+        .router()
+        .oneshot(
+            Request::post("/api/v1/admin/users")
+                .header("content-type", "application/json")
+                .header("cookie", &cookie)
+                .body(Body::from(r#"{"email":"crud@example.com"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(recreate.status(), StatusCode::CREATED);
+
+    let recreate_body = axum::body::to_bytes(recreate.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let recreate_body: serde_json::Value = serde_json::from_slice(&recreate_body).unwrap();
+    assert_ne!(recreate_body["data"]["id"], user_id);
+    assert_eq!(recreate_body["data"]["email"], "crud@example.com");
 }
 
 #[tokio::test]
