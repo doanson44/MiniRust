@@ -220,10 +220,10 @@ pub trait EmailSender: Clone + Send + Sync + 'static {
         code: &str,
     ) -> Result<(), AuthError>;
 
-    async fn send_invitation_code(
+    async fn send_invitation_link(
         &self,
         email: &str,
-        code: &str,
+        token: &str,
     ) -> Result<(), AuthError>;
 
     async fn send_registration_verification(
