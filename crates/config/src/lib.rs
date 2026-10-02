@@ -128,7 +128,6 @@ impl DatabaseConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SmtpConfig {
     pub host: String,
     pub port: u16,
@@ -147,6 +146,7 @@ pub struct Config {
     pub auth_secret: Option<String>,
     pub admin_email: String,
     pub admin_otp: String,
+    pub smtp: Option<SmtpConfig>,
     database_url_override: Option<String>,
 }
 
