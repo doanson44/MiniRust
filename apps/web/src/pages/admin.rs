@@ -135,7 +135,7 @@ pub fn AdminPage() -> impl IntoView {
                         set_users.set(response.data.users);
                         set_total_pages.set(response.meta.total_pages.max(1));
                     }
-                    Err(error) => set_status.set(error),
+                    Err(error) => toast.error(error),
                 }
                 set_loading.set(false);
             }
@@ -185,7 +185,7 @@ pub fn AdminPage() -> impl IntoView {
                     });
                     reload_users();
                 }
-                Err(error) => set_status.set(error),
+                Err(error) => toast.error(error),
             }
         });
     };
@@ -216,7 +216,7 @@ pub fn AdminPage() -> impl IntoView {
                     }
                     reload_users();
                 }
-                Err(error) => set_status.set(error),
+                Err(error) => toast.error(error),
             }
         });
     };
@@ -236,7 +236,7 @@ pub fn AdminPage() -> impl IntoView {
                     set_selected.set(None);
                     reload_users();
                 }
-                Err(error) => set_status.set(error),
+                Err(error) => toast.error(error),
             }
         });
     };
@@ -255,7 +255,7 @@ pub fn AdminPage() -> impl IntoView {
                     toast.success("Sign-in access enabled.");
                     reload_users();
                 }
-                Err(error) => set_status.set(error),
+                Err(error) => toast.error(error),
             }
         });
     };
@@ -323,7 +323,7 @@ pub fn AdminPage() -> impl IntoView {
                             {
                                 Ok(_) => {}
                                 Err(error) => {
-                                    set_status.set(error);
+                                    toast.error(error);
                                     return;
                                 }
                             }
@@ -339,7 +339,7 @@ pub fn AdminPage() -> impl IntoView {
                     set_selected(None);
                     reload_users();
                 }
-                Err(error) => set_status.set(error),
+                Err(error) => toast.error(error),
             }
         });
     };
@@ -374,7 +374,7 @@ pub fn AdminPage() -> impl IntoView {
                             .unwrap_or_default(),
                     );
                 }
-                Err(error) => set_status.set(error),
+                Err(error) => toast.error(error),
             }
         });
     };
