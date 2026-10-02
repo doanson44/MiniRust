@@ -208,6 +208,12 @@ pub trait EmailSender: Clone + Send + Sync + 'static {
         code: &str,
     ) -> Result<(), AuthError>;
 
+    async fn send_invitation_code(
+        &self,
+        email: &str,
+        code: &str,
+    ) -> Result<(), AuthError>;
+
     async fn send_registration_verification(
         &self,
         email: &str,
@@ -226,6 +232,21 @@ pub enum ConfiguredEmailSender {
 }
 
 impl EmailSender for ConfiguredEmailSender {
+    async fn send_invitation_code(
+        &self,
+        email: &str,
+        code: &str,
+    ) -> Result<(), AuthError> {
+        match self {
+            Self::Local => {
+                tracing::info!(email = %email, "local invitation email simulated");
+                let _ = code;
+                Ok(())
+            }
+            Self::Unavailable => Err(AuthError::EmailDeliveryUnavailable),
+        }
+    }
+
     async fn send_registration_verification(
         &self,
         email: &str,
@@ -259,6 +280,14 @@ impl EmailSender for ConfiguredEmailSender {
 }
 
 impl EmailSender for UnavailableEmailSender {
+    async fn send_invitation_code(
+        &self,
+        _email: &str,
+        _code: &str,
+    ) -> Result<(), AuthError> {
+        Err(AuthError::EmailDeliveryUnavailable)
+    }
+
     async fn send_registration_verification(
         &self,
         _email: &str,
@@ -358,7 +387,14 @@ where
     }
 
     pub async fn request_login_code(&self, email: &str) -> Result<CodeRequestAccepted, AuthError> {
-        self.request_code(email, ChallengePurpose::Login).await
+        self.request_code(email, ChallengePurpose::Login, false).await
+    }
+
+    pub async fn request_invitation_code(
+        &self,
+        email: &str,
+    ) -> Result<CodeRequestAccepted, AuthError> {
+        self.request_code(email, ChallengePurpose::Login, true).await
     }
 
     pub async fn verify_registration(&self, token: &str) -> Result<Session, AuthError> {
@@ -418,6 +454,7 @@ where
         &self,
         email: &str,
         purpose: ChallengePurpose,
+        invitation: bool,
     ) -> Result<CodeRequestAccepted, AuthError> {
         let email = normalize_email(email)?;
 
@@ -457,11 +494,15 @@ where
             .create_challenge(challenge, &email, purpose, code_hash, now)
             .await?;
 
-        if let Err(error) = self
-            .email_sender
-            .send_verification_code(&email, purpose, &code)
-            .await
-        {
+        let delivery = if invitation {
+            self.email_sender.send_invitation_code(&email, &code).await
+        } else {
+            self.email_sender
+                .send_verification_code(&email, purpose, &code)
+                .await
+        };
+
+        if let Err(error) = delivery {
             let _ = self.repository.discard_challenge(challenge.id).await;
             return Err(error);
         }
@@ -619,6 +660,7 @@ use crate::cqrs::{AsyncCommandHandler, AsyncQueryHandler, Command, Query};
 pub enum AuthCommand {
     RequestRegistrationVerification { email: String },
     RequestLoginCode { email: String },
+    RequestInvitationCode { email: String },
     VerifyRegistration { token: String },
     VerifyLoginCode { email: String, code: String },
     Logout { token: String },
