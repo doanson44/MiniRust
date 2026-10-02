@@ -4,9 +4,9 @@ use leptos::prelude::*;
 use crate::api::{api_empty, api_json};
 use crate::types::UserResponse;
 
-use super::ui::{LoadingState, BTN_PRIMARY, EYEBROW, PAGE_SHELL, PAGE_TITLE};
 #[cfg(feature = "hydrate")]
 use super::ui::ToastController;
+use super::ui::{LoadingState, BTN_PRIMARY, EYEBROW, PAGE_SHELL, PAGE_TITLE};
 
 #[component]
 #[allow(unused_variables)]
