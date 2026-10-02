@@ -43,8 +43,8 @@ pub mod types;
 
 use pages::ui::GlobalToast;
 use pages::{
-    AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, MenuAdminPage, ProfilePage, RegisterPage,
-    RegisterVerifyPage,
+    AdminPage, AppLayout, AppPage, AuthLayout, InvitationAcceptPage, LoginPage, MenuAdminPage,
+    ProfilePage, RegisterPage, RegisterVerifyPage,
 };
 
 #[cfg(feature = "ssr")]
@@ -129,6 +129,7 @@ fn App() -> impl IntoView {
                 <Route path=path!("/login") view=LoginPage/>
                 <Route path=path!("/register") view=RegisterPage/>
                 <Route path=path!("/register/verify") view=RegisterVerifyPage/>
+                <Route path=path!("/invite/accept") view=InvitationAcceptPage/>
                 <ParentRoute path=path!("/app") view=AppLayout>
                     <Route path=path!("") view=AppPage/>
                 </ParentRoute>
