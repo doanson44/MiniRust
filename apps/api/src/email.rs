@@ -53,7 +53,7 @@ impl SmtpEmailSender {
         };
         let to = recipient.parse().map_err(|_| AuthError::InvalidEmail)?;
         let message = Message::builder()
-.from(from.clone())
+            .from(from.clone())
             .to(to)
             .subject(subject)
             .header(ContentType::TEXT_PLAIN)
