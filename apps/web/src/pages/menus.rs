@@ -127,6 +127,15 @@ pub fn MenuAdminPage() -> impl IntoView {
             </section>
 
             <section class=TABLE_SHELL>
+                <div class="flex flex-wrap items-center justify-end gap-3 border-b border-line px-4 py-2">
+                    <PageSizeSelect
+                        value=page_size
+                        options=PAGE_SIZE_OPTIONS.to_vec()
+                        all_value=ALL_PAGE_SIZE
+                        on_change=Callback::new(move |size: i32| change_page_size(size.to_string()))
+                    />
+                </div>
+
                 <Show when=move || loading.get()>
                     <LoadingState label="Loading menus".to_owned()/>
                 </Show>
@@ -141,13 +150,15 @@ pub fn MenuAdminPage() -> impl IntoView {
 
                 <div class="hidden md:block">
                 <table class="w-full text-left" aria-label={text("Phân quyền menu", "Menu permissions")}>
-                    <thead><tr class="text-xs uppercase tracking-widest text-faint-foreground">
-                        <th scope="col" class=TH>"Menu"</th>
-                        <th scope="col" class=TH>{text("Đường dẫn", "Path")}</th>
-                        <th scope="col" class=TH>{text("Người dùng thường", "Normal users")}</th>
-                        <th scope="col" class=TH>"Premium"</th>
-                        <th scope="col" class=TH>{text("Quản trị viên", "Administrators")}</th>
-                    </tr></thead>
+                    <thead>
+                        <tr class="text-xs uppercase tracking-widest text-faint-foreground">
+                            <th scope="col" class=TH>"Menu"</th>
+                            <th scope="col" class=TH>{text("Đường dẫn", "Path")}</th>
+                            <th scope="col" class=TH>{text("Người dùng thường", "Normal users")}</th>
+                            <th scope="col" class=TH>"Premium"</th>
+                            <th scope="col" class=TH>{text("Quản trị viên", "Administrators")}</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         <For
                             each=move || menus.get()
@@ -252,7 +263,7 @@ pub fn MenuAdminPage() -> impl IntoView {
                                                 on:change=move |ev| update_access(menu_for_premium.clone(), allow_user, event_target_checked(&ev))
                                                 class=CHECKBOX
                                             />
-                                            <span class="text-xs text-muted-foreground">"Premium"</span>
+                                            <span class="text-xs text-muted-foreground>Premium"</span>
                                         </label>
                                     </div>
                                 </li>
@@ -260,32 +271,27 @@ pub fn MenuAdminPage() -> impl IntoView {
                         }
                     />
                 </ul>
-            </section>
 
-            <div class="flex flex-wrap items-center justify-between gap-4 border-t border-line px-4 py-4">
-                <PageSizeSelect
-                    value=page_size
-                    options=PAGE_SIZE_OPTIONS.to_vec()
-                    all_value=ALL_PAGE_SIZE
-                    on_change=Callback::new(move |size: i32| change_page_size(size.to_string()))
-                />
                 <Pagination
                     can_go_back=Signal::derive(move || page.get() > 1)
                     can_go_forward=Signal::derive(move || page.get() < total_pages.get())
                     on_previous=Callback::new(move |_| {
-                        let next_page = page.get().saturating_sub(1).max(1);
-                        set_page.set(next_page);
+                        set_page.update(|value| *value = value.saturating_sub(1).max(1));
                         reload();
                     })
                     on_next=Callback::new(move |_| {
-                        let next_page = page.get() + 1;
-                        set_page.set(next_page);
+                        set_page.update(|value| *value += 1);
                         reload();
                     })
                 >
-                    {move || format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())}
+                    {move || if page_size.get() == ALL_PAGE_SIZE {
+                        format!("All · {} items", menus.get().len())
+                    } else {
+                        format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())
+                    }}
                 </Pagination>
-            </div>
+            </section>
+
         </div>
     }
 }
