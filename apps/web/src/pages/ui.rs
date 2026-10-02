@@ -124,7 +124,7 @@ struct ToastState {
 }
 
 #[component]
-pub fn GlobalToast() -> impl IntoView {
+pub fn GlobalToast(children: Children) -> impl IntoView {
     let (toast, set_toast) = signal(None::<ToastState>);
     let (next_id, set_next_id) = signal(0u64);
 
@@ -160,6 +160,7 @@ pub fn GlobalToast() -> impl IntoView {
     provide_context(controller);
 
     view! {
+        {children()}
         <div
             class="pointer-events-none fixed inset-x-4 top-20 z-[100] flex justify-end sm:left-auto sm:right-6 sm:w-full sm:max-w-md"
             aria-live="polite"
