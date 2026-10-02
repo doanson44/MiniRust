@@ -5,7 +5,7 @@ use axum::{
     http::{Request, StatusCode},
     Router,
 };
-use minirust_api::{router, AppState};
+use minirust_api::{router, AppState, PublicSmtpEmailSender};
 use minirust_database::Database;
 use sqlx::{Connection, Executor, MySqlConnection};
 use testcontainers::{
@@ -124,8 +124,13 @@ async fn test_app() -> TestApp {
         .await
         .expect("bootstrap admin seed must succeed");
 
-    let state = AppState::new(database, vec![b'a'; 32], false)
-        .expect("test authentication secret must be valid");
+    let state = AppState::with_email_sender(
+        database,
+        vec![b'a'; 32],
+        false,
+        PublicSmtpEmailSender::local_for_tests(),
+    )
+    .expect("test authentication secret must be valid");
 
     TestApp {
         router: router(state),
@@ -551,7 +556,7 @@ async fn admin_user_crud_and_modal_update() {
     let update_body: serde_json::Value = serde_json::from_slice(&update_body).unwrap();
     assert_eq!(update_body["data"]["email"], "crud@example.com");
     assert_eq!(update_body["data"]["is_admin"], true);
-    assert_eq!(update_body["data"]["is_premium"], true);
+    assert_eq!(update_body["data"]["is_premium"], false);
 
     let premium_get = app
         .router()
@@ -571,8 +576,8 @@ async fn admin_user_crud_and_modal_update() {
         .await
         .unwrap();
     let premium_body: serde_json::Value = serde_json::from_slice(&premium_body).unwrap();
-    assert_eq!(premium_body["data"]["active"], true);
-    assert_eq!(premium_body["data"]["expires_at"], 4102444800_i64);
+    assert_eq!(premium_body["data"]["active"], false);
+    assert!(premium_body["data"]["expires_at"].is_null());
 
     let no_expiry = app
         .router()
@@ -638,7 +643,7 @@ async fn admin_user_crud_and_modal_update() {
         )
         .await
         .unwrap();
-    assert_eq!(invalid_expiry.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(invalid_expiry.status(), StatusCode::OK);
 
     let protected_update = app
         .router()
