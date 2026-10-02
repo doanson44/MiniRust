@@ -586,13 +586,19 @@ async fn admin_user_crud_and_modal_update() {
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(
-                    r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":null,"is_locked":false}"#,
+                    r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":null,"is_locked":true}"#,
                 ))
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(no_expiry.status(), StatusCode::OK);
+
+    let no_expiry_body = axum::body::to_bytes(no_expiry.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let no_expiry_body: serde_json::Value = serde_json::from_slice(&no_expiry_body).unwrap();
+    assert_eq!(no_expiry_body["data"]["is_locked"], true);
 
     let premium_get = app
         .router()
