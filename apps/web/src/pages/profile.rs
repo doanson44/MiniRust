@@ -4,16 +4,18 @@ use leptos::prelude::*;
 use crate::api::{api_empty, api_json};
 use crate::types::UserResponse;
 
-use super::ui::{LoadingState, BTN_PRIMARY, EYEBROW, PAGE_SHELL, PAGE_TITLE};
+use super::ui::{LoadingState, ToastController, BTN_PRIMARY, EYEBROW, PAGE_SHELL, PAGE_TITLE};
 
 #[component]
 #[allow(unused_variables)]
 pub fn ProfilePage() -> impl IntoView {
     let (user, set_user) = signal(None::<UserResponse>);
-    let (status, set_status) = signal(String::new());
     let (full_name, set_full_name) = signal(String::new());
     let (avatar_url, set_avatar_url) = signal(String::new());
     let locale = use_context::<ReadSignal<String>>().unwrap_or_else(|| signal("vi".to_owned()).0);
+    let toast = use_context::<ToastController>().unwrap_or_else(|| ToastController {
+        show: Callback::new(|_| {}),
+    });
 
     #[cfg(feature = "hydrate")]
     {
@@ -27,7 +29,7 @@ pub fn ProfilePage() -> impl IntoView {
                         set_avatar_url.set(user.avatar_url.clone().unwrap_or_default());
                         set_user.set(Some(user));
                     }
-                    Err(error) => set_status.set(error),
+                    Err(error) => toast.error(error),
                 }
             }
         });
@@ -54,7 +56,7 @@ pub fn ProfilePage() -> impl IntoView {
             {
                 Ok(user) => {
                     set_user.set(Some(user));
-                    set_status.set(if locale.get() == "vi" { "Đã cập nhật hồ sơ." } else { "Profile updated." }.to_owned());
+                    toast.success(if locale.get() == "vi" { "Đã cập nhật hồ sơ." } else { "Profile updated." });
                 }
                 Err(error) => set_status.set(error),
             }
@@ -80,7 +82,6 @@ pub fn ProfilePage() -> impl IntoView {
                 <section>
                     <p class=EYEBROW>{move || if locale.get() == "vi" { "Không gian làm việc" } else { "Workspace" }}</p>
                     <h1 class=PAGE_TITLE>{move || if locale.get() == "vi" { "Tài khoản của bạn" } else { "Your account" }}</h1>
-                    <p class="mt-3 text-sm text-subtle-foreground">{status}</p>
                 </section>
 
                 <Show when=move || user.get().is_none() && status.get().is_empty()>
