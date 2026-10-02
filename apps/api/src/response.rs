@@ -366,6 +366,15 @@ impl ProblemDetails {
                     Locale::En => "This system account is protected.".to_owned(),
                 },
             ),
+            UserAdminError::CannotChangeOwnRole => (
+                StatusCode::CONFLICT,
+                "CANNOT_CHANGE_OWN_ROLE",
+                "errors.user.cannot_change_own_role",
+                match locale {
+                    Locale::Vi => "Bạn không thể thay đổi role của chính mình.".to_owned(),
+                    Locale::En => "You cannot change your own role.".to_owned(),
+                },
+            ),
             UserAdminError::Persistence => return Self::internal(locale),
         };
 
