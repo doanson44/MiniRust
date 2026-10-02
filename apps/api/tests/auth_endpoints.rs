@@ -542,7 +542,7 @@ async fn admin_user_crud_and_modal_update() {
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(
-                    r#"{"role":"admin","premium_active":true,"premium_expires_at":4102444800}"#,
+                    r#"{"role":"admin","premium_active":true,"premium_expires_at":4102444800,"is_locked":false}"#,
                 ))
                 .unwrap(),
         )
@@ -586,7 +586,7 @@ async fn admin_user_crud_and_modal_update() {
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(
-                    r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":null}"#,
+                    r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":null,"is_locked":false}"#,
                 ))
                 .unwrap(),
         )
@@ -622,7 +622,7 @@ async fn admin_user_crud_and_modal_update() {
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(
-                    r#"{"email":"updated@example.com","role":"owner","premium_active":true,"premium_expires_at":4102444800}"#,
+                    r#"{"email":"updated@example.com","role":"owner","premium_active":true,"premium_expires_at":4102444800,"is_locked":false}"#,
                 ))
                 .unwrap(),
         )
@@ -637,7 +637,7 @@ async fn admin_user_crud_and_modal_update() {
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(
-                    r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":1}"#,
+                    r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":1,"is_locked":false}"#,
                 ))
                 .unwrap(),
         )
@@ -652,7 +652,7 @@ async fn admin_user_crud_and_modal_update() {
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(
-                    r#"{"email":"changed-admin@example.com","role":"none","premium_active":false,"premium_expires_at":null}"#,
+                    r#"{"email":"changed-admin@example.com","role":"none","premium_active":false,"premium_expires_at":null,"is_locked":false}"#,
                 ))
                 .unwrap(),
         )
@@ -735,7 +735,7 @@ async fn admin_user_endpoints_require_authentication() {
         Request::patch("/api/v1/admin/users/user@example.com")
             .header("content-type", "application/json")
             .body(Body::from(
-                r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":null}"#,
+                r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":null,"is_locked":false}"#,
             ))
             .unwrap(),
         Request::delete("/api/v1/admin/users/user@example.com")
