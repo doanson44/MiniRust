@@ -21,6 +21,9 @@ pub(crate) struct AdminCreateUserRequest {
     role: Option<String>,
     #[serde(default)]
     premium_active: Option<bool>,
+    premium_expires_at: Option<i64>,
+    #[serde(default)]
+    send_invite: bool,
 }
 
 #[derive(Deserialize)]
