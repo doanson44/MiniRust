@@ -181,6 +181,7 @@ impl UserAdminRepository for Database {
         role: AdminUserRole,
         premium_active: bool,
         premium_expires_at: Option<i64>,
+        is_locked: bool,
     ) -> Result<UserAccess, UserAdminError> {
         let mut tx = self
             .pool
@@ -206,6 +207,9 @@ impl UserAdminRepository for Database {
             != 0;
 
         if bootstrap_admin && role == AdminUserRole::None {
+            return Err(UserAdminError::ProtectedUser);
+        }
+        if bootstrap_admin && is_locked {
             return Err(UserAdminError::ProtectedUser);
         }
 
@@ -244,6 +248,25 @@ impl UserAdminRepository for Database {
             .bind(user_id.as_uuid().as_bytes().as_slice())
             .bind(if premium_active { 1_i64 } else { 0_i64 })
             .bind(premium_expires_at)
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+        }
+
+        let locked_at = if is_locked { Some(current_epoch()) } else { None };
+        sqlx::query("UPDATE users SET locked_at = ? WHERE id = ?")
+            .bind(locked_at)
+            .bind(user_id.as_uuid().as_bytes().as_slice())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
+
+        if is_locked {
+            sqlx::query(
+                "UPDATE auth_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL",
+            )
+            .bind(current_epoch())
+            .bind(user_id.as_uuid().as_bytes().as_slice())
             .execute(&mut *tx)
             .await
             .map_err(|_| UserAdminError::Persistence)?;
