@@ -5,7 +5,7 @@ use leptos::prelude::*;
 use leptos_router::components::Outlet;
 use leptos_router::hooks::use_location;
 
-use super::ui::{EmptyState, LoadingState, BTN_ICON_PLAIN, MENU_ITEM, MENU_ITEM_DANGER};
+use super::ui::{EmptyState, GlobalToast, LoadingState, BTN_ICON_PLAIN, MENU_ITEM, MENU_ITEM_DANGER};
 
 #[cfg(feature = "hydrate")]
 use crate::api::{api_empty, api_json};
@@ -74,6 +74,7 @@ pub fn AppLayout() -> impl IntoView {
     provide_context(locale);
 
     view! {
+        <GlobalToast/>
         <div class="min-h-screen bg-slate-950 text-slate-100">
             <header class="sticky top-0 z-40 border-b border-white/10 bg-slate-950/95 backdrop-blur">
                 <div class="flex h-16 items-center justify-between px-4 sm:px-6">
