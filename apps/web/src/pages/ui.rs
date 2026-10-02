@@ -225,6 +225,7 @@ pub fn EmptyState(children: Children) -> impl IntoView {
 }
 
 /// Error state. Announced as an alert so it is not missed by screen readers.
+#[allow(dead_code)]
 #[component]
 pub fn ErrorState(message: String) -> impl IntoView {
     view! {
