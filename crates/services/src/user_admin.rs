@@ -90,6 +90,7 @@ pub trait UserAdminRepository: Clone + Send + Sync + 'static {
         role: AdminUserRole,
         premium_active: bool,
         premium_expires_at: Option<i64>,
+        is_locked: bool,
     ) -> Result<UserAccess, UserAdminError>;
 
     async fn delete_user(&self, user_id: EntityId) -> Result<(), UserAdminError>;
@@ -194,6 +195,7 @@ where
         role: AdminUserRole,
         premium_active: bool,
         premium_expires_at: Option<i64>,
+        is_locked: bool,
     ) -> Result<UserAccess, UserAdminError> {
         if role != AdminUserRole::Admin {
             if let Some(expires_at) = premium_expires_at {
