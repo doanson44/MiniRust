@@ -399,7 +399,7 @@ where
     }
 
     pub async fn request_login_code(&self, email: &str) -> Result<CodeRequestAccepted, AuthError> {
-        self.request_code(email, ChallengePurpose::Login, false).await
+        self.request_code(email, ChallengePurpose::Login).await
     }
 
     pub async fn request_invitation(
@@ -524,7 +524,6 @@ where
         &self,
         email: &str,
         purpose: ChallengePurpose,
-        invitation: bool,
     ) -> Result<CodeRequestAccepted, AuthError> {
         let email = normalize_email(email)?;
 
@@ -564,13 +563,10 @@ where
             .create_challenge(challenge, &email, purpose, code_hash, now)
             .await?;
 
-        let delivery = if invitation {
-            self.email_sender.send_invitation_code(&email, &code).await
-        } else {
-            self.email_sender
-                .send_verification_code(&email, purpose, &code)
-                .await
-        };
+        let delivery = self
+            .email_sender
+            .send_verification_code(&email, purpose, &code)
+            .await;
 
         if let Err(error) = delivery {
             let _ = self.repository.discard_challenge(challenge.id).await;
