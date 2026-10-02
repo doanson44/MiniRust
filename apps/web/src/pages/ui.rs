@@ -95,17 +95,20 @@ pub const TR: &str = "border-t border-line";
 
 // ── Toasts ────────────────────────────────────────────────────────────────────
 
+#[cfg(feature = "hydrate")]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ToastVariant {
     Success,
     Error,
 }
 
+#[cfg(feature = "hydrate")]
 #[derive(Clone, Copy)]
 pub struct ToastController {
     pub show: Callback<(String, ToastVariant)>,
 }
 
+#[cfg(feature = "hydrate")]
 impl ToastController {
     pub fn success(self, message: impl Into<String>) {
         self.show.run((message.into(), ToastVariant::Success));
