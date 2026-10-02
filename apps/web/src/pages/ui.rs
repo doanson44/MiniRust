@@ -126,6 +126,7 @@ struct ToastState {
     variant: ToastVariant,
 }
 
+#[cfg(feature = "hydrate")]
 #[component]
 pub fn GlobalToast(children: Children) -> impl IntoView {
     let (toast, set_toast) = signal(None::<ToastState>);
@@ -202,6 +203,12 @@ pub fn GlobalToast(children: Children) -> impl IntoView {
             </Show>
         </div>
     }
+}
+
+#[cfg(not(feature = "hydrate"))]
+#[component]
+pub fn GlobalToast(children: Children) -> impl IntoView {
+    view! { {children()} }
 }
 
 // ── Components ───────────────────────────────────────────────────────────────
