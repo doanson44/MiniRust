@@ -140,14 +140,31 @@ pub async fn create(
             email: body.email.clone(),
             role,
             premium_active: body.premium_active.unwrap_or(false),
+            premium_expires_at: body.premium_expires_at,
         })
         .await
     {
-        Ok(UserAdminCommandResult::User(user)) => (
-            StatusCode::CREATED,
-            Json(ApiResponse::new(auth_user_response(user))),
-        )
-            .into_response(),
+        Ok(UserAdminCommandResult::User(user)) => {
+            if body.send_invite {
+                match state
+                    .auth_commands
+                    .handle(minirust_services::AuthCommand::RequestLoginCode {
+                        email: body.email,
+                    })
+                    .await
+                {
+                    Ok(minirust_services::AuthCommandResult::CodeRequested(_)) => {}
+                    Err(error) => return crate::auth_error_response(error, locale).into_response(),
+                    Ok(_) => return ProblemDetails::internal(locale).into_response(),
+                }
+            }
+
+            (
+                StatusCode::CREATED,
+                Json(ApiResponse::new(auth_user_response(user))),
+            )
+                .into_response()
+        }
         Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
         Ok(_) => ProblemDetails::internal(locale).into_response(),
     }
