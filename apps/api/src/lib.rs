@@ -4,6 +4,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+mod email;
 mod handlers;
 mod response;
 
@@ -13,7 +14,7 @@ use axum::http::StatusCode;
 use minirust_core::{AppError, EntityId};
 use minirust_database::Database;
 use minirust_services::{
-    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService, ConfiguredEmailSender,
+    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService,
     MenuCommandHandler, MenuQueryHandler, MenuService, UserAdminCommandHandler,
     UserAdminQueryHandler, UserAdminService,
 };
@@ -22,6 +23,9 @@ use response::{Locale, ProblemDetails};
 use serde::Serialize;
 use uuid::Uuid;
 
+use email::SmtpEmailSender;
+pub use email::SmtpEmailSender as PublicSmtpEmailSender;
+
 pub use handlers::router;
 
 #[derive(Clone)]
@@ -29,14 +33,15 @@ pub struct AppState {
     pub echo: EchoCommandHandler,
     pub greeting: GreetingQueryHandler,
     pub database: Database,
-    pub auth_commands: AuthCommandHandler<Database, ConfiguredEmailSender>,
-    pub auth_queries: AuthQueryHandler<Database, ConfiguredEmailSender>,
+    pub auth_commands: AuthCommandHandler<Database, SmtpEmailSender>,
+    pub auth_queries: AuthQueryHandler<Database, SmtpEmailSender>,
     pub user_commands: UserAdminCommandHandler<Database>,
     pub menu_commands: MenuCommandHandler<Database>,
     pub user_queries: UserAdminQueryHandler<Database>,
     pub menu_queries: MenuQueryHandler<Database>,
     pub auth_rate_limiter: AuthRateLimiter,
     pub secure_cookies: bool,
+    pub email_enabled: bool,
 }
 
 #[derive(Clone, Default)]
@@ -80,11 +85,17 @@ impl AppState {
         auth_secret: impl Into<Vec<u8>>,
         secure_cookies: bool,
     ) -> Result<Self, AuthError> {
-        let email_sender = if secure_cookies {
-            ConfiguredEmailSender::Unavailable
-        } else {
-            ConfiguredEmailSender::Local
-        };
+        let email_sender = SmtpEmailSender::disabled();
+        Self::with_email_sender(database, auth_secret, secure_cookies, email_sender)
+    }
+
+    pub fn with_email_sender(
+        database: Database,
+        auth_secret: impl Into<Vec<u8>>,
+        secure_cookies: bool,
+        email_sender: SmtpEmailSender,
+    ) -> Result<Self, AuthError> {
+        let email_enabled = email_sender.is_enabled();
         let auth = AuthService::new(database.clone(), email_sender, auth_secret)?;
         let users = UserAdminService::new(database.clone());
         let menus = MenuService::new(database.clone());
@@ -100,6 +111,7 @@ impl AppState {
             menu_queries: MenuQueryHandler::new(menus),
             auth_rate_limiter: AuthRateLimiter::default(),
             secure_cookies,
+            email_enabled,
         })
     }
 }
