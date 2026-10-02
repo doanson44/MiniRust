@@ -264,7 +264,11 @@ impl UserAdminRepository for Database {
                  expires_at = VALUES(expires_at)",
         )
         .bind(user_id.as_uuid().as_bytes().as_slice())
-        .bind(if effective_premium_active { 1_i64 } else { 0_i64 })
+        .bind(if effective_premium_active {
+            1_i64
+        } else {
+            0_i64
+        })
         .bind(effective_premium_expires_at)
         .execute(&mut *tx)
         .await
