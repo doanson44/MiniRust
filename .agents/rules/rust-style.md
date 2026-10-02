@@ -41,3 +41,8 @@ Group std, external crates, then internal crates with blank lines.
 - API tests use `Router::oneshot()`.
 - Command/query unit tests live with their handlers.
 - Integration tests belong in the crate `tests/` directory.
+## Dead code
+
+- Never use `dead_code` allowances to bypass, suppress, or silence compiler warnings.
+- If code is required, fix the underlying reason it is reported as dead code; if it is not required, remove it.
+- Never introduce `#[allow(dead_code)]`, `#![allow(dead_code)]`, or `cfg_attr(..., allow(dead_code))` as a workaround.
