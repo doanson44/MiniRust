@@ -14,9 +14,9 @@ use axum::http::StatusCode;
 use minirust_core::{AppError, EntityId};
 use minirust_database::Database;
 use minirust_services::{
-    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService,
-    MenuCommandHandler, MenuQueryHandler, MenuService, UserAdminCommandHandler,
-    UserAdminQueryHandler, UserAdminService,
+    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService, MenuCommandHandler,
+    MenuQueryHandler, MenuService, UserAdminCommandHandler, UserAdminQueryHandler,
+    UserAdminService,
 };
 use minirust_services::{EchoCommandHandler, GreetingQueryHandler};
 use response::{Locale, ProblemDetails};
