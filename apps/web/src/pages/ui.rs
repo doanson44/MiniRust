@@ -137,13 +137,20 @@ pub fn GlobalToast() -> impl IntoView {
 
         #[cfg(feature = "hydrate")]
         {
-            let set_toast = set_toast;
-            wasm_bindgen_futures::spawn_local(async move {
-                gloo_timers::future::TimeoutFuture::new(3_500).await;
-                if toast.get_untracked().is_some_and(|current| current.id == id) {
-                    set_toast.set(None);
-                }
-            });
+            if let Some(window) = web_sys::window() {
+                let callback = wasm_bindgen::closure::Closure::once_into_js(move || {
+                    if toast
+                        .get_untracked()
+                        .is_some_and(|current| current.id == id)
+                    {
+                        set_toast.set(None);
+                    }
+                });
+                let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
+                    callback.as_ref().unchecked_ref(),
+                    3_500,
+                );
+            }
         }
     });
 
