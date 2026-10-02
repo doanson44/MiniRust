@@ -9,7 +9,6 @@ mod handlers;
 mod response;
 
 use axum::extract::rejection::JsonRejection;
-use axum::http::StatusCode;
 
 use minirust_core::{AppError, EntityId};
 use minirust_database::Database;
