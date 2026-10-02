@@ -116,6 +116,81 @@ impl AuthRepository for Database {
             .transpose()
     }
 
+    async fn consume_invitation_token(
+        &self,
+        token_hash: [u8; 32],
+        now: i64,
+        session_token_hash: [u8; 32],
+        session_expires_at: i64,
+    ) -> Result<UserAccess, AuthError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| AuthError::Persistence)?;
+
+        let row = sqlx::query(
+            "SELECT id, email, secret_hash, expires_at
+             FROM auth_challenges
+             WHERE secret_hash = ?
+               AND purpose = 'invitation'
+               AND consumed_at IS NULL
+             FOR UPDATE",
+        )
+        .bind(token_hash.as_slice())
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| AuthError::Persistence)?
+        .ok_or(AuthError::InvalidVerificationToken)?;
+
+        let challenge_id = row_to_id(&row)?;
+        let expires_at = row
+            .try_get::<i64, _>("expires_at")
+            .map_err(|_| AuthError::Persistence)?;
+        if expires_at <= now {
+            return Err(AuthError::VerificationTokenExpired);
+        }
+
+        let email = row
+            .try_get::<String, _>("email")
+            .map_err(|_| AuthError::Persistence)?;
+
+        let user_row = sqlx::query(
+            "SELECT id, locked_at
+             FROM users
+             WHERE email = ?
+             FOR UPDATE",
+        )
+        .bind(&email)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| AuthError::Persistence)?
+        .ok_or(AuthError::InvalidVerificationToken)?;
+
+        let user_id = row_to_id(&user_row)?;
+        if user_row
+            .try_get::<Option<i64>, _>("locked_at")
+            .map_err(|_| AuthError::Persistence)?
+            .is_some()
+        {
+            return Err(AuthError::AccountLocked);
+        }
+
+        consume_challenge(&mut tx, challenge_id, now).await?;
+        insert_session(
+            &mut tx,
+            user_id,
+            session_token_hash,
+            now,
+            session_expires_at,
+        )
+        .await?;
+
+        let user = self.user_by_id(&mut tx, user_id, now).await?;
+        tx.commit().await.map_err(|_| AuthError::Persistence)?;
+        Ok(user)
+    }
+
     async fn consume_registration_token(
         &self,
         token_hash: [u8; 32],
