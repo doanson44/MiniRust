@@ -430,5 +430,4 @@ impl UserAdminRepository for Database {
             .await?
             .ok_or(UserAdminError::NotFound)
     }
-
 }
