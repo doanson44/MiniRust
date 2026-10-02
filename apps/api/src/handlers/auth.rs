@@ -230,6 +230,40 @@ pub async fn register_verify(
     }
 }
 
+pub async fn invitation_verify(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    jar: CookieJar,
+    body: Result<Json<AuthTokenRequest>, JsonRejection>,
+) -> impl IntoResponse {
+    let locale = Locale::from_accept_language(&headers);
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(rejection) => return json_rejection_response(rejection, locale).into_response(),
+    };
+
+    match state
+        .auth_commands
+        .handle(AuthCommand::VerifyInvitation { token: body.token })
+        .await
+    {
+        Ok(AuthCommandResult::Session(session)) => {
+            let response = crate::AuthSessionResponse {
+                user: auth_user_response(session.user),
+                expires_at: session.expires_at,
+            };
+            (
+                StatusCode::OK,
+                jar.add(session_cookie(&session.token, state.secure_cookies)),
+                Json(ApiResponse::new(response)),
+            )
+                .into_response()
+        }
+        Err(error) => auth_error_response(error, locale).into_response(),
+        Ok(_) => ProblemDetails::internal(locale).into_response(),
+    }
+}
+
 pub async fn login_verify_code(
     headers: HeaderMap,
     State(state): State<AppState>,
