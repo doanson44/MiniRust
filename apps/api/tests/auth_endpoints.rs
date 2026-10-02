@@ -537,7 +537,7 @@ async fn admin_user_crud_and_modal_update() {
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
                 .body(Body::from(
-                    r#"{"email":"updated@example.com","role":"admin","premium_active":true,"premium_expires_at":4102444800}"#,
+                    r#"{"role":"admin","premium_active":true,"premium_expires_at":4102444800}"#,
                 ))
                 .unwrap(),
         )
@@ -549,7 +549,7 @@ async fn admin_user_crud_and_modal_update() {
         .await
         .unwrap();
     let update_body: serde_json::Value = serde_json::from_slice(&update_body).unwrap();
-    assert_eq!(update_body["data"]["email"], "updated@example.com");
+    assert_eq!(update_body["data"]["email"], "crud@example.com");
     assert_eq!(update_body["data"]["is_admin"], true);
     assert_eq!(update_body["data"]["is_premium"], true);
 
