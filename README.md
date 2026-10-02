@@ -177,7 +177,7 @@ Do not use development defaults for production secrets or credentials.
 
 Email delivery is optional. When SMTP username, password, and sender email are not configured, MiniRust keeps email delivery disabled and authentication requests that require email return the existing `EMAIL_DELIVERY_UNAVAILABLE` behavior. When SMTP is configured, the API uses Gmail-compatible SMTP STARTTLS by default.
 
-For Gmail, use an App Password rather than the normal account password. Google requires 2-Step Verification for App Passwords. citeturn1search0turn0search4
+For Gmail, use an App Password rather than the normal account password. Google requires 2-Step Verification for App Passwords.
 
 ### Logging
 
