@@ -230,7 +230,7 @@ pub fn AdminPage() -> impl IntoView {
             .await
             {
                 Ok(()) => {
-                    set_status.set("User locked.".to_owned());
+                    set_status.set("Sign-in access disabled.".to_owned());
                     set_selected.set(None);
                     reload_users();
                 }
@@ -250,7 +250,7 @@ pub fn AdminPage() -> impl IntoView {
             .await
             {
                 Ok(_) => {
-                    set_status.set("User unlocked.".to_owned());
+                    set_status.set("Sign-in access enabled.".to_owned());
                     reload_users();
                 }
                 Err(error) => set_status.set(error),
