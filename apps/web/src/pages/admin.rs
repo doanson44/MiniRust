@@ -265,7 +265,6 @@ pub fn AdminPage() -> impl IntoView {
                     });
                     toast.success("User changes saved.");
                     set_selected.set(None);
-                    reload_users();
                 }
                 Err(error) => toast.error(error),
             }
@@ -805,7 +804,14 @@ pub fn AdminPage() -> impl IntoView {
                                         .get()
                                         .is_some_and(|id| selected.get().as_deref() == Some(id.as_str()))
                                 }
-                                on:change=move |ev| set_edit_role.set(event_target_value(&ev))
+                                on:change=move |ev| {
+                                    let role = event_target_value(&ev);
+                                    if role == "admin" {
+                                        set_premium_active.set(true);
+                                        set_premium_expires.set(String::new());
+                                    }
+                                    set_edit_role.set(role);
+                                }
                                 class=SELECT
                             >
                                 <option value="none" class="bg-canvas-raised text-foreground">"User"</option>
