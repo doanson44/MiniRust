@@ -45,6 +45,7 @@ use pages::{
     AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, MenuAdminPage, ProfilePage, RegisterPage,
     RegisterVerifyPage,
 };
+use pages::ui::GlobalToast;
 
 #[cfg(feature = "ssr")]
 const CSS: &str = include_str!("generated.css");
@@ -115,8 +116,9 @@ impl Default for AppState {
 #[component]
 fn App() -> impl IntoView {
     view! {
-        <LeptosRouter>
-            <Routes fallback=|| view! { <main class="min-h-screen bg-slate-950 p-10 text-white"><h1>"Not found"</h1></main> }>
+        <GlobalToast>
+            <LeptosRouter>
+                <Routes fallback=|| view! { <main class="min-h-screen bg-slate-950 p-10 text-white"><h1>"Not found"</h1></main> }>
                 <Route path=path!("") view=|| {
                     #[cfg(feature = "hydrate")]
                     if let Some(w) = web_sys::window() {
@@ -139,8 +141,9 @@ fn App() -> impl IntoView {
                 <ParentRoute path=path!("/admin/menus") view=AppLayout>
                     <Route path=path!("") view=MenuAdminPage/>
                 </ParentRoute>
-            </Routes>
-        </LeptosRouter>
+                </Routes>
+            </LeptosRouter>
+        </GlobalToast>
     }
 }
 
