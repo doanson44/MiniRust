@@ -8,9 +8,9 @@ use crate::types::UserResponse;
 use crate::types::{PaginationMeta, PremiumResponse, UserListData};
 
 use super::ui::{
-    EmptyState, Field, LoadingState, Modal, PageSizeSelect, Pagination, SortHeader, ToastController, ToggleRow,
-    BTN_DANGER, BTN_DANGER_SM, BTN_PRIMARY, BTN_SECONDARY_SM, EYEBROW, INPUT, PAGE_SHELL,
-    PAGE_TITLE, SELECT, SELECT_CHEVRON, TABLE_SHELL, TH, TR,
+    EmptyState, Field, LoadingState, Modal, PageSizeSelect, Pagination, SortHeader,
+    ToastController, ToggleRow, BTN_DANGER, BTN_DANGER_SM, BTN_PRIMARY, BTN_SECONDARY_SM, EYEBROW,
+    INPUT, PAGE_SHELL, PAGE_TITLE, SELECT, SELECT_CHEVRON, TABLE_SHELL, TH, TR,
 };
 
 #[cfg(feature = "hydrate")]
@@ -331,7 +331,8 @@ pub fn AdminPage() -> impl IntoView {
                     }
 
                     set_users.update(|users| {
-                        if let Some(user) = users.iter_mut().find(|user| user.id == updated_user.id) {
+                        if let Some(user) = users.iter_mut().find(|user| user.id == updated_user.id)
+                        {
                             *user = updated_user;
                         }
                     });
