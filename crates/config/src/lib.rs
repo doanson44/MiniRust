@@ -40,14 +40,6 @@ pub const ENV_DB_MAX_CONNECTIONS: &str = "MINIRUST_DB_MAX_CONNECTIONS";
 pub const ENV_AUTH_SECRET: &str = "MINIRUST_AUTH_SECRET";
 pub const ENV_ADMIN_EMAIL: &str = "MINIRUST_ADMIN_EMAIL";
 pub const ENV_ADMIN_OTP: &str = "MINIRUST_ADMIN_OTP";
-pub const ENV_SMTP_HOST: &str = "MINIRUST_SMTP_HOST";
-pub const ENV_SMTP_PORT: &str = "MINIRUST_SMTP_PORT";
-pub const ENV_SMTP_USERNAME: &str = "MINIRUST_SMTP_USERNAME";
-pub const ENV_SMTP_PASSWORD: &str = "MINIRUST_SMTP_PASSWORD";
-pub const ENV_SMTP_FROM_EMAIL: &str = "MINIRUST_SMTP_FROM_EMAIL";
-pub const ENV_SMTP_FROM_NAME: &str = "MINIRUST_SMTP_FROM_NAME";
-pub const DEFAULT_SMTP_HOST: &str = "smtp.gmail.com";
-pub const DEFAULT_SMTP_PORT: u16 = 587;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Environment {
@@ -128,16 +120,6 @@ impl DatabaseConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SmtpConfig {
-    pub host: String,
-    pub port: u16,
-    pub username: String,
-    pub password: String,
-    pub from_email: String,
-    pub from_name: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
     pub environment: Environment,
     pub log_filter: String,
@@ -146,7 +128,6 @@ pub struct Config {
     pub auth_secret: Option<String>,
     pub admin_email: String,
     pub admin_otp: String,
-    pub smtp: Option<SmtpConfig>,
     database_url_override: Option<String>,
 }
 
@@ -180,7 +161,6 @@ impl Config {
                 Environment::Development => read_or_default(ENV_ADMIN_OTP, "123456"),
                 Environment::Production => require_var(ENV_ADMIN_OTP)?,
             },
-            smtp: read_smtp()?,
         })
     }
 
@@ -246,7 +226,6 @@ pub enum ConfigError {
         name: String,
         value: String,
     },
-    IncompleteSmtpConfig(String),
 }
 
 impl fmt::Display for ConfigError {
@@ -266,9 +245,6 @@ impl fmt::Display for ConfigError {
                     "invalid {name}: expected a positive integer, got {value}"
                 )
             }
-            Self::IncompleteSmtpConfig(name) => {
-                write!(formatter, "incomplete SMTP configuration: {name} is required")
-            }
         }
     }
 }
@@ -278,7 +254,7 @@ impl std::error::Error for ConfigError {
         match self {
             Self::InvalidPort { source, .. } => Some(source),
             Self::InvalidAddress { source, .. } => Some(source),
-            Self::Dotenv(_) | Self::MissingRequired(_) | Self::InvalidMaxConnections { .. } | Self::IncompleteSmtpConfig(_) => None,
+            Self::Dotenv(_) | Self::MissingRequired(_) | Self::InvalidMaxConnections { .. } => None,
         }
     }
 }
@@ -368,35 +344,6 @@ fn read_database(environment: Environment) -> Result<DatabaseConfig, ConfigError
         password,
         max_connections: read_max_connections()?,
     })
-}
-
-fn read_smtp() -> Result<Option<SmtpConfig>, ConfigError> {
-    let username = read_optional(ENV_SMTP_USERNAME);
-    let password = read_optional(ENV_SMTP_PASSWORD);
-    let from_email = read_optional(ENV_SMTP_FROM_EMAIL);
-
-    if username.is_none() && password.is_none() && from_email.is_none() {
-        return Ok(None);
-    }
-
-    let username = username.ok_or_else(|| ConfigError::IncompleteSmtpConfig(ENV_SMTP_USERNAME.to_owned()))?;
-    let password = password.ok_or_else(|| ConfigError::IncompleteSmtpConfig(ENV_SMTP_PASSWORD.to_owned()))?;
-    let from_email = from_email.ok_or_else(|| ConfigError::IncompleteSmtpConfig(ENV_SMTP_FROM_EMAIL.to_owned()))?;
-
-    let host = read_or_default(ENV_SMTP_HOST, DEFAULT_SMTP_HOST);
-    let port = match env::var(ENV_SMTP_PORT) {
-        Ok(value) if !value.is_empty() => parse_port(ENV_SMTP_PORT, &value)?,
-        _ => DEFAULT_SMTP_PORT,
-    };
-
-    Ok(Some(SmtpConfig {
-        host,
-        port,
-        username,
-        password,
-        from_email,
-        from_name: read_optional(ENV_SMTP_FROM_NAME),
-    }))
 }
 
 fn read_max_connections() -> Result<u32, ConfigError> {
