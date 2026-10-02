@@ -234,15 +234,6 @@ pub fn AdminPage() -> impl IntoView {
         let premium_expires = premium_expires.get();
         let locked_target = edit_locked.get();
 
-        // Check if locked state changed
-        let original_locked = users
-            .get()
-            .into_iter()
-            .find(|u| u.id == user_id)
-            .map(|u| u.is_locked)
-            .unwrap_or(false);
-        let toggle_lock = original_locked != locked_target;
-
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
             let premium_expires_at = if premium_active {
@@ -257,7 +248,8 @@ pub fn AdminPage() -> impl IntoView {
                     serde_json::json!({
                         "role": role,
                         "premium_active": premium_active,
-                        "premium_expires_at": premium_expires_at
+                        "premium_expires_at": premium_expires_at,
+                        "is_locked": locked_target
                     })
                     .to_string(),
                 ),
@@ -265,40 +257,10 @@ pub fn AdminPage() -> impl IntoView {
             .await
             {
                 Ok(updated_user) => {
-                    if toggle_lock {
-                        if locked_target {
-                            if let Err(error) = api_empty(
-                                gloo_net::http::Method::POST,
-                                &format!("/api/v1/admin/users/{user_id}/lock"),
-                                None,
-                            )
-                            .await
-                            {
-                                toast.error(error);
-                                return;
-                            }
-                        } else {
-                            match api_json::<UserResponse>(
-                                gloo_net::http::Method::POST,
-                                &format!("/api/v1/admin/users/{user_id}/unlock"),
-                                None,
-                            )
-                            .await
-                            {
-                                Ok(_) => {}
-                                Err(error) => {
-                                    toast.error(error);
-                                    return;
-                                }
-                            }
-                        }
-                    }
-
                     set_users.update(|users| {
                         if let Some(user) = users.iter_mut().find(|user| user.id == updated_user.id)
                         {
                             *user = updated_user;
-                            user.is_locked = locked_target;
                         }
                     });
                     toast.success("User changes saved.");
