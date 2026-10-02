@@ -192,7 +192,7 @@ async fn auth_guard(
     next: middleware::Next,
 ) -> impl IntoResponse {
     let path = request.uri().path().to_owned();
-    let is_auth_page = matches!(path.as_str(), "/login" | "/register" | "/register/verify");
+    let is_auth_page = matches!(path.as_str(), "/login" | "/register" | "/register/verify" | "/invite/accept");
     let is_root = path == "/";
     let is_admin_area = path == "/admin/users"
         || path.starts_with("/admin/users/")
