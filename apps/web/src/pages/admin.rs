@@ -844,9 +844,9 @@ pub fn AdminPage() -> impl IntoView {
                             .get()
                             .is_some_and(|id| selected.get().as_deref() == Some(id.as_str()))
                         {
-                            Some("Your own role cannot be changed.".to_owned())
+                            "Your own role cannot be changed.".to_owned()
                         } else {
-                            None
+                            String::new()
                         }
                     >
                         <div class="relative">
