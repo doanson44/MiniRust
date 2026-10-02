@@ -848,7 +848,7 @@ pub fn AdminPage() -> impl IntoView {
                             <div class=move || format!("flex items-center justify-between gap-4 rounded-xl border px-4 py-3 {}", if edit_locked.get() { "border-amber-300/20 bg-amber-300/5" } else { "border-line bg-canvas" })>
                                 <div>
                                     <p class=move || format!("text-sm font-medium {}", if edit_locked.get() { "text-amber-200" } else { "text-muted-foreground" })>
-                                        {move || if edit_locked.get() { "Locked" } else { "Not locked" }}
+                                        "Locked"
                                     </p>
                                     <p class="text-xs text-faint-foreground">
                                         {move || if edit_locked.get() { "User cannot log in" } else { "User can log in normally" }}
