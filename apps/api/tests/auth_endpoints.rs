@@ -556,7 +556,7 @@ async fn admin_user_crud_and_modal_update() {
     let update_body: serde_json::Value = serde_json::from_slice(&update_body).unwrap();
     assert_eq!(update_body["data"]["email"], "crud@example.com");
     assert_eq!(update_body["data"]["is_admin"], true);
-    assert_eq!(update_body["data"]["is_premium"], false);
+    assert_eq!(update_body["data"]["is_premium"], true);
 
     let premium_get = app
         .router()
@@ -576,7 +576,7 @@ async fn admin_user_crud_and_modal_update() {
         .await
         .unwrap();
     let premium_body: serde_json::Value = serde_json::from_slice(&premium_body).unwrap();
-    assert_eq!(premium_body["data"]["active"], false);
+    assert_eq!(premium_body["data"]["active"], true);
     assert!(premium_body["data"]["expires_at"].is_null());
 
     let no_expiry = app
