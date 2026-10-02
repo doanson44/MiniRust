@@ -135,6 +135,7 @@ where
         email: &str,
         role: AdminUserRole,
         premium_active: bool,
+        premium_expires_at: Option<i64>,
     ) -> Result<UserAccess, UserAdminError> {
         let email = normalize_email(email)?;
         if self.repository.find_user(&email).await?.is_some() {
@@ -152,7 +153,7 @@ where
                 role
             };
             self.repository
-                .update_user(user.id, effective_role, premium_active, None)
+                 .update_user(user.id, effective_role, premium_active, premium_expires_at)
                 .await?
         } else {
             user
@@ -291,6 +292,7 @@ pub enum UserAdminCommand {
         email: String,
         role: AdminUserRole,
         premium_active: bool,
+        premium_expires_at: Option<i64>,
     },
     UpdateUser {
         user_id: EntityId,
@@ -359,9 +361,10 @@ where
                 email,
                 role,
                 premium_active,
+                premium_expires_at,
             } => self
                 .service
-                .create(&email, role, premium_active)
+                .create(&email, role, premium_active, premium_expires_at)
                 .await
                 .map(UserAdminCommandResult::User),
             UserAdminCommand::UpdateUser {
