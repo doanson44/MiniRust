@@ -110,14 +110,15 @@ impl EmailSender for SmtpEmailSender {
         self.enqueue(email, &subject, body)
     }
 
-    async fn send_invitation_code(
+    async fn send_invitation_link(
         &self,
         email: &str,
-        code: &str,
+        token: &str,
     ) -> Result<(), AuthError> {
+        let link = format!("{}/invite/accept?token={}", self.web_url, token);
         let subject = "[MiniRust] Bạn được mời / You are invited";
         let body_template = include_str!("../templates/email_invitation.html");
-        let body = body_template.replace("{code}", code);
+        let body = body_template.replace("{link}", &link);
         self.enqueue(email, subject, body)
     }
 
