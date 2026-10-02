@@ -35,7 +35,6 @@ leptos = { version = "0.8", default-features = false }
 leptos_axum = { version = "0.8" }
 leptos_router = { version = "0.8", default-features = false }
 leptos_meta = { version = "0.8", default-features = false }
-lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls", "ring", "webpki-roots"] }
 gloo-net = { version = "0.6", default-features = false, features = ["http", "json"] }
 js-sys = "0.3"
 web-sys = { version = "0.3", default-features = false, features = ["Window", "Location", "HtmlInputElement"] }
