@@ -111,12 +111,18 @@ impl UserAdminRepository for Database {
                                 SELECT 1 FROM user_roles ur
                                 WHERE ur.user_id = u.id AND ur.role = 'admin'
                             ) AS SIGNED) AS is_admin,
-                            CAST(EXISTS(
-                                SELECT 1 FROM user_entitlements ue
-                                WHERE ue.user_id = u.id
-                                  AND ue.entitlement = 'premium'
-                                  AND ue.active = 1
-                                  AND (ue.expires_at IS NULL OR ue.expires_at > ?)
+                            CAST((
+                                EXISTS(
+                                    SELECT 1 FROM user_roles ur
+                                    WHERE ur.user_id = u.id AND ur.role = 'admin'
+                                )
+                                OR EXISTS(
+                                    SELECT 1 FROM user_entitlements ue
+                                    WHERE ue.user_id = u.id
+                                      AND ue.entitlement = 'premium'
+                                      AND ue.active = 1
+                                      AND (ue.expires_at IS NULL OR ue.expires_at > ?)
+                                )
                             ) AS SIGNED) AS is_premium
                         FROM users u
                         ORDER BY u.email, u.id
@@ -140,12 +146,18 @@ impl UserAdminRepository for Database {
                                 SELECT 1 FROM user_roles ur
                                 WHERE ur.user_id = u.id AND ur.role = 'admin'
                             ) AS SIGNED) AS is_admin,
-                            CAST(EXISTS(
-                                SELECT 1 FROM user_entitlements ue
-                                WHERE ue.user_id = u.id
-                                  AND ue.entitlement = 'premium'
-                                  AND ue.active = 1
-                                  AND (ue.expires_at IS NULL OR ue.expires_at > ?)
+                            CAST((
+                                EXISTS(
+                                    SELECT 1 FROM user_roles ur
+                                    WHERE ur.user_id = u.id AND ur.role = 'admin'
+                                )
+                                OR EXISTS(
+                                    SELECT 1 FROM user_entitlements ue
+                                    WHERE ue.user_id = u.id
+                                      AND ue.entitlement = 'premium'
+                                      AND ue.active = 1
+                                      AND (ue.expires_at IS NULL OR ue.expires_at > ?)
+                                )
                             ) AS SIGNED) AS is_premium
                         FROM users u
                         ORDER BY u.email, u.id
@@ -237,21 +249,26 @@ impl UserAdminRepository for Database {
             }
         }
 
-        if role != AdminUserRole::Admin {
-            sqlx::query(
-                "INSERT INTO user_entitlements (user_id, entitlement, active, expires_at)
-                 VALUES (?, 'premium', ?, ?)
-                 ON DUPLICATE KEY UPDATE
-                     active = VALUES(active),
-                     expires_at = VALUES(expires_at)",
-            )
-            .bind(user_id.as_uuid().as_bytes().as_slice())
-            .bind(if premium_active { 1_i64 } else { 0_i64 })
-            .bind(premium_expires_at)
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-        }
+        let (effective_premium_active, effective_premium_expires_at) =
+            if role == AdminUserRole::Admin {
+                (true, None)
+            } else {
+                (premium_active, premium_expires_at)
+            };
+
+        sqlx::query(
+            "INSERT INTO user_entitlements (user_id, entitlement, active, expires_at)
+             VALUES (?, 'premium', ?, ?)
+             ON DUPLICATE KEY UPDATE
+                 active = VALUES(active),
+                 expires_at = VALUES(expires_at)",
+        )
+        .bind(user_id.as_uuid().as_bytes().as_slice())
+        .bind(if effective_premium_active { 1_i64 } else { 0_i64 })
+        .bind(effective_premium_expires_at)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| UserAdminError::Persistence)?;
 
         let locked_at = if is_locked {
             Some(current_epoch())
@@ -330,7 +347,13 @@ impl UserAdminRepository for Database {
 
     async fn get_premium(&self, user_id: EntityId) -> Result<PremiumEntitlement, UserAdminError> {
         let row = sqlx::query(
-            "SELECT ue.active, ue.expires_at
+            "SELECT
+                 EXISTS(
+                     SELECT 1 FROM user_roles ur
+                     WHERE ur.user_id = u.id AND ur.role = 'admin'
+                 ) AS is_admin,
+                 ue.active,
+                 ue.expires_at
              FROM users u
              LEFT JOIN user_entitlements ue
                ON ue.user_id = u.id AND ue.entitlement = 'premium'
@@ -345,10 +368,14 @@ impl UserAdminRepository for Database {
 
         Ok(PremiumEntitlement {
             active: row
-                .try_get::<Option<i64>, _>("active")
+                .try_get::<i64, _>("is_admin")
                 .map_err(|_| UserAdminError::Persistence)?
-                .unwrap_or(0)
-                != 0,
+                != 0
+                || row
+                    .try_get::<Option<i64>, _>("active")
+                    .map_err(|_| UserAdminError::Persistence)?
+                    .unwrap_or(0)
+                    != 0,
             expires_at: row
                 .try_get("expires_at")
                 .map_err(|_| UserAdminError::Persistence)?,
