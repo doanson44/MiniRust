@@ -58,7 +58,7 @@ pub fn ProfilePage() -> impl IntoView {
                     set_user.set(Some(user));
                     toast.success(if locale.get() == "vi" { "Đã cập nhật hồ sơ." } else { "Profile updated." });
                 }
-                Err(error) => set_status.set(error),
+                Err(error) => toast.error(error),
             }
         });
     };
@@ -72,7 +72,7 @@ pub fn ProfilePage() -> impl IntoView {
                         let _ = window.location().set_href("/");
                     }
                 }
-                Err(error) => set_status.set(error),
+                Err(error) => toast.error(error),
             }
         });
     };
@@ -84,7 +84,7 @@ pub fn ProfilePage() -> impl IntoView {
                     <h1 class=PAGE_TITLE>{move || if locale.get() == "vi" { "Tài khoản của bạn" } else { "Your account" }}</h1>
                 </section>
 
-                <Show when=move || user.get().is_none() && status.get().is_empty()>
+                <Show when=move || user.get().is_none()>
                     <LoadingState label="Loading account".to_owned()/>
                 </Show>
                 <Show when=move || user.get().is_some()>
