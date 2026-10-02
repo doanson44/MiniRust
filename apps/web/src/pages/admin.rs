@@ -224,45 +224,6 @@ pub fn AdminPage() -> impl IntoView {
         });
     };
 
-    let lock_user = move |user_id: String| {
-        #[cfg(feature = "hydrate")]
-        leptos::task::spawn_local(async move {
-            match api_empty(
-                gloo_net::http::Method::POST,
-                &format!("/api/v1/admin/users/{user_id}/lock"),
-                None,
-            )
-            .await
-            {
-                Ok(()) => {
-                    toast.success("Sign-in access disabled.");
-                    set_selected.set(None);
-                    reload_users();
-                }
-                Err(error) => toast.error(error),
-            }
-        });
-    };
-
-    let unlock_user = move |user_id: String| {
-        #[cfg(feature = "hydrate")]
-        leptos::task::spawn_local(async move {
-            match api_json::<UserResponse>(
-                gloo_net::http::Method::POST,
-                &format!("/api/v1/admin/users/{user_id}/unlock"),
-                None,
-            )
-            .await
-            {
-                Ok(_) => {
-                    toast.success("Sign-in access enabled.");
-                    reload_users();
-                }
-                Err(error) => toast.error(error),
-            }
-        });
-    };
-
     let save_changes = move |event: leptos::ev::SubmitEvent| {
         event.prevent_default();
         let Some(user_id) = selected.get() else {
