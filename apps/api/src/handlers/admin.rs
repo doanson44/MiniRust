@@ -208,6 +208,22 @@ pub async fn update(
         Err(error) => return ProblemDetails::user_admin(&error, locale).into_response(),
     };
 
+    match current_authenticated_user(&state, &jar, locale).await {
+        Ok(current_user) if current_user.id == user_id => {
+            if (current_user.is_admin && role != minirust_services::AdminUserRole::Admin)
+                || (!current_user.is_admin && role != minirust_services::AdminUserRole::None)
+            {
+                return ProblemDetails::user_admin(
+                    &minirust_services::UserAdminError::CannotChangeOwnRole,
+                    locale,
+                )
+                .into_response();
+            }
+        }
+        Ok(_) => {}
+        Err(response) => return response,
+    }
+
     match state
         .user_commands
         .handle(UserAdminCommand::UpdateUser {
