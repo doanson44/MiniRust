@@ -104,7 +104,7 @@ impl EmailSender for SmtpEmailSender {
         code: &str,
     ) -> Result<(), AuthError> {
         let _ = purpose; // Purpose can be ignored in the general template, or we could have multiple templates
-        let subject = format!("[MiniRust] Mã xác minh / Verification code - {code}");
+        let subject = "[MiniRust] Verifying it's you / Xác minh danh tính";
         let body_template = include_str!("../templates/email_verification_code.html");
         let body = body_template.replace("{code}", code);
         self.enqueue(email, &subject, body)
