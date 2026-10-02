@@ -31,6 +31,7 @@ pub(crate) struct AdminUpdateUserRequest {
     role: String,
     premium_active: bool,
     premium_expires_at: Option<i64>,
+    is_locked: bool,
 }
 
 #[derive(Serialize)]
@@ -243,6 +244,13 @@ pub async fn update(
                 )
                 .into_response();
             }
+            if current_user.is_locked != body.is_locked {
+                return ProblemDetails::user_admin(
+                    &minirust_services::UserAdminError::ProtectedUser,
+                    locale,
+                )
+                .into_response();
+            }
         }
         Ok(_) => {}
         Err(response) => return response,
@@ -255,76 +263,8 @@ pub async fn update(
             role,
             premium_active: body.premium_active,
             premium_expires_at: body.premium_expires_at,
+            is_locked: body.is_locked,
         })
-        .await
-    {
-        Ok(UserAdminCommandResult::User(user)) => (
-            StatusCode::OK,
-            Json(ApiResponse::new(auth_user_response(user))),
-        )
-            .into_response(),
-        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
-        Ok(_) => ProblemDetails::internal(locale).into_response(),
-    }
-}
-
-pub async fn lock(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    jar: CookieJar,
-    Path(user_id_value): Path<String>,
-) -> impl IntoResponse {
-    let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = authorize_admin(&state, &jar, locale).await {
-        return response;
-    }
-
-    let user_id = match parse_user_id(&user_id_value, locale) {
-        Ok(user_id) => user_id,
-        Err(error) => return error.into_response(),
-    };
-
-    match current_authenticated_user(&state, &jar, locale).await {
-        Ok(current_user) if current_user.id == user_id => {
-            return ProblemDetails::user_admin(
-                &minirust_services::UserAdminError::ProtectedUser,
-                locale,
-            )
-            .into_response();
-        }
-        Ok(_) => {}
-        Err(response) => return response,
-    }
-
-    match state
-        .user_commands
-        .handle(UserAdminCommand::LockUser { user_id })
-        .await
-    {
-        Ok(_) => StatusCode::NO_CONTENT.into_response(),
-        Err(error) => ProblemDetails::user_admin(&error, locale).into_response(),
-    }
-}
-
-pub async fn unlock(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    jar: CookieJar,
-    Path(user_id_value): Path<String>,
-) -> impl IntoResponse {
-    let locale = Locale::from_accept_language(&headers);
-    if let Err(response) = authorize_admin(&state, &jar, locale).await {
-        return response;
-    }
-
-    let user_id = match parse_user_id(&user_id_value, locale) {
-        Ok(user_id) => user_id,
-        Err(error) => return error.into_response(),
-    };
-
-    match state
-        .user_commands
-        .handle(UserAdminCommand::UnlockUser { user_id })
         .await
     {
         Ok(UserAdminCommandResult::User(user)) => (
