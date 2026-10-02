@@ -4,7 +4,9 @@ use leptos::prelude::*;
 use crate::api::{api_empty, api_json};
 use crate::types::UserResponse;
 
-use super::ui::{LoadingState, ToastController, BTN_PRIMARY, EYEBROW, PAGE_SHELL, PAGE_TITLE};
+use super::ui::{LoadingState, BTN_PRIMARY, EYEBROW, PAGE_SHELL, PAGE_TITLE};
+#[cfg(feature = "hydrate")]
+use super::ui::ToastController;
 
 #[component]
 #[allow(unused_variables)]
@@ -13,6 +15,7 @@ pub fn ProfilePage() -> impl IntoView {
     let (full_name, set_full_name) = signal(String::new());
     let (avatar_url, set_avatar_url) = signal(String::new());
     let locale = use_context::<ReadSignal<String>>().unwrap_or_else(|| signal("vi".to_owned()).0);
+    #[cfg(feature = "hydrate")]
     let toast = use_context::<ToastController>().unwrap_or_else(|| ToastController {
         show: Callback::new(|_| {}),
     });
