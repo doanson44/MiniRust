@@ -531,6 +531,7 @@ where
         let should_send = match purpose {
             ChallengePurpose::Registration => !exists,
             ChallengePurpose::Login => exists,
+            ChallengePurpose::Invitation => false,
         };
 
         if should_send
