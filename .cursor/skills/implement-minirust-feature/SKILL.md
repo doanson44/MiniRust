@@ -12,6 +12,7 @@ description: Implements a MiniRust feature through CQRS, domain, persistence, an
 3. Classify the operation as a command, query, infrastructure operation, or presentation-only change.
 4. Implement only the requested scope.
 5. For web work, identify the responsive viewport range and behavior before coding.
+6. Keep code comment-free unless a comment is genuinely necessary or the user asked for one.
 
 ## Placement
 

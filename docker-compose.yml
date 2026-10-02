@@ -26,6 +26,7 @@ services:
     environment:
       MINIRUST_ENV: production
       MINIRUST_LOG_DIR: /var/log/minirust
+      MINIRUST_UPLOAD_DIR: /var/lib/minirust/uploads
       MINIRUST_API_HOST: 0.0.0.0
       MINIRUST_API_PORT: 3000
       MINIRUST_DB_HOST: mariadb
@@ -36,10 +37,18 @@ services:
       MINIRUST_AUTH_SECRET: ${MINIRUST_AUTH_SECRET:?MINIRUST_AUTH_SECRET must be set}
       MINIRUST_ADMIN_EMAIL: ${MINIRUST_ADMIN_EMAIL:?MINIRUST_ADMIN_EMAIL must be set}
       MINIRUST_ADMIN_OTP: ${MINIRUST_ADMIN_OTP:?MINIRUST_ADMIN_OTP must be set}
+      MINIRUST_WEB_URL: ${MINIRUST_WEB_URL:?MINIRUST_WEB_URL must be set}
+      MINIRUST_SMTP_HOST: ${MINIRUST_SMTP_HOST:-}
+      MINIRUST_SMTP_PORT: ${MINIRUST_SMTP_PORT:-}
+      MINIRUST_SMTP_USERNAME: ${MINIRUST_SMTP_USERNAME:-}
+      MINIRUST_SMTP_PASSWORD: ${MINIRUST_SMTP_PASSWORD:-}
+      MINIRUST_SMTP_FROM_EMAIL: ${MINIRUST_SMTP_FROM_EMAIL:-}
+      MINIRUST_SMTP_FROM_NAME: ${MINIRUST_SMTP_FROM_NAME:-}
     ports:
       - "3000:3000"
     volumes:
       - minirust_logs:/var/log/minirust
+      - minirust_uploads:/var/lib/minirust/uploads
     depends_on:
       mariadb:
         condition: service_healthy
@@ -68,6 +77,13 @@ services:
       MINIRUST_AUTH_SECRET: ${MINIRUST_AUTH_SECRET:?MINIRUST_AUTH_SECRET must be set}
       MINIRUST_ADMIN_EMAIL: ${MINIRUST_ADMIN_EMAIL:?MINIRUST_ADMIN_EMAIL must be set}
       MINIRUST_ADMIN_OTP: ${MINIRUST_ADMIN_OTP:?MINIRUST_ADMIN_OTP must be set}
+      MINIRUST_WEB_URL: ${MINIRUST_WEB_URL:?MINIRUST_WEB_URL must be set}
+      MINIRUST_SMTP_HOST: ${MINIRUST_SMTP_HOST:-}
+      MINIRUST_SMTP_PORT: ${MINIRUST_SMTP_PORT:-}
+      MINIRUST_SMTP_USERNAME: ${MINIRUST_SMTP_USERNAME:-}
+      MINIRUST_SMTP_PASSWORD: ${MINIRUST_SMTP_PASSWORD:-}
+      MINIRUST_SMTP_FROM_EMAIL: ${MINIRUST_SMTP_FROM_EMAIL:-}
+      MINIRUST_SMTP_FROM_NAME: ${MINIRUST_SMTP_FROM_NAME:-}
     ports:
       - "3001:3001"
     volumes:
@@ -102,5 +118,6 @@ services:
 volumes:
   mariadb_data:
   minirust_logs:
+  minirust_uploads:
   caddy_data:
   caddy_config:

@@ -9,6 +9,7 @@
 //! static literals — never build a class name from a `format!` argument.
 
 use leptos::prelude::*;
+use minirust_locales::{text as translate, Key};
 #[cfg(feature = "hydrate")]
 use wasm_bindgen::JsCast;
 
@@ -96,59 +97,48 @@ pub const TR: &str = "border-t border-line";
 // ── Toasts ────────────────────────────────────────────────────────────────────
 
 #[cfg(feature = "hydrate")]
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum ToastVariant {
-    Success,
-    Error,
-}
-
-#[cfg(feature = "hydrate")]
 #[derive(Clone, Copy)]
 pub struct ToastController {
-    pub show: Callback<(String, ToastVariant)>,
+    pub show: Callback<(String, bool)>,
 }
 
 #[cfg(feature = "hydrate")]
 impl ToastController {
     pub fn success(self, message: impl Into<String>) {
-        self.show.run((message.into(), ToastVariant::Success));
+        self.show.run((message.into(), false));
     }
 
     pub fn error(self, message: impl Into<String>) {
-        self.show.run((message.into(), ToastVariant::Error));
+        self.show.run((message.into(), true));
     }
 }
 
-#[cfg(feature = "hydrate")]
 #[derive(Clone, PartialEq, Eq)]
 struct ToastState {
-    id: u64,
     message: String,
-    variant: ToastVariant,
+    is_error: bool,
 }
 
-#[cfg(feature = "hydrate")]
+/// Toast host.
+///
+/// Server and client must render the exact same DOM: hydration claims the marker
+/// nodes (`<!>`) that dynamic boundaries emit, so the host is a single component
+/// and only the controller wiring is client-side.
 #[component]
 pub fn GlobalToast(children: Children) -> impl IntoView {
     let (toast, set_toast) = signal(None::<ToastState>);
-    let (next_id, set_next_id) = signal(0u64);
 
-    let show = Callback::new(move |(message, variant): (String, ToastVariant)| {
-        let id = next_id.get_untracked().wrapping_add(1);
-        set_next_id.set(id);
-        set_toast.set(Some(ToastState {
-            id,
-            message,
-            variant,
-        }));
+    #[cfg(feature = "hydrate")]
+    {
+        let show = Callback::new(move |(message, is_error): (String, bool)| {
+            let scheduled = message.clone();
+            set_toast.set(Some(ToastState { message, is_error }));
 
-        #[cfg(feature = "hydrate")]
-        {
             if let Some(window) = web_sys::window() {
                 let callback = wasm_bindgen::closure::Closure::once_into_js(move || {
                     if toast
                         .get_untracked()
-                        .is_some_and(|current| current.id == id)
+                        .is_some_and(|current| current.message == scheduled)
                     {
                         set_toast.set(None);
                     }
@@ -158,11 +148,10 @@ pub fn GlobalToast(children: Children) -> impl IntoView {
                     3_500,
                 );
             }
-        }
-    });
+        });
 
-    let controller = ToastController { show };
-    provide_context(controller);
+        provide_context(ToastController { show });
+    }
 
     view! {
         {children()}
@@ -174,7 +163,7 @@ pub fn GlobalToast(children: Children) -> impl IntoView {
             <Show when=move || toast.get().is_some()>
                 {move || {
                     toast.get().map(|current| {
-                        let is_error = current.variant == ToastVariant::Error;
+                        let is_error = current.is_error;
                         view! {
                             <div class=move || format!(
                                 "pointer-events-auto flex w-full items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur {}",
@@ -204,12 +193,6 @@ pub fn GlobalToast(children: Children) -> impl IntoView {
             </Show>
         </div>
     }
-}
-
-#[cfg(not(feature = "hydrate"))]
-#[component]
-pub fn GlobalToast(children: Children) -> impl IntoView {
-    view! { {children()} }
 }
 
 // ── Components ───────────────────────────────────────────────────────────────
@@ -356,6 +339,8 @@ pub fn SortHeader(
     #[prop(into)] on_sort: Callback<String>,
 ) -> impl IntoView {
     let aria_label = label.clone();
+    let locale = use_context::<ReadSignal<minirust_locales::Locale>>()
+        .unwrap_or_else(|| signal(minirust_locales::Locale::DEFAULT).0);
 
     view! {
         <th scope="col" class=TH>
@@ -364,12 +349,18 @@ pub fn SortHeader(
                 on:click=move |_| on_sort.run(column.to_owned())
                 class="inline-flex items-center gap-2 rounded text-xs uppercase tracking-widest transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                 aria-label=move || {
-                    let direction = if active_column.get() == column {
-                        if descending.get() { "descending" } else { "ascending" }
+                    let sort_by = translate(locale.get_untracked(), Key::CommonSortBy);
+
+                    if active_column.get() == column {
+                        let direction = if descending.get() {
+                            translate(locale.get_untracked(), Key::CommonSortDescending)
+                        } else {
+                            translate(locale.get_untracked(), Key::CommonSortAscending)
+                        };
+                        format!("{sort_by} {aria_label}, {direction}")
                     } else {
-                        "none"
-                    };
-                    format!("Sort by {aria_label}, currently {direction}")
+                        format!("{sort_by} {aria_label}")
+                    }
                 }
             >
                 {label}

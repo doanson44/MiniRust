@@ -291,12 +291,18 @@ fn normalize_avatar_url(value: Option<&str>) -> Result<Option<String>, UserAdmin
         return Ok(None);
     };
     let value = value.trim();
-    if value.is_empty()
-        || value.chars().count() > 2048
-        || !(value.starts_with("https://") || value.starts_with("http://"))
-    {
+
+    if value.is_empty() || value.chars().count() > 2048 {
         return Err(UserAdminError::InvalidAvatarUrl);
     }
+
+    let absolute = value.starts_with("https://") || value.starts_with("http://");
+    let same_origin = value.starts_with('/') && !value.starts_with("//") && !value.contains('\\');
+
+    if !absolute && !same_origin {
+        return Err(UserAdminError::InvalidAvatarUrl);
+    }
+
     Ok(Some(value.to_owned()))
 }
 

@@ -1,5 +1,6 @@
 use crate::pages::AuthLayout;
 use leptos::prelude::*;
+use minirust_locales::{text as translate, Key, Locale};
 
 #[cfg(feature = "hydrate")]
 #[derive(serde::Deserialize)]
@@ -20,6 +21,8 @@ pub fn LoginPage() -> impl IntoView {
     let (code, set_code) = signal(String::new());
     let (requested, set_requested) = signal(false);
     let (status, set_status) = signal(String::new());
+    let locale = use_context::<ReadSignal<Locale>>().unwrap_or_else(|| signal(Locale::DEFAULT).0);
+    let text = move |key: Key| move || translate(locale.get(), key);
 
     let submit = move |event: leptos::ev::SubmitEvent| {
         event.prevent_default();
@@ -46,7 +49,8 @@ pub fn LoginPage() -> impl IntoView {
                 }
                 Ok(()) => {
                     set_requested.set(true);
-                    set_status.set("Verification code requested.".to_owned());
+                    set_status
+                        .set(translate(locale.get_untracked(), Key::AuthCodeRequested).to_owned());
                 }
                 Err(error) => set_status.set(error),
             }
@@ -57,27 +61,30 @@ pub fn LoginPage() -> impl IntoView {
         <AuthLayout>
             <a href="/login" class="mb-8 inline-block text-sm font-bold text-accent transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">"<- MiniRust"</a>
             <section class="rounded-3xl border border-line bg-surface p-6 sm:p-8">
-                <p class=EYEBROW>"Sign in"</p>
-                <h1 class="mt-3 text-3xl font-black text-foreground">"Access your account"</h1>
+                <p class=EYEBROW>{text(Key::AuthLoginEyebrow)}</p>
+                <h1 class="mt-3 text-3xl font-black text-foreground">{text(Key::AuthLoginTitle)}</h1>
                 <p class="mt-3 text-sm leading-6 text-subtle-foreground">
-                    "Passwordless authentication uses a verification code."
+                    {text(Key::AuthLoginHint)}
                 </p>
                 <Show
                     when=move || !requested.get()
                     fallback=move || view! {
                         <form on:submit=submit class="mt-8 space-y-4">
-                            <Field label="Verification code".to_owned()>
-                                <input
-                                    type="text"
-                                    inputmode="numeric"
-                                    maxlength="6"
-                                    required
-                                    prop:value=code
-                                    on:input=move |ev| set_code.set(event_target_value(&ev))
-                                    class=INPUT
-                                />
-                            </Field>
-                            <button type="submit" class=BTN_PRIMARY_FULL>"Verify and continue"</button>
+                            <label class="block">
+                                <span class="text-sm font-medium text-muted-foreground">{text(Key::AuthVerificationCode)}</span>
+                                <div class="mt-2">
+                                    <input
+                                        type="text"
+                                        inputmode="numeric"
+                                        maxlength="6"
+                                        required
+                                        prop:value=code
+                                        on:input=move |ev| set_code.set(event_target_value(&ev))
+                                        class=INPUT
+                                    />
+                                </div>
+                            </label>
+                            <button type="submit" class=BTN_PRIMARY_FULL>{text(Key::AuthVerifyContinue)}</button>
                         </form>
                     }
                 >
@@ -91,13 +98,13 @@ pub fn LoginPage() -> impl IntoView {
                                 class=INPUT
                             />
                         </Field>
-                        <button type="submit" class=BTN_PRIMARY_FULL>"Send code"</button>
+                        <button type="submit" class=BTN_PRIMARY_FULL>{text(Key::AuthSendCode)}</button>
                     </form>
                 </Show>
                 <p class="mt-4 text-sm text-subtle-foreground">{status}</p>
                 <p class="mt-8 text-sm text-faint-foreground">
-                    "New here? "
-                    <a href="/register" class=LINK>"Create an account"</a>
+                    {text(Key::AuthNewHere)}
+                    <a href="/register" class=LINK>{text(Key::AuthCreateAccount)}</a>
                 </p>
             </section>
         </AuthLayout>
@@ -110,6 +117,10 @@ pub fn RegisterPage() -> impl IntoView {
     let (email, set_email) = signal(String::new());
     let (requested, set_requested) = signal(false);
     let (status, set_status) = signal(String::new());
+    let (email_exists, set_email_exists) = signal(false);
+    let (local_link, set_local_link) = signal(None::<String>);
+    let locale = use_context::<ReadSignal<Locale>>().unwrap_or_else(|| signal(Locale::DEFAULT).0);
+    let text = move |key: Key| move || translate(locale.get(), key);
 
     let submit = move |event: leptos::ev::SubmitEvent| {
         event.prevent_default();
@@ -126,11 +137,16 @@ pub fn RegisterPage() -> impl IntoView {
                 Ok(result) => {
                     set_requested.set(true);
                     if result.email_exists {
-                        set_status.set("This email is already registered.".to_owned());
+                        set_email_exists.set(true);
+                        set_status.set(
+                            translate(locale.get_untracked(), Key::AuthEmailRegistered).to_owned(),
+                        );
                     } else if let Some(url) = result.verification_url {
-                        set_status.set(format!("Local test link: {url}"));
+                        set_local_link.set(Some(url));
+                        set_status.set(String::new());
                     } else {
-                        set_status.set("Check your email for the verification link.".to_owned());
+                        set_status
+                            .set(translate(locale.get_untracked(), Key::AuthCheckEmail).to_owned());
                     }
                 }
                 Err(error) => set_status.set(error),
@@ -142,47 +158,42 @@ pub fn RegisterPage() -> impl IntoView {
         <AuthLayout>
             <a href="/" class="mb-8 inline-block text-sm font-bold text-accent transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">"<- MiniRust"</a>
             <section class="rounded-3xl border border-line bg-surface p-6 sm:p-8">
-                <p class=EYEBROW>"Create account"</p>
-                <h1 class="mt-3 text-3xl font-black text-foreground">"Start with your email"</h1>
+                <p class=EYEBROW>{text(Key::AuthRegisterEyebrow)}</p>
+                <h1 class="mt-3 text-3xl font-black text-foreground">{text(Key::AuthRegisterTitle)}</h1>
                 <Show
                     when=move || !requested.get()
                     fallback=move || view! {
                         <div class="mt-8 space-y-4">
                             <p class="text-sm leading-6 text-muted-foreground">
-                                "We've sent a verification link to your email. Open it to complete your registration."
+                                {text(Key::AuthLinkSent)}
                             </p>
                             <p class="text-sm text-subtle-foreground">{status}</p>
-                            <Show
-                                when=move || status.get() == "This email is already registered."
-                            >
-                                <a href="/login" class=BTN_PRIMARY_FULL>"Go to login"</a>
+                            {move || local_link.get().map(|url| view! {
+                                <p class="break-all text-sm text-subtle-foreground">
+                                    {translate(locale.get(), Key::AuthLocalTestLink)}{url}
+                                </p>
+                            })}
+                            <Show when=move || email_exists.get()>
+                                <a href="/login" class=BTN_PRIMARY_FULL>{text(Key::AuthGoToLogin)}</a>
                             </Show>
-                            <Show
-                                when=move || status.get().starts_with("Local test link: ")
-                            >
-                                <a
-                                    href={move || {
-                                        status
-                                            .get()
-                                            .trim_start_matches("Local test link: ")
-                                            .to_owned()
-                                    }}
-                                    class=BTN_PRIMARY_FULL
-                                >
-                                    "Open verification link"
+                            <Show when=move || local_link.get().is_some()>
+                                <a href={move || local_link.get().unwrap_or_default()} class=BTN_PRIMARY_FULL>
+                                    {text(Key::AuthOpenVerificationLink)}
                                 </a>
                             </Show>
                             <p class="text-sm text-faint-foreground">
-                                "If you do not receive the email, check your spam folder or "
+                                {text(Key::AuthResendHint)}
                                 <button
                                     type="button"
                                     class=LINK
                                     on:click=move |_| {
                                         set_requested.set(false);
+                                        set_email_exists.set(false);
+                                        set_local_link.set(None);
                                         set_status.set(String::new());
                                     }
                                 >
-                                    "try again"
+                                    {text(Key::AuthTryAgain)}
                                 </button>
                                 "."
                             </p>
@@ -190,7 +201,7 @@ pub fn RegisterPage() -> impl IntoView {
                     }
                 >
                     <p class="mt-3 text-sm leading-6 text-subtle-foreground">
-                        "We'll send a verification link to confirm that you own this email address."
+                        {text(Key::AuthRegisterHint)}
                     </p>
                     <form on:submit=submit class="mt-8 space-y-4">
                         <Field label="Email".to_owned()>
@@ -202,13 +213,13 @@ pub fn RegisterPage() -> impl IntoView {
                                 class=INPUT
                             />
                         </Field>
-                        <button type="submit" class=BTN_PRIMARY_FULL>"Register"</button>
+                        <button type="submit" class=BTN_PRIMARY_FULL>{text(Key::AuthRegisterSubmit)}</button>
                     </form>
                     <p class="mt-4 text-sm text-subtle-foreground">{status}</p>
                 </Show>
                 <p class="mt-8 text-sm text-faint-foreground">
-                    "Already registered? "
-                    <a href="/login" class=LINK>"Sign in"</a>
+                    {text(Key::AuthAlreadyRegistered)}
+                    <a href="/login" class=LINK>{text(Key::AuthLoginEyebrow)}</a>
                 </p>
             </section>
         </AuthLayout>
@@ -218,7 +229,10 @@ pub fn RegisterPage() -> impl IntoView {
 #[component]
 #[allow(unused_variables)]
 pub fn RegisterVerifyPage() -> impl IntoView {
-    let (status, set_status) = signal("Verifying your email…".to_owned());
+    let locale = use_context::<ReadSignal<Locale>>().unwrap_or_else(|| signal(Locale::DEFAULT).0);
+    let text = move |key: Key| move || translate(locale.get(), key);
+    let (status, set_status) =
+        signal(translate(locale.get_untracked(), Key::AuthVerifying).to_owned());
 
     #[cfg(feature = "hydrate")]
     {
@@ -230,7 +244,8 @@ pub fn RegisterVerifyPage() -> impl IntoView {
 
             leptos::task::spawn_local(async move {
                 let Some(token) = token else {
-                    set_status.set("The verification link is invalid.".to_owned());
+                    set_status
+                        .set(translate(locale.get_untracked(), Key::AuthInvalidLink).to_owned());
                     return;
                 };
 
@@ -255,10 +270,10 @@ pub fn RegisterVerifyPage() -> impl IntoView {
     view! {
         <AuthLayout>
             <section class="rounded-3xl border border-line bg-surface p-6 text-center sm:p-8">
-                <p class=EYEBROW>"Email verification"</p>
-                <h1 class="mt-3 text-3xl font-black text-foreground">"Complete registration"</h1>
+                <p class=EYEBROW>{text(Key::AuthVerifyEyebrow)}</p>
+                <h1 class="mt-3 text-3xl font-black text-foreground">{text(Key::AuthVerifyTitle)}</h1>
                 <p class="mt-4 text-sm leading-6 text-subtle-foreground">{status}</p>
-                <a href="/register" class="mt-8 inline-block font-semibold text-accent transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">"Back to registration"</a>
+                <a href="/register" class="mt-8 inline-block font-semibold text-accent transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">{text(Key::AuthBackToRegister)}</a>
             </section>
         </AuthLayout>
     }

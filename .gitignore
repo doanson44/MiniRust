@@ -14,6 +14,9 @@ target
 # Local environment files may contain secrets
 .env
 
+# Default upload directory (MINIRUST_UPLOAD_DIR)
+uploaded/
+
 # RustRover
 #.idea/
 node_modules/

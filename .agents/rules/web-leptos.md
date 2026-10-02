@@ -27,6 +27,15 @@ SSR code must not duplicate business rules or query another context's persistenc
 - Query results are passed into views as presentation data.
 - All public pages must include the viewport meta tag.
 
+## Localization
+
+- User-facing text lives in `crates/locales/locales/<language>.json` and is referenced through a typed
+  `Key`; never write both languages inline in a page.
+- The active locale is provided by `AppLayout` as `ReadSignal<minirust_locales::Locale>`.
+- Add a key by extending `Key` (variant, `as_str()`, `Key::ALL`) and both resource files;
+  `cargo test -p minirust-locales` enforces parity and rejects unused keys.
+- Text identical in every language (product names, "Premium", paths) stays a literal in the markup.
+
 ## Responsive UI
 
 - All user-facing pages MUST be responsive across mobile, tablet, and desktop.

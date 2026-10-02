@@ -185,6 +185,24 @@ CANNOT_CHANGE_OWN_ROLE
 
 `FORBIDDEN` is returned when the caller is authenticated but does not have the admin system role.
 
+## Upload codes
+
+`POST /api/v1/uploads` uses these stable codes:
+
+```text
+PAYLOAD_TOO_LARGE
+UPLOAD_FILE_NAME_REQUIRED
+UPLOAD_FILE_TOO_LARGE
+```
+
+`PAYLOAD_TOO_LARGE` is returned when the request body exceeds the transport limit, `UPLOAD_FILE_NAME_REQUIRED` when the `file` part carries no name, and `UPLOAD_FILE_TOO_LARGE` when the upload exceeds the application limit (`MAX_UPLOAD_BYTES`, currently 10 MB).
+
+`POST /api/v1/users/me/avatar` additionally uses `AVATAR_DIRECTORY_INVALID` and `UNSUPPORTED_AVATAR_FORMAT`. Avatars are limited to PNG, JPEG, GIF, and WebP because the stored bytes are served back as an image.
+
+## Localization resources
+
+Every localized `detail` string lives in `crates/locales` (`locales/vi.json`, `locales/en.json`) and is referenced by a typed `Key`; each key equals the `message_key` it serves. Changing localized wording is a resource-file change only — it adds nothing to this document.
+
 ## Testing implications
 
 The stable machine-readable `code` is part of the API contract; localized `detail` is presentation text. Ordinary integration tests should therefore assert HTTP status and the relevant stable `code`, not localized wording. This allows translations and human-readable messages to change without breaking behavioral tests.

@@ -20,3 +20,11 @@ Do not implement authentication, CMS, MariaDB, Telegram, AI, or other product fe
 - Never add, retain, or use `dead_code` allowances to bypass, suppress, or silence compiler warnings.
 - When code is reported as dead code, fix the underlying issue if the code is required, or remove the unused code if it is not required.
 - Do not use `#[allow(dead_code)]`, `#![allow(dead_code)]`, or `cfg_attr(..., allow(dead_code))` as a workaround.
+
+## Comment policy
+
+- Default to no comments in code. Write one only when it is genuinely necessary — it records a non-obvious constraint, trade-off, or bug workaround that the code itself cannot express — or when the user explicitly asks for comments.
+- Never restate what the code does, narrate the change, or explain obvious control flow.
+- Never keep commented-out code; delete it, git keeps the history.
+- No banner or section-divider comments.
+- Comments and doc comments are English.

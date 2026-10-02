@@ -377,6 +377,7 @@ mod tests {
             email: "user@example.com".to_owned(),
             is_admin,
             is_premium,
+            premium_expires_at: None,
             full_name: None,
             avatar_url: None,
             is_locked: false,

@@ -38,12 +38,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!(environment = %config.environment, address = %addr, "starting MiniRust API");
 
     let auth_secret = config.auth_secret()?;
-    let email_sender = PublicSmtpEmailSender::from_config(config.smtp.as_ref())?;
+    let email_sender = PublicSmtpEmailSender::from_config(&config)?;
     let state = AppState::with_email_sender(
         database,
         auth_secret.as_bytes().to_vec(),
         matches!(config.environment, minirust_config::Environment::Production),
         email_sender,
+        config.upload_directory(),
     )?;
 
     axum::serve(listener, router(state))

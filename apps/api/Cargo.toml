@@ -6,11 +6,12 @@ license.workspace = true
 description = "MiniRust REST API"
 
 [dependencies]
-axum.workspace = true
+axum = { workspace = true, features = ["multipart"] }
 axum-extra.workspace = true
 minirust-config.workspace = true
 minirust-core.workspace = true
 minirust-database.workspace = true
+minirust-locales.workspace = true
 minirust-observability.workspace = true
 minirust-services.workspace = true
 lettre.workspace = true

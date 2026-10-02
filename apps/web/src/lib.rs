@@ -265,6 +265,9 @@ async fn health() -> impl IntoResponse {
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {
+    std::panic::set_hook(Box::new(|info| {
+        web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&format!("PANIC: {info}")));
+    }));
     leptos::mount::hydrate_body(App);
 }
 

@@ -31,6 +31,16 @@ Prefer explicit, boring Rust. Avoid extra generics, macros, `unsafe`, excessive 
 - Initialize tracing exactly once in application binaries.
 - Never log secrets, credentials, or connection strings.
 
+## Comments
+
+- Default is no comments. A comment is allowed only when it is genuinely necessary — it records a
+  non-obvious constraint, trade-off, or bug workaround that the code itself cannot express — or when
+  the user explicitly asks for comments.
+- Never restate what the code does, narrate a change, or explain obvious control flow.
+- Never keep commented-out code; delete it, git keeps the history.
+- No banner or section-divider comments.
+- Comments and doc comments are English.
+
 ## Imports
 
 Group std, external crates, then internal crates with blank lines.

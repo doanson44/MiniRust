@@ -71,6 +71,33 @@ pub async fn api_json_with_meta<T: for<'de> Deserialize<'de>, M: for<'de> Deseri
 }
 
 #[cfg(feature = "hydrate")]
+pub async fn api_upload_json<T: for<'de> Deserialize<'de>>(
+    path: &str,
+    file: &web_sys::File,
+) -> Result<T, String> {
+    let form = web_sys::FormData::new().map_err(|_| "form data is unavailable".to_owned())?;
+    form.append_with_blob_and_filename("file", file, &file.name())
+        .map_err(|_| "the file could not be attached".to_owned())?;
+
+    let response = gloo_net::http::Request::post(path)
+        .body(form)
+        .map_err(|error| error.to_string())?
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if !response.ok() {
+        return Err(api_error(response).await);
+    }
+
+    response
+        .json::<ApiResponse<T>>()
+        .await
+        .map(|envelope| envelope.data)
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(feature = "hydrate")]
 pub async fn api_empty(
     method: gloo_net::http::Method,
     path: &str,

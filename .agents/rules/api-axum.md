@@ -35,6 +35,9 @@ Do not put business rules, repository calls, or SQL in the Axum handler.
 | GET | `/health` | Infrastructure health check |
 | GET | `/api/v1/hello` | Query |
 | POST | `/api/v1/echo` | Command |
+| POST | `/api/v1/uploads` | Command (authenticated multipart upload) |
+| POST | `/api/v1/users/me/avatar` | Command (authenticated avatar upload) |
+| GET | `/api/v1/users/me/avatar/{extension}` | Authenticated avatar read |
 
 ## Response contract
 

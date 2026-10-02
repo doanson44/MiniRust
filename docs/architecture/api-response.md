@@ -72,6 +72,11 @@ The API selects the first supported language from the header and falls back to `
 
 Domain and application code must return semantic errors, not localized user-facing strings. Localization belongs at the transport boundary.
 
+The transport boundary reads its `detail` text from the shared catalog in `crates/locales`
+(`locales/vi.json`, `locales/en.json`) through a typed `Key`, so no handler or response mapper
+contains localized strings. `code` and `message_key` remain the machine-readable contract and are
+independent of the localized wording.
+
 ## Status mapping
 
 | HTTP status | Use |
@@ -85,6 +90,7 @@ Domain and application code must return semantic errors, not localized user-faci
 | `403 Forbidden` | Authenticated caller is not allowed to perform the operation |
 | `404 Not Found` | Requested resource does not exist |
 | `409 Conflict` | Business or concurrency conflict |
+| `413 Payload Too Large` | Request body exceeds the transport limit for the endpoint |
 | `422 Unprocessable Content` | Syntactically valid request rejected by application validation |
 | `429 Too Many Requests` | Rate limit exceeded |
 | `500 Internal Server Error` | Unexpected server failure |

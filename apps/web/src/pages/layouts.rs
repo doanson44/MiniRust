@@ -4,6 +4,7 @@ use crate::types::{MenuResponse, UserResponse};
 use leptos::prelude::*;
 use leptos_router::components::Outlet;
 use leptos_router::hooks::use_location;
+use minirust_locales::{text as translate, Key, Locale};
 
 use super::ui::{EmptyState, LoadingState, BTN_ICON_PLAIN, MENU_ITEM, MENU_ITEM_DANGER};
 
@@ -12,7 +13,8 @@ use crate::api::{api_empty, api_json};
 
 #[component]
 pub fn AppLayout() -> impl IntoView {
-    let (locale, set_locale) = signal("vi".to_owned());
+    let (locale, set_locale) = signal(Locale::DEFAULT);
+    let text = move |key: Key| move || translate(locale.get(), key);
     let (user, _set_user) = signal(None::<UserResponse>);
     let (menu_open, set_menu_open) = signal(false);
     let (sidebar_open, set_sidebar_open) = signal(false);
@@ -26,7 +28,7 @@ pub fn AppLayout() -> impl IntoView {
             if let Ok(current_user) =
                 api_json::<UserResponse>(gloo_net::http::Method::GET, "/api/v1/auth/me", None).await
             {
-                set_locale.set(current_user.locale.clone());
+                set_locale.set(Locale::parse(&current_user.locale));
                 _set_user.set(Some(current_user));
 
                 if let Ok(menu_response) =
@@ -44,18 +46,18 @@ pub fn AppLayout() -> impl IntoView {
     }
 
     let change_locale = move |event: leptos::ev::Event| {
-        let next_locale = event_target_value(&event);
-        set_locale.set(next_locale.clone());
+        let next_value = event_target_value(&event);
+        set_locale.set(Locale::parse(&next_value));
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
             if let Ok(current_user) = api_json::<UserResponse>(
                 gloo_net::http::Method::PUT,
                 "/api/v1/users/me/language",
-                Some(serde_json::json!({ "locale": next_locale }).to_string()),
+                Some(serde_json::json!({ "locale": next_value }).to_string()),
             )
             .await
             {
-                set_locale.set(current_user.locale.clone());
+                set_locale.set(Locale::parse(&current_user.locale));
                 _set_user.set(Some(current_user));
             }
         });
@@ -93,7 +95,7 @@ pub fn AppLayout() -> impl IntoView {
 
                     <div class="relative flex items-center gap-3">
                         <select
-                            prop:value=move || locale.get()
+                            prop:value=move || locale.get().as_str()
                             on:change=change_locale
                             class="hidden rounded-lg border border-line bg-canvas-raised px-2 py-1.5 text-xs text-muted-foreground transition focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:block"
                             aria-label="Language"
@@ -105,7 +107,7 @@ pub fn AppLayout() -> impl IntoView {
                         <Show when=move || user.get().map(|u| u.is_premium).unwrap_or(false)>
                             <span
                                 class="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-amber-200 shadow-[0_0_18px_rgba(252,211,77,0.12)]"
-                                title=move || if locale.get() == "vi" { "Tài khoản Premium" } else { "Premium account" }
+                                title=move || translate(locale.get(), Key::PremiumBadgeTitle)
                             >
                                 <span aria-hidden="true" class="text-sm">"♛"</span>
                                 <span>"Premium"</span>
@@ -155,11 +157,11 @@ pub fn AppLayout() -> impl IntoView {
                                     </p>
                                 </div>
                                 <a href="/profile" class=MENU_ITEM>
-                                    {move || if locale.get() == "vi" { "Thông tin tài khoản" } else { "Account information" }}
+                                    {text(Key::NavProfile)}
                                 </a>
                                 <Show when=move || user.get().map(|u| u.is_admin).unwrap_or(false)>
                                     <a href="/admin/menus" class=MENU_ITEM>
-                                        {move || if locale.get() == "vi" { "Phân quyền menu" } else { "Menu permissions" }}
+                                        {text(Key::NavMenuPermissions)}
                                     </a>
                                 </Show>
                                 <button
@@ -167,7 +169,7 @@ pub fn AppLayout() -> impl IntoView {
                                     on:click=sign_out
                                     class=MENU_ITEM_DANGER
                                 >
-                                    {move || if locale.get() == "vi" { "Đăng xuất" } else { "Log out" }}
+                                    {text(Key::NavSignOut)}
                                 </button>
                             </div>
                         </Show>
@@ -198,11 +200,7 @@ pub fn AppLayout() -> impl IntoView {
                         </Show>
                         <Show when=move || menus.get().is_empty() && menus_loaded.get()>
                             <EmptyState>
-                                {move || if locale.get() == "vi" {
-                                    "Tài khoản của bạn chưa được cấp menu nào. Quản trị viên có thể cấp trong mục Phân quyền menu."
-                                } else {
-                                    "Your account has no menu grants yet. An administrator can grant access under Menu permissions."
-                                }}
+                                {text(Key::SidebarEmpty)}
                             </EmptyState>
                         </Show>
                         <For
@@ -242,7 +240,7 @@ pub fn AppLayout() -> impl IntoView {
 
                         <div class="mt-auto border-t border-white/10 pt-4">
                             <select
-                                prop:value=move || locale.get()
+                                prop:value=move || locale.get().as_str()
                                 on:change=change_locale
                                 class="w-full rounded-lg border border-line bg-canvas-raised px-2 py-2 text-xs text-muted-foreground transition focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:hidden"
                                 aria-label="Language"

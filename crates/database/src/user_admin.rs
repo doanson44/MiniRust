@@ -123,7 +123,15 @@ impl UserAdminRepository for Database {
                                       AND ue.active = 1
                                       AND (ue.expires_at IS NULL OR ue.expires_at > ?)
                                 )
-                            ) AS SIGNED) AS is_premium
+                            ) AS SIGNED) AS is_premium,
+                            (
+                                SELECT ue.expires_at
+                                FROM user_entitlements ue
+                                WHERE ue.user_id = u.id
+                                  AND ue.entitlement = 'premium'
+                                  AND ue.active = 1
+                                LIMIT 1
+                            ) AS premium_expires_at
                         FROM users u
                         ORDER BY u.email, u.id
                     "#,
@@ -158,7 +166,15 @@ impl UserAdminRepository for Database {
                                       AND ue.active = 1
                                       AND (ue.expires_at IS NULL OR ue.expires_at > ?)
                                 )
-                            ) AS SIGNED) AS is_premium
+                            ) AS SIGNED) AS is_premium,
+                            (
+                                SELECT ue.expires_at
+                                FROM user_entitlements ue
+                                WHERE ue.user_id = u.id
+                                  AND ue.entitlement = 'premium'
+                                  AND ue.active = 1
+                                LIMIT 1
+                            ) AS premium_expires_at
                         FROM users u
                         ORDER BY u.email, u.id
                         LIMIT ? OFFSET ?

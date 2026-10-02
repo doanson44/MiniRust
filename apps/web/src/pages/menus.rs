@@ -6,6 +6,7 @@ use crate::models::query::{ALL_PAGE_SIZE, PAGE_SIZE_OPTIONS};
 use crate::types::MenuResponse;
 #[cfg(feature = "hydrate")]
 use crate::types::{MenuListData, PaginationMeta};
+use minirust_locales::{text as translate, Key, Locale};
 
 use super::ui::{
     EmptyState, LoadingState, PageSizeSelect, Pagination, CHECKBOX, EYEBROW, PAGE_SHELL,
@@ -26,15 +27,16 @@ pub fn MenuAdminPage() -> impl IntoView {
     let (total_pages, set_total_pages) = signal(1u32);
     let (loading, set_loading) = signal(false);
 
-    let locale = use_context::<ReadSignal<String>>().unwrap_or_else(|| signal("vi".to_owned()).0);
-    let text = move |vi: &'static str, en: &'static str| {
-        move || if locale.get() == "vi" { vi } else { en }
-    };
+    let locale = use_context::<ReadSignal<Locale>>().unwrap_or_else(|| signal(Locale::DEFAULT).0);
+    let text = move |key: Key| move || translate(locale.get(), key);
 
-    let reload = move || {
+    let reload = move |show_loading: bool| {
+        if show_loading {
+            set_loading.set(true);
+        }
+
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            set_loading.set(true);
             match api_json_with_meta::<MenuListData, PaginationMeta>(
                 gloo_net::http::Method::GET,
                 &format!(
@@ -57,24 +59,20 @@ pub fn MenuAdminPage() -> impl IntoView {
     };
 
     #[cfg(feature = "hydrate")]
-    reload();
+    reload(true);
 
     let change_page_size = move |value: String| {
         if let Ok(value) = value.parse::<i32>() {
             if PAGE_SIZE_OPTIONS.contains(&value) {
                 set_page_size.set(value);
                 set_page.set(1);
-                reload();
+                reload(true);
             }
         }
     };
 
     let update_access = move |menu: MenuResponse, allow_user: bool, allow_premium: bool| {
-        let saved_message = if locale.get_untracked() == "vi" {
-            "Đã cập nhật quyền truy cập menu."
-        } else {
-            "Menu access updated."
-        };
+        let saved_message = translate(locale.get_untracked(), Key::MenusSaved);
 
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
@@ -98,8 +96,7 @@ pub fn MenuAdminPage() -> impl IntoView {
                 Err(error) => set_status.set(error),
             }
 
-            // Reloading also restores the checkbox when the update was rejected.
-            reload();
+            reload(false);
         });
     };
 
@@ -107,22 +104,16 @@ pub fn MenuAdminPage() -> impl IntoView {
         <div class=PAGE_SHELL>
             <section>
                 <p class=EYEBROW>"Administration"</p>
-                <h1 class=PAGE_TITLE>{text("Phân quyền menu", "Menu permissions")}</h1>
+                <h1 class=PAGE_TITLE>{text(Key::NavMenuPermissions)}</h1>
                 <p class="mt-3 text-sm text-subtle-foreground">{status}</p>
             </section>
 
             <section class="space-y-2 rounded-3xl border border-line bg-surface p-6">
                 <p class="text-sm leading-6 text-subtle-foreground">
-                    {text(
-                        "Đây là toàn bộ menu của hệ thống. Đánh dấu để cho phép người dùng thường hoặc người dùng Premium mở menu tương ứng.",
-                        "These are all menus of the system. Tick a column to allow normal users or Premium users to open that menu.",
-                    )}
+                    {text(Key::MenusIntro)}
                 </p>
                 <p class="text-sm leading-6 text-subtle-foreground">
-                    {text(
-                        "Quản trị viên luôn có toàn bộ quyền. Tài khoản không được cấp sẽ không thấy menu và cũng không mở được bằng URL trực tiếp.",
-                        "Administrators always have full access. An account without a grant does not see the menu and cannot open it by direct URL either.",
-                    )}
+                    {text(Key::MenusAdminNote)}
                 </p>
             </section>
 
@@ -141,38 +132,52 @@ pub fn MenuAdminPage() -> impl IntoView {
                 </Show>
                 <Show when=move || !loading.get() && menus.get().is_empty()>
                     <EmptyState>
-                        {text(
-                            "Chưa có menu nào được đăng ký. Menu được thêm bằng migration trong crates/database.",
-                            "No menus are registered yet. Menus are added by migration in crates/database.",
-                        )}
+                        {text(Key::MenusEmpty)}
                     </EmptyState>
                 </Show>
 
                 <div class="hidden md:block">
-                <table class="w-full text-left" aria-label={text("Phân quyền menu", "Menu permissions")}>
+                <table class="w-full text-left" aria-label={text(Key::NavMenuPermissions)}>
                     <thead>
                         <tr class="text-xs uppercase tracking-widest text-faint-foreground">
                             <th scope="col" class=TH>"Menu"</th>
-                            <th scope="col" class=TH>{text("Đường dẫn", "Path")}</th>
-                            <th scope="col" class=TH>{text("Người dùng thường", "Normal users")}</th>
+                            <th scope="col" class=TH>{text(Key::MenusPath)}</th>
+                            <th scope="col" class=TH>{text(Key::MenusNormalUsers)}</th>
                             <th scope="col" class=TH>"Premium"</th>
-                            <th scope="col" class=TH>{text("Quản trị viên", "Administrators")}</th>
+                            <th scope="col" class=TH>{text(Key::MenusAdministrators)}</th>
                         </tr>
                     </thead>
                     <tbody>
                         <For
                             each=move || menus.get()
-                            key=|menu| (menu.id.clone(), menu.name.clone(), menu.allow_user, menu.allow_premium)
+                            key=|menu| menu.id.clone()
                             children=move |menu| {
                                 let name = menu.name.clone();
                                 let path = menu.path.clone();
                                 let is_active = menu.is_active;
-                                let allow_user = menu.allow_user;
-                                let allow_premium = menu.allow_premium;
+                                let id_for_user = menu.id.clone();
+                                let id_for_premium = menu.id.clone();
                                 let menu_for_user = menu.clone();
                                 let menu_for_premium = menu.clone();
                                 let user_label = name.clone();
                                 let premium_label = name.clone();
+
+                                let allow_user_state = move || {
+                                    menus
+                                        .get()
+                                        .into_iter()
+                                        .find(|item| item.id == id_for_user)
+                                        .map(|item| item.allow_user)
+                                        .unwrap_or(false)
+                                };
+                                let allow_premium_state = move || {
+                                    menus
+                                        .get()
+                                        .into_iter()
+                                        .find(|item| item.id == id_for_premium)
+                                        .map(|item| item.allow_premium)
+                                        .unwrap_or(false)
+                                };
 
                                 view! {
                                     <tr class=TR>
@@ -180,7 +185,7 @@ pub fn MenuAdminPage() -> impl IntoView {
                                             <span class="break-words">{name}</span>
                                             <Show when=move || !is_active>
                                                 <span class="ml-2 rounded-md bg-amber-300/10 px-2 py-0.5 text-xs text-amber-200">
-                                                    {text("đang ẩn", "hidden")}
+                                                    {text(Key::MenusHidden)}
                                                 </span>
                                             </Show>
                                         </td>
@@ -190,8 +195,16 @@ pub fn MenuAdminPage() -> impl IntoView {
                                                 <input
                                                     type="checkbox"
                                                     aria-label=move || format!("Allow normal users for {}", user_label)
-                                                    prop:checked=allow_user
-                                                    on:change=move |ev| update_access(menu_for_user.clone(), event_target_checked(&ev), allow_premium)
+                                                    prop:checked=allow_user_state
+                                                    on:change=move |ev| {
+                                                        let allow_premium = menus
+                                                            .get_untracked()
+                                                            .into_iter()
+                                                            .find(|item| item.id == menu_for_user.id)
+                                                            .map(|item| item.allow_premium)
+                                                            .unwrap_or(false);
+                                                        update_access(menu_for_user.clone(), event_target_checked(&ev), allow_premium);
+                                                    }
                                                     class=CHECKBOX
                                                 />
                                             </label>
@@ -201,14 +214,22 @@ pub fn MenuAdminPage() -> impl IntoView {
                                                 <input
                                                     type="checkbox"
                                                     aria-label=move || format!("Allow premium for {}", premium_label)
-                                                    prop:checked=allow_premium
-                                                    on:change=move |ev| update_access(menu_for_premium.clone(), allow_user, event_target_checked(&ev))
+                                                    prop:checked=allow_premium_state
+                                                    on:change=move |ev| {
+                                                        let allow_user = menus
+                                                            .get_untracked()
+                                                            .into_iter()
+                                                            .find(|item| item.id == menu_for_premium.id)
+                                                            .map(|item| item.allow_user)
+                                                            .unwrap_or(false);
+                                                        update_access(menu_for_premium.clone(), allow_user, event_target_checked(&ev));
+                                                    }
                                                     class=CHECKBOX
                                                 />
                                             </label>
                                         </td>
                                         <td class="px-4 py-4 text-sm text-subtle-foreground">
-                                            {text("Toàn quyền", "Full access")}
+                                            {text(Key::MenusFullAccess)}
                                         </td>
                                     </tr>
                                 }
@@ -221,17 +242,34 @@ pub fn MenuAdminPage() -> impl IntoView {
                 <ul class="space-y-3 p-4 md:hidden">
                     <For
                         each=move || menus.get()
-                        key=|menu| (menu.id.clone(), menu.name.clone(), menu.allow_user, menu.allow_premium)
+                        key=|menu| menu.id.clone()
                         children=move |menu| {
                             let name = menu.name.clone();
                             let path = menu.path.clone();
                             let is_active = menu.is_active;
-                            let allow_user = menu.allow_user;
-                            let allow_premium = menu.allow_premium;
+                            let id_for_user = menu.id.clone();
+                            let id_for_premium = menu.id.clone();
                             let menu_for_user = menu.clone();
                             let menu_for_premium = menu.clone();
                             let user_label = name.clone();
                             let premium_label = name.clone();
+
+                            let allow_user_state = move || {
+                                menus
+                                    .get()
+                                    .into_iter()
+                                    .find(|item| item.id == id_for_user)
+                                    .map(|item| item.allow_user)
+                                    .unwrap_or(false)
+                            };
+                            let allow_premium_state = move || {
+                                menus
+                                    .get()
+                                    .into_iter()
+                                    .find(|item| item.id == id_for_premium)
+                                    .map(|item| item.allow_premium)
+                                    .unwrap_or(false)
+                            };
 
                             view! {
                                 <li class="rounded-2xl border border-line bg-canvas p-4">
@@ -239,7 +277,7 @@ pub fn MenuAdminPage() -> impl IntoView {
                                         <p class="break-words text-sm font-semibold text-foreground">{name}</p>
                                         <Show when=move || !is_active>
                                             <span class="shrink-0 rounded-md bg-amber-300/10 px-2 py-0.5 text-xs text-amber-200">
-                                                {text("đang ẩn", "hidden")}
+                                                {text(Key::MenusHidden)}
                                             </span>
                                         </Show>
                                     </div>
@@ -249,18 +287,34 @@ pub fn MenuAdminPage() -> impl IntoView {
                                             <input
                                                 type="checkbox"
                                                 aria-label=move || format!("Allow normal users for {}", user_label)
-                                                prop:checked=allow_user
-                                                on:change=move |ev| update_access(menu_for_user.clone(), event_target_checked(&ev), allow_premium)
+                                                prop:checked=allow_user_state
+                                                on:change=move |ev| {
+                                                    let allow_premium = menus
+                                                        .get_untracked()
+                                                        .into_iter()
+                                                        .find(|item| item.id == menu_for_user.id)
+                                                        .map(|item| item.allow_premium)
+                                                        .unwrap_or(false);
+                                                    update_access(menu_for_user.clone(), event_target_checked(&ev), allow_premium);
+                                                }
                                                 class=CHECKBOX
                                             />
-                                            <span class="text-xs text-muted-foreground">{text("Người dùng thường", "Normal users")}</span>
+                                            <span class="text-xs text-muted-foreground">{text(Key::MenusNormalUsers)}</span>
                                         </label>
                                         <label class="flex min-h-11 items-center gap-2 rounded-lg border border-line px-3">
                                             <input
                                                 type="checkbox"
                                                 aria-label=move || format!("Allow premium for {}", premium_label)
-                                                prop:checked=allow_premium
-                                                on:change=move |ev| update_access(menu_for_premium.clone(), allow_user, event_target_checked(&ev))
+                                                prop:checked=allow_premium_state
+                                                on:change=move |ev| {
+                                                    let allow_user = menus
+                                                        .get_untracked()
+                                                        .into_iter()
+                                                        .find(|item| item.id == menu_for_premium.id)
+                                                        .map(|item| item.allow_user)
+                                                        .unwrap_or(false);
+                                                    update_access(menu_for_premium.clone(), allow_user, event_target_checked(&ev));
+                                                }
                                                 class=CHECKBOX
                                             />
                                             <span class="text-xs text-muted-foreground">"Premium"</span>
@@ -277,11 +331,11 @@ pub fn MenuAdminPage() -> impl IntoView {
                     can_go_forward=Signal::derive(move || page.get() < total_pages.get())
                     on_previous=Callback::new(move |_| {
                         set_page.update(|value| *value = value.saturating_sub(1).max(1));
-                        reload();
+                        reload(true);
                     })
                     on_next=Callback::new(move |_| {
                         set_page.update(|value| *value += 1);
-                        reload();
+                        reload(true);
                     })
                 >
                     {move || if page_size.get() == ALL_PAGE_SIZE {

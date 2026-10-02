@@ -2,7 +2,8 @@ use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use minirust_core::ValidationError;
-use minirust_services::{AuthError, MenuError, UserAdminError, UserLocale};
+use minirust_locales::{self, Key};
+use minirust_services::{AuthError, MenuError, UploadError, UserAdminError, UserLocale};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,6 +56,22 @@ impl Locale {
     }
 }
 
+impl From<Locale> for minirust_locales::Locale {
+    fn from(locale: Locale) -> Self {
+        match locale {
+            Locale::Vi => minirust_locales::Locale::Vi,
+            Locale::En => minirust_locales::Locale::En,
+        }
+    }
+}
+
+fn validation_key(error: &ValidationError) -> Key {
+    match error {
+        ValidationError::MessageRequired => Key::ErrorsValidationMessageRequired,
+        ValidationError::MessageTooLong { .. } => Key::ErrorsValidationMessageTooLong,
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct ApiResponse<T> {
     pub data: T,
@@ -92,18 +109,13 @@ pub struct ProblemDetails {
 
 impl ProblemDetails {
     pub fn validation(error: &ValidationError, locale: Locale) -> Self {
-        let detail = match (error, locale) {
-            (ValidationError::MessageRequired, Locale::Vi) => {
-                "Message không được để trống.".to_owned()
+        let key = validation_key(error);
+        let detail = match error {
+            ValidationError::MessageTooLong { max } => {
+                minirust_locales::text(locale.into(), key).replace("{max}", &max.to_string())
             }
-            (ValidationError::MessageRequired, Locale::En) => {
-                "Message must not be empty.".to_owned()
-            }
-            (ValidationError::MessageTooLong { max }, Locale::Vi) => {
-                format!("Message không được vượt quá {max} ký tự.")
-            }
-            (ValidationError::MessageTooLong { max }, Locale::En) => {
-                format!("Message must not exceed {max} characters.")
+            ValidationError::MessageRequired => {
+                minirust_locales::text(locale.into(), key).to_owned()
             }
         };
 
@@ -119,151 +131,122 @@ impl ProblemDetails {
     }
 
     pub fn bad_request(locale: Locale) -> Self {
+        let key = Key::ErrorsRequestBadRequest;
+
         Self {
             problem_type: "https://minirust.dev/problems/bad-request",
             title: "Bad request",
             status: StatusCode::BAD_REQUEST.as_u16(),
             code: "BAD_REQUEST",
-            message_key: "errors.request.bad_request",
+            message_key: key.as_str(),
             locale: locale.as_str(),
-            detail: match locale {
-                Locale::Vi => "Yêu cầu không hợp lệ.".to_owned(),
-                Locale::En => "The request is invalid.".to_owned(),
-            },
+            detail: minirust_locales::text(locale.into(), key).to_owned(),
+        }
+    }
+
+    pub fn payload_too_large(locale: Locale) -> Self {
+        let key = Key::ErrorsRequestPayloadTooLarge;
+
+        Self {
+            problem_type: "https://minirust.dev/problems/payload-too-large",
+            title: "Payload too large",
+            status: StatusCode::PAYLOAD_TOO_LARGE.as_u16(),
+            code: "PAYLOAD_TOO_LARGE",
+            message_key: key.as_str(),
+            locale: locale.as_str(),
+            detail: minirust_locales::text(locale.into(), key).to_owned(),
+        }
+    }
+
+    pub fn not_found(locale: Locale) -> Self {
+        let key = Key::ErrorsRequestNotFound;
+
+        Self {
+            problem_type: "https://minirust.dev/problems/not-found",
+            title: "Not found",
+            status: StatusCode::NOT_FOUND.as_u16(),
+            code: "NOT_FOUND",
+            message_key: key.as_str(),
+            locale: locale.as_str(),
+            detail: minirust_locales::text(locale.into(), key).to_owned(),
         }
     }
 
     pub fn internal(locale: Locale) -> Self {
+        let key = Key::ErrorsInternalUnexpected;
+
         Self {
             problem_type: "https://minirust.dev/problems/internal-error",
             title: "Internal server error",
             status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
             code: "INTERNAL_ERROR",
-            message_key: "errors.internal.unexpected",
+            message_key: key.as_str(),
             locale: locale.as_str(),
-            detail: match locale {
-                Locale::Vi => "Đã xảy ra lỗi không mong muốn.".to_owned(),
-                Locale::En => "An unexpected error occurred.".to_owned(),
-            },
+            detail: minirust_locales::text(locale.into(), key).to_owned(),
         }
     }
 
     pub fn auth(error: &AuthError, locale: Locale) -> Self {
-        let (status, code, message_key, detail) = match error {
+        let (status, code, key) = match error {
             AuthError::InvalidEmail => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_EMAIL",
-                "errors.auth.invalid_email",
-                match locale {
-                    Locale::Vi => "Email không hợp lệ.".to_owned(),
-                    Locale::En => "The email address is invalid.".to_owned(),
-                },
+                Key::ErrorsAuthInvalidEmail,
             ),
             AuthError::InvalidCode => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_VERIFICATION_CODE",
-                "errors.auth.invalid_code",
-                match locale {
-                    Locale::Vi => "Mã xác thực không hợp lệ.".to_owned(),
-                    Locale::En => "The verification code is invalid.".to_owned(),
-                },
+                Key::ErrorsAuthInvalidCode,
             ),
             AuthError::InvalidVerificationToken => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_VERIFICATION_TOKEN",
-                "errors.auth.invalid_verification_token",
-                match locale {
-                    Locale::Vi => "Liên kết xác thực không hợp lệ.".to_owned(),
-                    Locale::En => "The verification link is invalid.".to_owned(),
-                },
+                Key::ErrorsAuthInvalidVerificationToken,
             ),
             AuthError::CodeExpired => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "VERIFICATION_CODE_EXPIRED",
-                "errors.auth.code_expired",
-                match locale {
-                    Locale::Vi => "Mã xác thực đã hết hạn.".to_owned(),
-                    Locale::En => "The verification code has expired.".to_owned(),
-                },
+                Key::ErrorsAuthCodeExpired,
             ),
             AuthError::VerificationTokenExpired => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "VERIFICATION_TOKEN_EXPIRED",
-                "errors.auth.verification_token_expired",
-                match locale {
-                    Locale::Vi => "Liên kết xác thực đã hết hạn.".to_owned(),
-                    Locale::En => "The verification link has expired.".to_owned(),
-                },
+                Key::ErrorsAuthVerificationTokenExpired,
             ),
             AuthError::CodeAttemptsExceeded => (
                 StatusCode::TOO_MANY_REQUESTS,
                 "VERIFICATION_ATTEMPTS_EXCEEDED",
-                "errors.auth.attempts_exceeded",
-                match locale {
-                    Locale::Vi => "Đã vượt quá số lần nhập mã cho phép.".to_owned(),
-                    Locale::En => {
-                        "The maximum number of verification attempts was exceeded.".to_owned()
-                    }
-                },
+                Key::ErrorsAuthAttemptsExceeded,
             ),
             AuthError::Forbidden => (
                 StatusCode::FORBIDDEN,
                 "FORBIDDEN",
-                "errors.authorization.forbidden",
-                match locale {
-                    Locale::Vi => "Bạn không có quyền thực hiện thao tác này.".to_owned(),
-                    Locale::En => "You are not authorized to perform this operation.".to_owned(),
-                },
+                Key::ErrorsAuthorizationForbidden,
             ),
             AuthError::AccountLocked => (
                 StatusCode::FORBIDDEN,
                 "ACCOUNT_LOCKED",
-                "errors.auth.account_locked",
-                match locale {
-                    Locale::Vi => "Tài khoản đã bị khóa.".to_owned(),
-                    Locale::En => "The account is locked.".to_owned(),
-                },
+                Key::ErrorsAuthAccountLocked,
             ),
             AuthError::SessionInvalid => (
                 StatusCode::UNAUTHORIZED,
                 "SESSION_INVALID",
-                "errors.auth.session_invalid",
-                match locale {
-                    Locale::Vi => "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.".to_owned(),
-                    Locale::En => "The session is invalid or has expired.".to_owned(),
-                },
+                Key::ErrorsAuthSessionInvalid,
             ),
             AuthError::EmailAlreadyExists => (
                 StatusCode::CONFLICT,
                 "EMAIL_ALREADY_EXISTS",
-                "errors.auth.email_already_exists",
-                match locale {
-                    Locale::Vi => "Email đã được sử dụng.".to_owned(),
-                    Locale::En => "The email address is already in use.".to_owned(),
-                },
+                Key::ErrorsAuthEmailAlreadyExists,
             ),
             AuthError::BootstrapAdminConflict => (
                 StatusCode::CONFLICT,
                 "BOOTSTRAP_ADMIN_CONFLICT",
-                "errors.auth.bootstrap_admin_conflict",
-                match locale {
-                    Locale::Vi => {
-                        "Email bootstrap admin đang trỏ tới một tài khoản thường.".to_owned()
-                    }
-                    Locale::En => {
-                        "The bootstrap admin email points to an existing non-bootstrap account."
-                            .to_owned()
-                    }
-                },
+                Key::ErrorsAuthBootstrapAdminConflict,
             ),
             AuthError::EmailDeliveryUnavailable => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "EMAIL_DELIVERY_UNAVAILABLE",
-                "errors.auth.email_delivery_unavailable",
-                match locale {
-                    Locale::Vi => "Dịch vụ email hiện chưa khả dụng.".to_owned(),
-                    Locale::En => "Email delivery is currently unavailable.".to_owned(),
-                },
+                Key::ErrorsAuthEmailDeliveryUnavailable,
             ),
             AuthError::Persistence | AuthError::InvalidSecret | AuthError::Randomness => {
                 return Self::internal(locale);
@@ -275,105 +258,63 @@ impl ProblemDetails {
             title: "Authentication error",
             status: status.as_u16(),
             code,
-            message_key,
+            message_key: key.as_str(),
             locale: locale.as_str(),
-            detail,
+            detail: minirust_locales::text(locale.into(), key).to_owned(),
         }
     }
 
     pub fn user_admin(error: &UserAdminError, locale: Locale) -> Self {
-        let (status, code, message_key, detail) = match error {
+        let (status, code, key) = match error {
             UserAdminError::InvalidEmail => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_EMAIL",
-                "errors.user.invalid_email",
-                match locale {
-                    Locale::Vi => "Email không hợp lệ.".to_owned(),
-                    Locale::En => "The email address is invalid.".to_owned(),
-                },
+                Key::ErrorsUserInvalidEmail,
             ),
             UserAdminError::InvalidFullName => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_FULL_NAME",
-                "errors.user.invalid_full_name",
-                match locale {
-                    Locale::Vi => "Họ tên không hợp lệ.".to_owned(),
-                    Locale::En => "The full name is invalid.".to_owned(),
-                },
+                Key::ErrorsUserInvalidFullName,
             ),
             UserAdminError::InvalidLocale => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_LOCALE",
-                "errors.user.invalid_locale",
-                match locale {
-                    Locale::Vi => "Ngôn ngữ không được hỗ trợ.".to_owned(),
-                    Locale::En => "The language is not supported.".to_owned(),
-                },
+                Key::ErrorsUserInvalidLocale,
             ),
             UserAdminError::InvalidAvatarUrl => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_AVATAR_URL",
-                "errors.user.invalid_avatar_url",
-                match locale {
-                    Locale::Vi => "Avatar URL không hợp lệ.".to_owned(),
-                    Locale::En => "The avatar URL is invalid.".to_owned(),
-                },
+                Key::ErrorsUserInvalidAvatarUrl,
             ),
             UserAdminError::InvalidPremiumExpiry => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_PREMIUM_EXPIRY",
-                "errors.user.invalid_premium_expiry",
-                match locale {
-                    Locale::Vi => "Thời hạn Premium phải nằm trong tương lai.".to_owned(),
-                    Locale::En => "The Premium expiry must be in the future.".to_owned(),
-                },
+                Key::ErrorsUserInvalidPremiumExpiry,
             ),
             UserAdminError::InvalidRole => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_ROLE",
-                "errors.user.invalid_role",
-                match locale {
-                    Locale::Vi => "Role không hợp lệ. Chỉ hỗ trợ admin hoặc none.".to_owned(),
-                    Locale::En => {
-                        "The role is invalid. Only admin or none is supported.".to_owned()
-                    }
-                },
+                Key::ErrorsUserInvalidRole,
             ),
             UserAdminError::NotFound => (
                 StatusCode::NOT_FOUND,
                 "USER_NOT_FOUND",
-                "errors.user.not_found",
-                match locale {
-                    Locale::Vi => "Không tìm thấy người dùng.".to_owned(),
-                    Locale::En => "User was not found.".to_owned(),
-                },
+                Key::ErrorsUserNotFound,
             ),
             UserAdminError::EmailAlreadyExists => (
                 StatusCode::CONFLICT,
                 "EMAIL_ALREADY_EXISTS",
-                "errors.user.email_already_exists",
-                match locale {
-                    Locale::Vi => "Email đã được sử dụng.".to_owned(),
-                    Locale::En => "The email address is already in use.".to_owned(),
-                },
+                Key::ErrorsUserEmailAlreadyExists,
             ),
             UserAdminError::ProtectedUser => (
                 StatusCode::CONFLICT,
                 "PROTECTED_USER",
-                "errors.user.protected",
-                match locale {
-                    Locale::Vi => "Tài khoản hệ thống này được bảo vệ.".to_owned(),
-                    Locale::En => "This system account is protected.".to_owned(),
-                },
+                Key::ErrorsUserProtected,
             ),
             UserAdminError::CannotChangeOwnRole => (
                 StatusCode::CONFLICT,
                 "CANNOT_CHANGE_OWN_ROLE",
-                "errors.user.cannot_change_own_role",
-                match locale {
-                    Locale::Vi => "Bạn không thể thay đổi role của chính mình.".to_owned(),
-                    Locale::En => "You cannot change your own role.".to_owned(),
-                },
+                Key::ErrorsUserCannotChangeOwnRole,
             ),
             UserAdminError::Persistence => return Self::internal(locale),
         };
@@ -383,68 +324,43 @@ impl ProblemDetails {
             title: "User management error",
             status: status.as_u16(),
             code,
-            message_key,
+            message_key: key.as_str(),
             locale: locale.as_str(),
-            detail,
+            detail: minirust_locales::text(locale.into(), key).to_owned(),
         }
     }
 
     pub fn menu(error: &MenuError, locale: Locale) -> Self {
-        let (status, code, message_key, detail) = match error {
+        let (status, code, key) = match error {
             MenuError::Forbidden => (
                 StatusCode::FORBIDDEN,
                 "FORBIDDEN",
-                "errors.authorization.forbidden",
-                match locale {
-                    Locale::Vi => "Bạn không có quyền quản lý menu.".to_owned(),
-                    Locale::En => "You are not authorized to manage menus.".to_owned(),
-                },
+                Key::ErrorsAuthorizationForbidden,
             ),
             MenuError::NotFound => (
                 StatusCode::NOT_FOUND,
                 "MENU_NOT_FOUND",
-                "errors.menu.not_found",
-                match locale {
-                    Locale::Vi => "Không tìm thấy menu.".to_owned(),
-                    Locale::En => "Menu was not found.".to_owned(),
-                },
+                Key::ErrorsMenuNotFound,
             ),
             MenuError::InvalidName => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_MENU_NAME",
-                "errors.menu.invalid_name",
-                match locale {
-                    Locale::Vi => "Tên menu không hợp lệ.".to_owned(),
-                    Locale::En => "The menu name is invalid.".to_owned(),
-                },
+                Key::ErrorsMenuInvalidName,
             ),
             MenuError::InvalidPath => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_MENU_PATH",
-                "errors.menu.invalid_path",
-                match locale {
-                    Locale::Vi => "Đường dẫn menu không hợp lệ.".to_owned(),
-                    Locale::En => "The menu path is invalid.".to_owned(),
-                },
+                Key::ErrorsMenuInvalidPath,
             ),
             MenuError::InvalidIcon => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_MENU_ICON",
-                "errors.menu.invalid_icon",
-                match locale {
-                    Locale::Vi => "Icon menu không hợp lệ.".to_owned(),
-                    Locale::En => "The menu icon is invalid.".to_owned(),
-                },
+                Key::ErrorsMenuInvalidIcon,
             ),
-
             MenuError::InvalidParent => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "INVALID_MENU_PARENT",
-                "errors.menu.invalid_parent",
-                match locale {
-                    Locale::Vi => "Menu cha không hợp lệ.".to_owned(),
-                    Locale::En => "The menu parent is invalid.".to_owned(),
-                },
+                Key::ErrorsMenuInvalidParent,
             ),
             MenuError::Persistence => return Self::internal(locale),
         };
@@ -454,39 +370,80 @@ impl ProblemDetails {
             title: "Menu management error",
             status: status.as_u16(),
             code,
-            message_key,
+            message_key: key.as_str(),
+            locale: locale.as_str(),
+            detail: minirust_locales::text(locale.into(), key).to_owned(),
+        }
+    }
+
+    pub fn upload(error: &UploadError, locale: Locale) -> Self {
+        let (status, code, key) = match error {
+            UploadError::FileNameRequired => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "UPLOAD_FILE_NAME_REQUIRED",
+                Key::ErrorsUploadFileNameRequired,
+            ),
+            UploadError::FileTooLarge { .. } => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "UPLOAD_FILE_TOO_LARGE",
+                Key::ErrorsUploadFileTooLarge,
+            ),
+            UploadError::AvatarDirectoryInvalid => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "AVATAR_DIRECTORY_INVALID",
+                Key::ErrorsUploadAvatarDirectoryInvalid,
+            ),
+            UploadError::AvatarExtensionUnsupported => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "UNSUPPORTED_AVATAR_FORMAT",
+                Key::ErrorsUploadUnsupportedAvatarFormat,
+            ),
+            UploadError::Storage => return Self::internal(locale),
+        };
+
+        let detail = match error {
+            UploadError::FileTooLarge { max } => {
+                minirust_locales::text(locale.into(), key).replace("{max}", &max.to_string())
+            }
+            _ => minirust_locales::text(locale.into(), key).to_owned(),
+        };
+
+        Self {
+            problem_type: "https://minirust.dev/problems/upload",
+            title: "Upload error",
+            status: status.as_u16(),
+            code,
+            message_key: key.as_str(),
             locale: locale.as_str(),
             detail,
         }
     }
 
     pub fn rate_limited(locale: Locale) -> Self {
+        let key = Key::ErrorsRateLimitExceeded;
+
         Self {
             problem_type: "https://minirust.dev/problems/rate-limit",
             title: "Too many requests",
             status: StatusCode::TOO_MANY_REQUESTS.as_u16(),
             code: "RATE_LIMITED",
-            message_key: "errors.rate_limit.exceeded",
+            message_key: key.as_str(),
             locale: locale.as_str(),
-            detail: match locale {
-                Locale::Vi => "Quá nhiều yêu cầu. Vui lòng thử lại sau.".to_owned(),
-                Locale::En => "Too many requests. Please try again later.".to_owned(),
-            },
+            detail: minirust_locales::text(locale.into(), key).to_owned(),
         }
     }
 
     pub fn service_unavailable(locale: Locale) -> Self {
+        let key = Key::ErrorsDependencyUnavailable;
+
         Self {
             problem_type: "https://minirust.dev/problems/service-unavailable",
             title: "Service unavailable",
             status: StatusCode::SERVICE_UNAVAILABLE.as_u16(),
             code: "DEPENDENCY_UNAVAILABLE",
-            message_key: "errors.dependency.unavailable",
+            message_key: key.as_str(),
             locale: locale.as_str(),
-            detail: match locale {
-                Locale::Vi => "Một dịch vụ phụ thuộc hiện không khả dụng.".to_owned(),
-                Locale::En => "A required dependency is currently unavailable.".to_owned(),
-            },
+            detail: minirust_locales::text(locale.into(), key).to_owned(),
         }
     }
 }

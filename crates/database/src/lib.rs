@@ -176,7 +176,15 @@ impl Database {
                           AND ue.active = 1
                           AND (ue.expires_at IS NULL OR ue.expires_at > ?)
                     )
-                ) AS SIGNED) AS is_premium
+                ) AS SIGNED) AS is_premium,
+                (
+                    SELECT ue.expires_at
+                    FROM user_entitlements ue
+                    WHERE ue.user_id = u.id
+                      AND ue.entitlement = 'premium'
+                      AND ue.active = 1
+                    LIMIT 1
+                ) AS premium_expires_at
             FROM users u
             WHERE u.id = ?
         "#
@@ -259,6 +267,12 @@ pub(crate) fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, Aut
         error!(%error, "failed to decode user projection field is_premium");
         AuthError::Persistence
     })? != 0;
+    let premium_expires_at = row
+        .try_get::<Option<i64>, _>("premium_expires_at")
+        .map_err(|error| {
+            error!(%error, "failed to decode user projection field premium_expires_at");
+            AuthError::Persistence
+        })?;
 
     Ok(UserAccess {
         id,
@@ -269,6 +283,7 @@ pub(crate) fn row_to_user(row: &sqlx::mysql::MySqlRow) -> Result<UserAccess, Aut
         locale,
         is_admin,
         is_premium,
+        premium_expires_at,
     })
 }
 

@@ -5,6 +5,7 @@ members = [
     "crates/config",
     "crates/core",
     "crates/database",
+    "crates/locales",
     "crates/observability",
     "crates/services",
 ]
@@ -38,7 +39,7 @@ leptos_meta = { version = "0.8", default-features = false }
 lettre = { version = "0.11.19", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls-tls"] }
 gloo-net = { version = "0.6", default-features = false, features = ["http", "json"] }
 js-sys = "0.3"
-web-sys = { version = "0.3", default-features = false, features = ["Window", "Location", "HtmlInputElement"] }
+web-sys = { version = "0.3", default-features = false, features = ["Window", "Location", "HtmlInputElement", "Blob", "File", "FileList", "FormData", "Url", "console"] }
 wasm-bindgen = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -58,6 +59,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 minirust-config = { path = "crates/config" }
 minirust-core = { path = "crates/core" }
+minirust-locales = { path = "crates/locales" }
 minirust-database = { path = "crates/database" }
 minirust-observability = { path = "crates/observability" }
 minirust-services = { path = "crates/services" }

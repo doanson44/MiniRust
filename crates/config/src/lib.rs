@@ -22,14 +22,17 @@ pub const DEFAULT_DB_NAME: &str = "minirust";
 pub const DEFAULT_DB_USER: &str = "minirust";
 pub const DEFAULT_DB_PASSWORD: &str = "minirust";
 pub const DEFAULT_DB_MAX_CONNECTIONS: u32 = 10;
+pub const DEFAULT_UPLOAD_DIRECTORY: &str = "uploaded";
 
 pub const ENV_ENVIRONMENT: &str = "MINIRUST_ENV";
 pub const ENV_LOG: &str = "MINIRUST_LOG";
 pub const ENV_LOG_DIRECTORY: &str = "MINIRUST_LOG_DIR";
+pub const ENV_UPLOAD_DIRECTORY: &str = "MINIRUST_UPLOAD_DIR";
 pub const ENV_API_HOST: &str = "MINIRUST_API_HOST";
 pub const ENV_API_PORT: &str = "MINIRUST_API_PORT";
 pub const ENV_WEB_HOST: &str = "MINIRUST_WEB_HOST";
 pub const ENV_WEB_PORT: &str = "MINIRUST_WEB_PORT";
+pub const ENV_WEB_URL: &str = "MINIRUST_WEB_URL";
 pub const ENV_DATABASE_URL: &str = "MINIRUST_DATABASE_URL";
 pub const ENV_DB_HOST: &str = "MINIRUST_DB_HOST";
 pub const ENV_DB_PORT: &str = "MINIRUST_DB_PORT";
@@ -142,7 +145,9 @@ pub struct Config {
     pub environment: Environment,
     pub log_filter: String,
     pub log_directory: String,
+    pub upload_directory: String,
     pub database: DatabaseConfig,
+    pub web_url: String,
     pub auth_secret: Option<String>,
     pub admin_email: String,
     pub admin_otp: String,
@@ -167,6 +172,11 @@ impl Config {
             environment,
             log_filter: read_or_default(ENV_LOG, DEFAULT_LOG_FILTER),
             log_directory: read_or_default(ENV_LOG_DIRECTORY, DEFAULT_LOG_DIRECTORY),
+            upload_directory: read_or_default(ENV_UPLOAD_DIRECTORY, DEFAULT_UPLOAD_DIRECTORY),
+            web_url: match environment {
+                Environment::Development => read_or_default(ENV_WEB_URL, "http://127.0.0.1:3001"),
+                Environment::Production => require_var(ENV_WEB_URL)?,
+            },
             database: read_database(environment)?,
             database_url_override: read_optional(ENV_DATABASE_URL),
             auth_secret: read_optional(ENV_AUTH_SECRET),
@@ -203,6 +213,10 @@ impl Config {
 
     pub fn admin_otp(&self) -> &str {
         &self.admin_otp
+    }
+
+    pub fn upload_directory(&self) -> &str {
+        &self.upload_directory
     }
 
     pub fn auth_secret(&self) -> Result<&str, ConfigError> {

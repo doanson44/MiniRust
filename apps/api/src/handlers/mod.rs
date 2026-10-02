@@ -1,5 +1,5 @@
 use axum::extract::rejection::JsonRejection;
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{delete, get, patch, post, put};
@@ -17,6 +17,7 @@ pub(crate) mod auth;
 mod health;
 mod menu;
 mod openapi;
+mod upload;
 mod user;
 
 pub fn router(state: AppState) -> Router {
@@ -46,6 +47,11 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/users/me/language", put(user::language_update))
         .route("/api/v1/users/me/lock", post(user::lock))
         .route("/api/v1/users/me", delete(user::delete))
+        .route(
+            "/api/v1/users/me/avatar",
+            post(user::upload_avatar).layer(DefaultBodyLimit::max(upload::MAX_REQUEST_BYTES)),
+        )
+        .route("/api/v1/users/me/avatar/{extension}", get(user::get_avatar))
         .route("/api/v1/admin/users", get(admin::list).post(admin::create))
         .route(
             "/api/v1/admin/users/{user_id}",
@@ -56,6 +62,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/admin/users/{user_id}/entitlements/premium",
             get(admin::get_premium),
+        )
+        .route(
+            "/api/v1/uploads",
+            post(upload::upload).layer(DefaultBodyLimit::max(upload::MAX_REQUEST_BYTES)),
         )
         .route("/api/v1/openapi.json", get(openapi::openapi))
         .route("/swagger", get(openapi::swagger_ui))

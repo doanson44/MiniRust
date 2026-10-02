@@ -3,33 +3,37 @@ use axum::response::IntoResponse;
 use axum::Json;
 
 pub async fn openapi() -> impl IntoResponse {
-    (
-        StatusCode::OK,
-        Json(serde_json::json!({
-            "openapi": "3.0.3",
-            "info": { "title": "MiniRust API", "version": "0.1.0" },
-            "paths": {
-                "/health": { "get": { "summary": "Health and MariaDB connectivity", "responses": { "200": { "description": "Application and database are healthy" }, "503": { "description": "Database is unavailable" } } } },
-                "/api/v1/hello": { "get": { "summary": "Hello query", "responses": { "200": { "description": "Greeting" } } } },
-                "/api/v1/echo": { "post": { "summary": "Echo command", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } } } } }, "responses": { "200": { "description": "Echo response" }, "400": { "description": "Malformed JSON or invalid content type" }, "422": { "description": "Validation error" }, "500": { "description": "Unexpected server failure" } } } },
-                "/api/v1/auth/register/request-verification": { "post": { "summary": "Request registration verification link", "responses": { "200": { "description": "Request accepted" } } } },
-                "/api/v1/auth/register/verify": { "post": { "summary": "Verify registration link and create session", "responses": { "200": { "description": "Authenticated session" } } } },
-                "/api/v1/auth/login/request-code": { "post": { "summary": "Request login verification code", "responses": { "200": { "description": "Request accepted" } } } },
-                "/api/v1/auth/login/verify-code": { "post": { "summary": "Verify login code and create session", "responses": { "200": { "description": "Authenticated session" } } } },
-                "/api/v1/auth/logout": { "post": { "summary": "Revoke current session", "responses": { "200": { "description": "Session revoked" } } } },
-                "/api/v1/auth/me": { "get": { "summary": "Get current authenticated user", "responses": { "200": { "description": "Current user" }, "401": { "description": "Invalid or expired session" } } } },
-                "/api/v1/menus": { "get": { "summary": "List active menus the current account may open", "responses": { "200": { "description": "Access-filtered menus" }, "401": { "description": "Authentication required" } } } },
-                "/api/v1/admin/menus": { "get": { "summary": "List all system menus (admin only)", "responses": { "200": { "description": "Menus" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } } },
-                "/api/v1/admin/menus/{menu_id}": { "patch": { "summary": "Update menu access flags by id (admin only)", "responses": { "200": { "description": "Menu updated" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "Menu not found" }, "422": { "description": "Invalid menu data" } } } },
-                "/api/v1/users/me": { "patch": { "summary": "Update current user profile", "responses": { "200": { "description": "Profile updated" }, "401": { "description": "Authentication required" }, "422": { "description": "Invalid profile data" } } }, "delete": { "summary": "Delete current user account", "responses": { "200": { "description": "Account deleted" }, "401": { "description": "Authentication required" } } } },
-                "/api/v1/users/me/lock": { "post": { "summary": "Lock current user account", "responses": { "200": { "description": "Account locked" }, "401": { "description": "Authentication required" } } } },
-                "/api/v1/admin/users": { "get": { "summary": "List users (admin only)", "responses": { "200": { "description": "Users" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } }, "post": { "summary": "Create user by email (admin only)", "responses": { "201": { "description": "User created" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } } },
-                "/api/v1/admin/users/{user_id}": { "get": { "summary": "Get user by id (admin only)", "responses": { "200": { "description": "User" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } }, "patch": { "summary": "Update user email, role, and premium settings by user id (admin only)", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email", "role", "premium_active"], "properties": { "email": { "type": "string" }, "role": { "type": "string", "enum": ["admin", "none"] }, "premium_active": { "type": "boolean" }, "premium_expires_at": { "type": "integer", "nullable": true } } } } } }, "responses": { "200": { "description": "User updated" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "409": { "description": "Email already exists or protected user" }, "422": { "description": "Invalid role or premium expiry" } } }, "delete": { "summary": "Delete user by user id (admin only)", "responses": { "204": { "description": "User deleted" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
-                "/api/v1/admin/users/{user_id}/unlock": { "post": { "summary": "Unlock user account by user id (admin only)", "responses": { "200": { "description": "User unlocked" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
-                "/api/v1/admin/users/{user_id}/entitlements/premium": { "get": { "summary": "Get premium entitlement by user id (admin only)", "responses": { "200": { "description": "Premium entitlement" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } }
-            }
-        })),
-    )
+    (StatusCode::OK, Json(document()))
+}
+
+fn document() -> serde_json::Value {
+    serde_json::json!({
+        "openapi": "3.0.3",
+        "info": { "title": "MiniRust API", "version": "0.1.0" },
+        "paths": {
+            "/health": { "get": { "summary": "Health and MariaDB connectivity", "responses": { "200": { "description": "Application and database are healthy" }, "503": { "description": "Database is unavailable" } } } },
+            "/api/v1/hello": { "get": { "summary": "Hello query", "responses": { "200": { "description": "Greeting" } } } },
+            "/api/v1/echo": { "post": { "summary": "Echo command", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } } } } }, "responses": { "200": { "description": "Echo response" }, "400": { "description": "Malformed JSON or invalid content type" }, "422": { "description": "Validation error" }, "500": { "description": "Unexpected server failure" } } } },
+            "/api/v1/auth/register/request-verification": { "post": { "summary": "Request registration verification link", "responses": { "200": { "description": "Request accepted" } } } },
+            "/api/v1/auth/register/verify": { "post": { "summary": "Verify registration link and create session", "responses": { "200": { "description": "Authenticated session" } } } },
+            "/api/v1/auth/login/request-code": { "post": { "summary": "Request login verification code", "responses": { "200": { "description": "Request accepted" } } } },
+            "/api/v1/auth/login/verify-code": { "post": { "summary": "Verify login code and create session", "responses": { "200": { "description": "Authenticated session" } } } },
+            "/api/v1/auth/logout": { "post": { "summary": "Revoke current session", "responses": { "200": { "description": "Session revoked" } } } },
+            "/api/v1/auth/me": { "get": { "summary": "Get current authenticated user", "responses": { "200": { "description": "Current user" }, "401": { "description": "Invalid or expired session" } } } },
+            "/api/v1/menus": { "get": { "summary": "List active menus the current account may open", "responses": { "200": { "description": "Access-filtered menus" }, "401": { "description": "Authentication required" } } } },
+            "/api/v1/admin/menus": { "get": { "summary": "List all system menus (admin only)", "responses": { "200": { "description": "Menus" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } } },
+            "/api/v1/admin/menus/{menu_id}": { "patch": { "summary": "Update menu access flags by id (admin only)", "responses": { "200": { "description": "Menu updated" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "Menu not found" }, "422": { "description": "Invalid menu data" } } } },
+            "/api/v1/users/me": { "patch": { "summary": "Update current user profile", "responses": { "200": { "description": "Profile updated" }, "401": { "description": "Authentication required" }, "422": { "description": "Invalid profile data" } } }, "delete": { "summary": "Delete current user account", "responses": { "200": { "description": "Account deleted" }, "401": { "description": "Authentication required" } } } },
+            "/api/v1/users/me/lock": { "post": { "summary": "Lock current user account", "responses": { "200": { "description": "Account locked" }, "401": { "description": "Authentication required" } } } },
+            "/api/v1/admin/users": { "get": { "summary": "List users (admin only)", "responses": { "200": { "description": "Users" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } }, "post": { "summary": "Create user by email (admin only)", "responses": { "201": { "description": "User created" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" } } } },
+            "/api/v1/admin/users/{user_id}": { "get": { "summary": "Get user by id (admin only)", "responses": { "200": { "description": "User" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } }, "patch": { "summary": "Update user email, role, and premium settings by user id (admin only)", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email", "role", "premium_active"], "properties": { "email": { "type": "string" }, "role": { "type": "string", "enum": ["admin", "none"] }, "premium_active": { "type": "boolean" }, "premium_expires_at": { "type": "integer", "nullable": true } } } } } }, "responses": { "200": { "description": "User updated" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "409": { "description": "Email already exists or protected user" }, "422": { "description": "Invalid role or premium expiry" } } }, "delete": { "summary": "Delete user by user id (admin only)", "responses": { "204": { "description": "User deleted" }, "401": { "description": "Authentication required" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
+            "/api/v1/admin/users/{user_id}/unlock": { "post": { "summary": "Unlock user account by user id (admin only)", "responses": { "200": { "description": "User unlocked" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
+            "/api/v1/admin/users/{user_id}/entitlements/premium": { "get": { "summary": "Get premium entitlement by user id (admin only)", "responses": { "200": { "description": "Premium entitlement" }, "403": { "description": "Admin role required" }, "404": { "description": "User not found" } } } },
+            "/api/v1/users/me/avatar": { "post": { "summary": "Upload the current user avatar (authenticated)", "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["file"], "properties": { "file": { "type": "string", "format": "binary" } } } } } }, "responses": { "200": { "description": "Stored avatar URL" }, "401": { "description": "Authentication required" }, "413": { "description": "Payload too large" }, "422": { "description": "Unsupported image format" } } } },
+            "/api/v1/users/me/avatar/{extension}": { "get": { "summary": "Read the current user avatar (authenticated)", "responses": { "200": { "description": "Avatar image" }, "401": { "description": "Authentication required" }, "404": { "description": "Avatar not found" } } } },
+            "/api/v1/uploads": { "post": { "summary": "Upload a file (authenticated)", "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["file"], "properties": { "file": { "type": "string", "format": "binary" } } } } } }, "responses": { "201": { "description": "Stored file" }, "401": { "description": "Authentication required" }, "413": { "description": "Payload too large" }, "422": { "description": "Upload rejected" } } } }
+        }
+    })
 }
 
 pub async fn swagger_ui() -> impl IntoResponse {
@@ -59,4 +63,24 @@ fetch('/api/v1/openapi.json').then(r=>r.json()).then(spec=>{
         [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
         html,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn document_describes_the_upload_endpoints() {
+        let document = document();
+
+        let upload = &document["paths"]["/api/v1/uploads"]["post"];
+        assert!(upload.is_object());
+        assert_eq!(upload["requestBody"]["required"], true);
+
+        let avatar_upload = &document["paths"]["/api/v1/users/me/avatar"]["post"];
+        assert!(avatar_upload.is_object());
+
+        let avatar_read = &document["paths"]["/api/v1/users/me/avatar/{extension}"]["get"];
+        assert!(avatar_read.is_object());
+    }
 }

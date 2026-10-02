@@ -41,4 +41,6 @@ Rules:
 - Tailwind CSS is the only frontend CSS framework. Do not add Bootstrap compatibility.
 - Do not commit secrets.
 - English identifiers, comments, and documentation.
+- User-facing text is defined once in `crates/locales` resources (one file per language) and referenced by key; never inline two languages in code.
+- Comment only when genuinely necessary or explicitly requested; otherwise leave the code uncommented.
 - Do not commit, push, or open a PR unless explicitly requested.

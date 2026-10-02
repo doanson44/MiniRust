@@ -66,17 +66,26 @@ Rules:
 
 ## 4. Localized copy
 
-`AppLayout` provides the active locale as context. Read it and pair both languages
-at the call site:
+User-facing text lives in resource files, never as two languages inline in a page.
+
+1. Add the key to `Key` in `crates/locales/src/lib.rs`: a variant, its `as_str()` name, and the
+   `Key::ALL` array.
+2. Add the text to `crates/locales/locales/vi.json` and `crates/locales/locales/en.json`.
+3. Read the locale from context and translate:
 
 ```rust
-let locale = use_context::<ReadSignal<String>>().unwrap_or_else(|| signal("vi".to_owned()).0);
-let text = move |vi: &'static str, en: &'static str| {
-    move || if locale.get() == "vi" { vi } else { en }
-};
+use minirust_locales::{text as translate, Key, Locale};
+
+let locale = use_context::<ReadSignal<Locale>>().unwrap_or_else(|| signal(Locale::DEFAULT).0);
+let text = move |key: Key| move || translate(locale.get(), key);
+// ...
+{text(Key::ProfileSave)}
 ```
 
-- Both languages are user-facing strings — this is allowed and expected.
+- `cargo test -p minirust-locales` fails when a language file is missing one of the keys, or when a
+  resource declares a key that no `Key` variant uses.
+- Text that is identical in every language (product names, "Premium", paths) stays a literal in the
+  markup.
 - Code comments, identifiers, and log messages stay English.
 
 ## 5. List page pattern

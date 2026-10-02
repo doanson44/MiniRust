@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Mã xác minh / Verification code</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #020617; color: #ffffff; line-height: 1.5; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background-color: rgba(255, 255, 255, 0.03); padding: 40px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .logo { font-size: 24px; font-weight: 800; color: #67e8f9; text-align: center; margin-bottom: 30px; letter-spacing: -0.5px; }
+        .content { text-align: center; }
+        .title { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #ffffff; }
+        .code-box { background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; font-size: 36px; font-weight: 700; letter-spacing: 6px; padding: 20px; margin: 30px 0; color: #67e8f9; }
+        .footer { font-size: 13px; color: #94a3b8; text-align: center; margin-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">MiniRust</div>
+        <div class="content">
+            <div class="title">Mã xác minh của bạn / Your verification code</div>
+            <p>Vui lòng sử dụng mã dưới đây để tiếp tục. / Please use the code below to continue.</p>
+            <div class="code-box">{code}</div>
+            <p style="font-size: 14px; color: #94a3b8;">(Mã này có hiệu lực trong 10 phút / Valid for 10 minutes)</p>
+        </div>
+        <div class="footer">
+            Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.<br>
+            If you didn't request this code, please ignore this email.
+        </div>
+    </div>
+</body>
+</html>

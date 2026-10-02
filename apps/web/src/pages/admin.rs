@@ -6,6 +6,7 @@ use crate::models::query::{ALL_PAGE_SIZE, PAGE_SIZE_OPTIONS};
 use crate::types::UserResponse;
 #[cfg(feature = "hydrate")]
 use crate::types::{PaginationMeta, PremiumResponse, UserListData};
+use minirust_locales::{text as translate, Key, Locale};
 
 #[cfg(feature = "hydrate")]
 use super::ui::ToastController;
@@ -38,6 +39,26 @@ fn date_to_timestamp(value: &str) -> Option<i64> {
         Some((milliseconds / 1000.0) as i64)
     } else {
         None
+    }
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn timestamp_to_date(_timestamp: i64) -> String {
+    String::new()
+}
+
+fn premium_label(user: &UserResponse, locale: Locale) -> String {
+    if !user.is_premium {
+        return translate(locale, Key::AdminPremiumInactive).to_owned();
+    }
+
+    match user.premium_expires_at {
+        Some(timestamp) => format!(
+            "{} {}",
+            translate(locale, Key::AdminPremiumUntil),
+            timestamp_to_date(timestamp)
+        ),
+        None => translate(locale, Key::AdminPremiumUnlimited).to_owned(),
     }
 }
 
@@ -76,6 +97,8 @@ pub fn AdminPage() -> impl IntoView {
     let (page_size, set_page_size) = signal(20i32);
     let (total_pages, set_total_pages) = signal(1u32);
     let (loading, set_loading) = signal(false);
+    let locale = use_context::<ReadSignal<Locale>>().unwrap_or_else(|| signal(Locale::DEFAULT).0);
+    let text = move |key: Key| move || translate(locale.get(), key);
     #[cfg(feature = "hydrate")]
     let toast = use_context::<ToastController>().unwrap_or_else(|| ToastController {
         show: Callback::new(|_| {}),
@@ -182,9 +205,9 @@ pub fn AdminPage() -> impl IntoView {
                     set_new_premium_expires.set(String::new());
                     set_show_create.set(false);
                     toast.success(if send_invite {
-                        "User created and login email sent."
+                        translate(locale.get_untracked(), Key::AdminToastCreatedInvite)
                     } else {
-                        "User created."
+                        translate(locale.get_untracked(), Key::AdminToastCreated)
                     });
                     reload_users();
                 }
@@ -213,7 +236,7 @@ pub fn AdminPage() -> impl IntoView {
             .await
             {
                 Ok(()) => {
-                    toast.success("User deleted.");
+                    toast.success(translate(locale.get_untracked(), Key::AdminToastDeleted));
                     if selected.get().as_deref() == Some(user_id.as_str()) {
                         set_selected.set(None);
                     }
@@ -263,7 +286,7 @@ pub fn AdminPage() -> impl IntoView {
                             *user = updated_user;
                         }
                     });
-                    toast.success("User changes saved.");
+                    toast.success(translate(locale.get_untracked(), Key::AdminToastSaved));
                     set_selected.set(None);
                 }
                 Err(error) => toast.error(error),
@@ -272,6 +295,12 @@ pub fn AdminPage() -> impl IntoView {
     };
 
     let open_edit = move |user: UserResponse| {
+        let user = users
+            .get_untracked()
+            .into_iter()
+            .find(|item| item.id == user.id)
+            .unwrap_or(user);
+
         set_selected.set(Some(user.id.clone()));
         set_edit_email.set(user.email);
         set_edit_role.set(if user.is_admin {
@@ -393,8 +422,8 @@ pub fn AdminPage() -> impl IntoView {
         <div class=PAGE_SHELL>
             <section class="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <p class=EYEBROW>"User Management"</p>
-                    <h1 class=PAGE_TITLE>"Users"</h1>
+                    <p class=EYEBROW>{text(Key::AdminEyebrow)}</p>
+                    <h1 class=PAGE_TITLE>{text(Key::AdminTitle)}</h1>
                 </div>
                 <button
                     type="button"
@@ -402,7 +431,7 @@ pub fn AdminPage() -> impl IntoView {
                     on:click=move |_| set_show_create.set(true)
                     class=BTN_PRIMARY
                 >
-                    "+ Create user"
+                    {text(Key::AdminCreateOpen)}
                 </button>
             </section>
 
@@ -410,8 +439,8 @@ pub fn AdminPage() -> impl IntoView {
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <input
                         type="search"
-                        aria-label="Search users by email or name"
-                        placeholder="Search email or name..."
+                        aria-label={translate(locale.get_untracked(), Key::AdminSearchLabel)}
+                        placeholder={translate(locale.get_untracked(), Key::AdminSearchPlaceholder)}
                         prop:value=search
                         on:input=move |ev| {
                             set_search.set(event_target_value(&ev));
@@ -421,7 +450,7 @@ pub fn AdminPage() -> impl IntoView {
                     />
                     <div class="relative">
                         <select
-                            aria-label="Filter by role"
+                            aria-label={translate(locale.get_untracked(), Key::AdminFilterRoleLabel)}
                             prop:value=role_filter
                             on:change=move |ev| {
                                 set_role_filter.set(event_target_value(&ev));
@@ -429,15 +458,15 @@ pub fn AdminPage() -> impl IntoView {
                             }
                             class=SELECT
                         >
-                            <option value="all" class="bg-canvas-raised text-foreground">"All roles"</option>
-                            <option value="admin" class="bg-canvas-raised text-foreground">"Admin"</option>
-                            <option value="user" class="bg-canvas-raised text-foreground">"User"</option>
+                            <option value="all" class="bg-canvas-raised text-foreground">{text(Key::AdminFilterRoleAll)}</option>
+                            <option value="admin" class="bg-canvas-raised text-foreground">{text(Key::CommonRoleAdmin)}</option>
+                            <option value="user" class="bg-canvas-raised text-foreground">{text(Key::CommonRoleUser)}</option>
                         </select>
                         <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
                     </div>
                     <div class="relative">
                         <select
-                            aria-label="Filter by premium state"
+                            aria-label={translate(locale.get_untracked(), Key::AdminFilterPremiumLabel)}
                             prop:value=premium_filter
                             on:change=move |ev| {
                                 set_premium_filter.set(event_target_value(&ev));
@@ -445,15 +474,15 @@ pub fn AdminPage() -> impl IntoView {
                             }
                             class=SELECT
                         >
-                            <option value="all" class="bg-canvas-raised text-foreground">"All premium states"</option>
+                            <option value="all" class="bg-canvas-raised text-foreground">{text(Key::AdminFilterPremiumAll)}</option>
                             <option value="active" class="bg-canvas-raised text-foreground">"Premium"</option>
-                            <option value="inactive" class="bg-canvas-raised text-foreground">"Not premium"</option>
+                            <option value="inactive" class="bg-canvas-raised text-foreground">{text(Key::AdminFilterPremiumOff)}</option>
                         </select>
                         <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
                     </div>
                     <div class="relative">
                         <select
-                            aria-label="Filter by account state"
+                            aria-label={translate(locale.get_untracked(), Key::AdminFilterStatusLabel)}
                             prop:value=status_filter
                             on:change=move |ev| {
                                 set_status_filter.set(event_target_value(&ev));
@@ -461,9 +490,9 @@ pub fn AdminPage() -> impl IntoView {
                             }
                             class=SELECT
                         >
-                            <option value="all" class="bg-canvas-raised text-foreground">"All account states"</option>
-                            <option value="active" class="bg-canvas-raised text-foreground">"Active"</option>
-                            <option value="locked" class="bg-canvas-raised text-foreground">"Sign-in disabled"</option>
+                            <option value="all" class="bg-canvas-raised text-foreground">{text(Key::AdminFilterStatusAll)}</option>
+                            <option value="active" class="bg-canvas-raised text-foreground">{text(Key::CommonActive)}</option>
+                            <option value="locked" class="bg-canvas-raised text-foreground">{text(Key::AdminSignInDisabled)}</option>
                         </select>
                         <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
                     </div>
@@ -480,25 +509,25 @@ pub fn AdminPage() -> impl IntoView {
                     </div>
 
                     <Show when=move || loading.get()>
-                        <LoadingState label="Loading users".to_owned()/>
+                        <LoadingState label={translate(locale.get_untracked(), Key::AdminLoading).to_owned()}/>
                     </Show>
                     <Show when=move || !loading.get() && page_users.get().is_empty()>
                         <EmptyState>
-                            "No users match the current search and filters. Clear a filter, or create the first user."
+                            {translate(locale.get_untracked(), Key::AdminEmpty).to_owned()}
                         </EmptyState>
                     </Show>
 
                     // Desktop table. Below `md` the same rows render as cards so the
                     // page never scrolls horizontally at 375px.
                     <div class="hidden md:block">
-                    <table class="w-full text-left" aria-label="Users">
+                    <table class="w-full text-left" aria-label={text(Key::AdminTitle)}>
                         <thead>
                             <tr class="text-xs uppercase tracking-widest text-faint-foreground">
                                 <SortHeader label="Email".to_owned() column="email" active_column=sort_column descending=sort_desc on_sort=sort_by/>
-                                <SortHeader label="Role".to_owned() column="role" active_column=sort_column descending=sort_desc on_sort=sort_by/>
+                                <SortHeader label={translate(locale.get_untracked(), Key::AdminRole).to_owned()} column="role" active_column=sort_column descending=sort_desc on_sort=sort_by/>
                                 <SortHeader label="Premium".to_owned() column="premium" active_column=sort_column descending=sort_desc on_sort=sort_by/>
-                                <SortHeader label="Status".to_owned() column="status" active_column=sort_column descending=sort_desc on_sort=sort_by/>
-                                <th scope="col" class=TH>"Actions"</th>
+                                <SortHeader label={translate(locale.get_untracked(), Key::AdminStatus).to_owned()} column="status" active_column=sort_column descending=sort_desc on_sort=sort_by/>
+                                <th scope="col" class=TH>{text(Key::AdminActions)}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -506,39 +535,87 @@ pub fn AdminPage() -> impl IntoView {
                                 each=move || page_users.get()
                                 key=|user| user.id.clone()
                                 children=move |user| {
-                                    let is_self = current_user_id
-                                        .get()
-                                        .is_some_and(|current_id| current_id == user.id);
-                                    let edit_user = user.clone();
+                                    let id_for_self = user.id.clone();
+                                    let is_self = Signal::derive(move || {
+                                        current_user_id
+                                            .get()
+                                            .is_some_and(|current_id| current_id == id_for_self)
+                                    });
+                                    let edit_user_id = StoredValue::new(user.id.clone());
                                     let delete_user_id = StoredValue::new(user.id.clone());
+                                    let email = user.email.clone();
+                                    let full_name = user.full_name.clone();
+                                    let id_for_role = user.id.clone();
+                                    let id_for_premium = user.id.clone();
+                                    let id_for_status = user.id.clone();
 
                                     view! {
                                         <tr class=TR>
                                             <td class="px-4 py-4 text-sm text-foreground">
-                                                <div class="break-words">{user.email.clone()}</div>
-                                                {user.full_name.clone().map(|name| view! {
+                                                <div class="break-words">{email}</div>
+                                                {full_name.map(|name| view! {
                                                     <div class="mt-1 break-words text-xs text-faint-foreground">{name}</div>
                                                 })}
                                             </td>
                                             <td class="px-4 py-4 text-sm text-subtle-foreground">
-                                                {if user.is_admin { "Admin" } else { "User" }}
+                                                {move || {
+                                                    let is_admin = users
+                                                        .get()
+                                                        .into_iter()
+                                                        .find(|item| item.id == id_for_role)
+                                                        .map(|item| item.is_admin)
+                                                        .unwrap_or(false);
+                                                    if is_admin {
+                                                        translate(locale.get(), Key::CommonRoleAdmin)
+                                                    } else {
+                                                        translate(locale.get(), Key::CommonRoleUser)
+                                                    }
+                                                }}
                                             </td>
                                             <td class="px-4 py-4 text-sm text-subtle-foreground">
-                                                {if user.is_premium { "Active" } else { "Inactive" }}
+                                                {move || {
+                                                    users
+                                                        .get()
+                                                        .into_iter()
+                                                        .find(|item| item.id == id_for_premium)
+                                                        .map(|item| premium_label(&item, locale.get()))
+                                                        .unwrap_or_default()
+                                                }}
                                             </td>
                                             <td class="px-4 py-4 text-sm text-subtle-foreground">
-                                                {if user.is_locked { "Sign-in disabled" } else { "Active" }}
+                                                {move || {
+                                                    let is_locked = users
+                                                        .get()
+                                                        .into_iter()
+                                                        .find(|item| item.id == id_for_status)
+                                                        .map(|item| item.is_locked)
+                                                        .unwrap_or(false);
+                                                    if is_locked {
+                                                        translate(locale.get(), Key::AdminSignInDisabled)
+                                                    } else {
+                                                        translate(locale.get(), Key::CommonActive)
+                                                    }
+                                                }}
                                             </td>
                                             <td class="px-4 py-4 text-sm">
-                                                <div class="flex flex-wrap gap-2">
-                                                    <button
-                                                        type="button"
-                                                        on:click=move |_| open_edit(edit_user.clone())
-                                                        class=BTN_SECONDARY_SM
-                                                    >
-                                                        "Edit"
-                                                    </button>
-                                                    <Show when=move || !is_self>
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <Show when=move || !is_self.get()>
+                                                        <button
+                                                            type="button"
+                                                            on:click=move |_| {
+                                                                let user_id = edit_user_id.get_value();
+                                                                let target = users
+                                                                    .get_untracked()
+                                                                    .into_iter()
+                                                                    .find(|item| item.id == user_id);
+                                                                if let Some(target) = target {
+                                                                    open_edit(target);
+                                                                }
+                                                            }
+                                                            class=BTN_SECONDARY_SM
+                                                        >
+                                                            {text(Key::AdminActionEdit)}
+                                                        </button>
                                                         <button
                                                             type="button"
                                                             on:click=move |_| {
@@ -551,8 +628,11 @@ pub fn AdminPage() -> impl IntoView {
                                                             }
                                                             class=BTN_DANGER_SM
                                                         >
-                                                            "Delete"
+                                                            {text(Key::AdminActionDelete)}
                                                         </button>
+                                                    </Show>
+                                                    <Show when=move || is_self.get()>
+                                                        <span class="text-xs text-faint-foreground">{text(Key::AdminActionYou)}</span>
                                                     </Show>
                                                 </div>
                                             </td>
@@ -569,49 +649,97 @@ pub fn AdminPage() -> impl IntoView {
                             each=move || page_users.get()
                             key=|user| user.id.clone()
                             children=move |user| {
-                                let is_self = current_user_id
-                                    .get()
-                                    .is_some_and(|current_id| current_id == user.id);
-                                let edit_user = user.clone();
+                                let id_for_self = user.id.clone();
+                                let is_self = Signal::derive(move || {
+                                    current_user_id
+                                        .get()
+                                        .is_some_and(|current_id| current_id == id_for_self)
+                                });
+                                let edit_user_id = StoredValue::new(user.id.clone());
                                 let delete_user_id = StoredValue::new(user.id.clone());
+                                let email = user.email.clone();
+                                let full_name = user.full_name.clone();
+                                let id_for_role = user.id.clone();
+                                let id_for_premium = user.id.clone();
+                                let id_for_status = user.id.clone();
 
                                 view! {
                                     <li class="rounded-2xl border border-line bg-canvas p-4">
                                         <p class="break-words text-sm font-semibold text-foreground">
-                                            {user.email.clone()}
+                                            {email}
                                         </p>
-                                        {user.full_name.clone().map(|name| view! {
+                                        {full_name.map(|name| view! {
                                             <p class="mt-1 break-words text-xs text-faint-foreground">{name}</p>
                                         })}
                                         <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
                                             <div>
-                                                <dt class="text-faint-foreground">"Role"</dt>
+                                                <dt class="text-faint-foreground">{text(Key::AdminRole)}</dt>
                                                 <dd class="text-muted-foreground">
-                                                    {if user.is_admin { "Admin" } else { "User" }}
+                                                    {move || {
+                                                        let is_admin = users
+                                                            .get()
+                                                            .into_iter()
+                                                            .find(|item| item.id == id_for_role)
+                                                            .map(|item| item.is_admin)
+                                                            .unwrap_or(false);
+                                                        if is_admin {
+                                                            translate(locale.get(), Key::CommonRoleAdmin)
+                                                        } else {
+                                                            translate(locale.get(), Key::CommonRoleUser)
+                                                        }
+                                                    }}
                                                 </dd>
                                             </div>
                                             <div>
                                                 <dt class="text-faint-foreground">"Premium"</dt>
                                                 <dd class="text-muted-foreground">
-                                                    {if user.is_premium { "Active" } else { "Inactive" }}
+                                                    {move || {
+                                                        users
+                                                            .get()
+                                                            .into_iter()
+                                                            .find(|item| item.id == id_for_premium)
+                                                            .map(|item| premium_label(&item, locale.get()))
+                                                            .unwrap_or_default()
+                                                    }}
                                                 </dd>
                                             </div>
                                             <div>
-                                                <dt class="text-faint-foreground">"Status"</dt>
+                                                <dt class="text-faint-foreground">{text(Key::AdminStatus)}</dt>
                                                 <dd class="text-muted-foreground">
-                                                    {if user.is_locked { "Locked" } else { "Active" }}
+                                                    {move || {
+                                                        let is_locked = users
+                                                            .get()
+                                                            .into_iter()
+                                                            .find(|item| item.id == id_for_status)
+                                                            .map(|item| item.is_locked)
+                                                            .unwrap_or(false);
+                                                        if is_locked {
+                                                            translate(locale.get(), Key::CommonLocked)
+                                                        } else {
+                                                            translate(locale.get(), Key::CommonActive)
+                                                        }
+                                                    }}
                                                 </dd>
                                             </div>
                                         </dl>
-                                        <div class="mt-3 flex flex-wrap gap-2">
-                                            <button
-                                                type="button"
-                                                on:click=move |_| open_edit(edit_user.clone())
-                                                class=BTN_SECONDARY_SM
-                                            >
-                                                "Edit"
-                                            </button>
-                                            <Show when=move || !is_self>
+                                        <div class="mt-3 flex flex-wrap items-center gap-2">
+                                            <Show when=move || !is_self.get()>
+                                                <button
+                                                    type="button"
+                                                    on:click=move |_| {
+                                                        let user_id = edit_user_id.get_value();
+                                                        let target = users
+                                                            .get_untracked()
+                                                            .into_iter()
+                                                            .find(|item| item.id == user_id);
+                                                        if let Some(target) = target {
+                                                            open_edit(target);
+                                                        }
+                                                    }
+                                                    class=BTN_SECONDARY_SM
+                                                >
+                                                    {text(Key::AdminActionEdit)}
+                                                </button>
                                                 <button
                                                     type="button"
                                                     on:click=move |_| {
@@ -624,8 +752,11 @@ pub fn AdminPage() -> impl IntoView {
                                                     }
                                                     class=BTN_DANGER_SM
                                                 >
-                                                    "Delete"
+                                                    {text(Key::AdminActionDelete)}
                                                 </button>
+                                            </Show>
+                                            <Show when=move || is_self.get()>
+                                                <span class="text-xs text-faint-foreground">{text(Key::AdminActionYou)}</span>
                                             </Show>
                                         </div>
                                     </li>
@@ -646,9 +777,20 @@ pub fn AdminPage() -> impl IntoView {
                         })
                     >
                         {move || if page_size.get() == ALL_PAGE_SIZE {
-                            format!("All · {} items", users.get().len())
+                            format!(
+                                "{} · {} {}",
+                                translate(locale.get(), Key::AdminPaginationAll),
+                                users.get().len(),
+                                translate(locale.get(), Key::AdminPaginationItems)
+                            )
                         } else {
-                            format!("Page {} of {}", page.get().min(total_pages.get()), total_pages.get())
+                            format!(
+                                "{} {} {} {}",
+                                translate(locale.get(), Key::AdminPaginationPage),
+                                page.get().min(total_pages.get()),
+                                translate(locale.get(), Key::AdminPaginationOf),
+                                total_pages.get()
+                            )
                         }}
                     </Pagination>
                 </section>
@@ -658,12 +800,12 @@ pub fn AdminPage() -> impl IntoView {
             <Modal
                 open=show_create
                 on_close=Callback::new(move |_| set_show_create.set(false))
-                close_label="Close create dialog".to_owned()
+                close_label={translate(locale.get_untracked(), Key::AdminCreateCloseLabel).to_owned()}
             >
                 <div class="flex items-start justify-between gap-4">
                     <div>
-                        <p class="text-xs font-bold uppercase tracking-widest text-accent">"New user"</p>
-                        <h2 class="mt-1 text-xl font-bold text-foreground">"Create user"</h2>
+                        <p class="text-xs font-bold uppercase tracking-widest text-accent">{text(Key::AdminCreateEyebrow)}</p>
+                        <h2 class="mt-1 text-xl font-bold text-foreground">{text(Key::AdminCreateTitle)}</h2>
                     </div>
                     <button
                         type="button"
@@ -671,7 +813,7 @@ pub fn AdminPage() -> impl IntoView {
                         class=BTN_SECONDARY_SM
                     >
                         <span aria-hidden="true">"\u{2715}"</span>
-                        "Close"
+                        {text(Key::AdminActionClose)}
                     </button>
                 </div>
                 <form id="create-user-form" on:submit=create_user class="mt-6 space-y-4">
@@ -685,16 +827,16 @@ pub fn AdminPage() -> impl IntoView {
                             class=INPUT
                         />
                     </Field>
-                    <Field label="Role".to_owned()>
+                    <Field label={translate(locale.get_untracked(), Key::AdminRole).to_owned()}>
                         <div class="relative">
                             <select
-                                aria-label="Role"
+                                aria-label={translate(locale.get_untracked(), Key::AdminRole)}
                                 prop:value=new_role
                                 on:change=move |ev| set_new_role.set(event_target_value(&ev))
                                 class=SELECT
                             >
-                                <option value="none" class="bg-canvas-raised text-foreground">"User"</option>
-                                <option value="admin" class="bg-canvas-raised text-foreground">"Admin"</option>
+                                <option value="none" class="bg-canvas-raised text-foreground">{text(Key::CommonRoleUser)}</option>
+                                <option value="admin" class="bg-canvas-raised text-foreground">{text(Key::CommonRoleAdmin)}</option>
                             </select>
                             <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
                         </div>
@@ -702,22 +844,22 @@ pub fn AdminPage() -> impl IntoView {
                     <Show when=move || new_role.get() != "admin">
                         <ToggleRow
                             title="Premium".to_owned()
-                            description="Grant premium access immediately".to_owned()
+                            description={translate(locale.get_untracked(), Key::AdminPremiumGrantCreate).to_owned()}
                             checked=new_premium_active
                             on_toggle=Callback::new(move |_| set_new_premium_active.update(|v| *v = !*v))
                         />
                     </Show>
                     <Show when=move || new_role.get() != "admin" && new_premium_active.get()>
                         <Field
-                            label="Premium expiry (optional)".to_owned()
-                            description="Leave empty for no expiry.".to_owned()
+                            label={translate(locale.get_untracked(), Key::AdminPremiumExpiryLabel).to_owned()}
+                            description={translate(locale.get_untracked(), Key::AdminPremiumExpiryHint).to_owned()}
                         >
                             <div class="flex gap-2">
                                 <div class="min-w-0 flex-1">
                                     <input
                                         node_ref=new_premium_expires_input
                                         type="date"
-                                        aria-label="Premium expiry date"
+                                        aria-label={translate(locale.get_untracked(), Key::AdminPremiumExpiryAria)}
                                         prop:value=new_premium_expires
                                         on:input=move |ev| set_new_premium_expires.set(event_target_value(&ev))
                                         class=INPUT
@@ -725,7 +867,7 @@ pub fn AdminPage() -> impl IntoView {
                                 </div>
                                 <button
                                     type="button"
-                                    aria-label="Open premium expiry date picker"
+                                    aria-label={translate(locale.get_untracked(), Key::AdminPremiumExpiryPicker)}
                                     on:click=move |_| {
                                         if let Some(input) = new_premium_expires_input.get() {
                                             let _ = input.show_picker();
@@ -738,7 +880,7 @@ pub fn AdminPage() -> impl IntoView {
                             </div>
                         </Field>
                     </Show>
-                    <p class="text-xs text-faint-foreground">"New users are always created as Active."</p>
+                    <p class="text-xs text-faint-foreground">{text(Key::AdminCreateActiveNote)}</p>
                 </form>
                 <div class="mt-6 flex justify-end gap-3 border-t border-line pt-5">
                     <button
@@ -746,15 +888,15 @@ pub fn AdminPage() -> impl IntoView {
                         on:click=move |_| set_show_create.set(false)
                         class=BTN_SECONDARY_SM
                     >
-                        "Cancel"
+                        {text(Key::AdminActionCancel)}
                     </button>
-                    <button type="submit" form="create-user-form" class=BTN_SECONDARY_SM>"Create user"</button>
+                    <button type="submit" form="create-user-form" class=BTN_SECONDARY_SM>{text(Key::AdminCreateTitle)}</button>
                     <button
                         type="button"
                         on:click=create_and_send_email
                         class=BTN_PRIMARY
                     >
-                        "Create and send email"
+                        {text(Key::AdminCreateSendInvite)}
                     </button>
                 </div>
             </Modal>
@@ -763,11 +905,11 @@ pub fn AdminPage() -> impl IntoView {
             <Modal
                 open=Signal::derive(move || selected.get().is_some())
                 on_close=Callback::new(move |_| set_selected.set(None))
-                close_label="Close edit dialog".to_owned()
+                close_label={translate(locale.get_untracked(), Key::AdminEditCloseLabel).to_owned()}
             >
                 <div class="flex items-start justify-between gap-4">
                     <div class="min-w-0 flex-1">
-                        <p class="text-xs font-bold uppercase tracking-widest text-accent">"Edit user"</p>
+                        <p class="text-xs font-bold uppercase tracking-widest text-accent">{text(Key::AdminEditEyebrow)}</p>
                         <h2 class="mt-1 truncate text-xl font-bold text-foreground" title=move || edit_email.get()>{move || edit_email.get()}</h2>
                     </div>
                     <button
@@ -776,7 +918,7 @@ pub fn AdminPage() -> impl IntoView {
                         class=BTN_SECONDARY_SM
                     >
                         <span aria-hidden="true">"\u{2715}"</span>
-                        "Close"
+                        {text(Key::AdminActionClose)}
                     </button>
                 </div>
                 <div class="mt-5 rounded-xl border border-line bg-surface px-4 py-3">
@@ -785,19 +927,19 @@ pub fn AdminPage() -> impl IntoView {
                 </div>
                 <form id="edit-user-form" on:submit=save_changes class="mt-5 space-y-4">
                     <Field
-                        label="Role".to_owned()
+                        label={translate(locale.get_untracked(), Key::AdminRole).to_owned()}
                         description=if current_user_id
                             .get()
                             .is_some_and(|id| selected.get().as_deref() == Some(id.as_str()))
                         {
-                            "Your own role cannot be changed.".to_owned()
+                            translate(locale.get_untracked(), Key::AdminEditRoleLockedHint).to_owned()
                         } else {
                             String::new()
                         }
                     >
                         <div class="relative">
                             <select
-                                aria-label="Role"
+                                aria-label={translate(locale.get_untracked(), Key::AdminRole)}
                                 prop:value=edit_role
                                 disabled=move || {
                                     current_user_id
@@ -814,8 +956,8 @@ pub fn AdminPage() -> impl IntoView {
                                 }
                                 class=SELECT
                             >
-                                <option value="none" class="bg-canvas-raised text-foreground">"User"</option>
-                                <option value="admin" class="bg-canvas-raised text-foreground">"Admin"</option>
+                                <option value="none" class="bg-canvas-raised text-foreground">{text(Key::CommonRoleUser)}</option>
+                                <option value="admin" class="bg-canvas-raised text-foreground">{text(Key::CommonRoleAdmin)}</option>
                             </select>
                             <span class=SELECT_CHEVRON aria-hidden="true">"\u{25BE}"</span>
                         </div>
@@ -823,20 +965,20 @@ pub fn AdminPage() -> impl IntoView {
                     <Show when=move || edit_role.get() != "admin">
                         <ToggleRow
                             title="Premium".to_owned()
-                            description="Grant premium access".to_owned()
+                            description={translate(locale.get_untracked(), Key::AdminPremiumGrantEdit).to_owned()}
                             checked=premium_active
                             on_toggle=Callback::new(move |_| set_premium_active.update(|v| *v = !*v))
                         />
                     </Show>
                             // Premium expiry
                             <Show when=move || edit_role.get() != "admin" && premium_active.get()>
-                                <Field label="Premium expiry (optional)".to_owned() description="Leave empty for no expiry.".to_owned()>
+                                <Field label={translate(locale.get_untracked(), Key::AdminPremiumExpiryLabel).to_owned()} description={translate(locale.get_untracked(), Key::AdminPremiumExpiryHint).to_owned()}>
                                     <div class="flex gap-2">
                                         <div class="min-w-0 flex-1">
                                             <input
                                                 node_ref=premium_expires_input
                                                 type="date"
-                                                aria-label="Premium expiry date"
+                                                aria-label={translate(locale.get_untracked(), Key::AdminPremiumExpiryAria)}
                                                 prop:value=premium_expires
                                                 on:input=move |ev| set_premium_expires.set(event_target_value(&ev))
                                                 class=INPUT
@@ -844,7 +986,7 @@ pub fn AdminPage() -> impl IntoView {
                                         </div>
                                         <button
                                             type="button"
-                                            aria-label="Open premium expiry date picker"
+                                            aria-label={translate(locale.get_untracked(), Key::AdminPremiumExpiryPicker)}
                                             on:click=move |_| {
                                                 if let Some(input) = premium_expires_input.get() {
                                                     let _ = input.show_picker();
@@ -866,16 +1008,20 @@ pub fn AdminPage() -> impl IntoView {
                             <div class=move || format!("flex items-center justify-between gap-4 rounded-xl border px-4 py-3 {}", if edit_locked.get() { "border-amber-300/20 bg-amber-300/5" } else { "border-line bg-canvas" })>
                                 <div>
                                     <p class=move || format!("text-sm font-medium {}", if edit_locked.get() { "text-amber-200" } else { "text-muted-foreground" })>
-                                        "Sign-in access"
+                                        {text(Key::AdminSignInAccess)}
                                     </p>
                                     <p class="text-xs text-faint-foreground">
-                                        {move || if edit_locked.get() { "User cannot sign in" } else { "User can sign in normally" }}
+                                        {move || if edit_locked.get() {
+                                            translate(locale.get(), Key::AdminEditCannotSignIn)
+                                        } else {
+                                            translate(locale.get(), Key::AdminEditCanSignIn)
+                                        }}
                                     </p>
                                 </div>
                                 <button
                                     type="button"
                                     role="switch"
-                                    aria-label="Disable sign-in access"
+                                    aria-label={translate(locale.get_untracked(), Key::AdminEditDisableSignInAria)}
                                     aria-checked=move || edit_locked.get().to_string()
                                     on:click=move |_| set_edit_locked.update(|v| *v = !*v)
                                     class=move || format!("relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas {}", if edit_locked.get() { "bg-amber-400" } else { "bg-accent" })
@@ -886,22 +1032,22 @@ pub fn AdminPage() -> impl IntoView {
                             </Show>
                         </form>
                 <div class="mt-6 flex justify-end gap-3 border-t border-line pt-5">
-                    <button type="button" on:click=move |_| set_selected.set(None) class=BTN_SECONDARY_SM>"Cancel"</button>
-                    <button type="submit" form="edit-user-form" class=BTN_PRIMARY>"Save changes"</button>
+                    <button type="button" on:click=move |_| set_selected.set(None) class=BTN_SECONDARY_SM>{text(Key::AdminActionCancel)}</button>
+                    <button type="submit" form="edit-user-form" class=BTN_PRIMARY>{text(Key::AdminEditSave)}</button>
                 </div>
             </Modal>
 
             <Modal
                 open=Signal::derive(move || delete_candidate.get().is_some())
                 on_close=Callback::new(move |_| set_delete_candidate.set(None))
-                close_label="Close delete confirmation".to_owned()
+                close_label={translate(locale.get_untracked(), Key::AdminDeleteCloseLabel).to_owned()}
             >
-                <p class="text-sm font-bold uppercase tracking-widest text-danger">"Delete user"</p>
-                <h2 class="mt-3 text-xl font-bold text-foreground">"Are you sure?"</h2>
+                <p class="text-sm font-bold uppercase tracking-widest text-danger">{text(Key::AdminDeleteTitle)}</p>
+                <h2 class="mt-3 text-xl font-bold text-foreground">{text(Key::AdminDeleteConfirm)}</h2>
                 <p class="mt-3 text-sm leading-6 text-subtle-foreground">
-                    "This will permanently delete "
+                    {text(Key::AdminDeletePrefix)}
                     {move || delete_candidate.get().map(|user| user.email)}
-                    ". This action cannot be undone."
+                    {text(Key::AdminDeleteSuffix)}
                 </p>
                 <div class="mt-6 flex justify-end gap-3">
                     <button
@@ -909,7 +1055,7 @@ pub fn AdminPage() -> impl IntoView {
                         on:click=move |_| set_delete_candidate.set(None)
                         class=BTN_SECONDARY_SM
                     >
-                        "Cancel"
+                        {text(Key::AdminActionCancel)}
                     </button>
                     <button
                         type="button"
@@ -921,7 +1067,7 @@ pub fn AdminPage() -> impl IntoView {
                         }
                         class=BTN_DANGER
                     >
-                        "Delete user"
+                        {text(Key::AdminDeleteTitle)}
                     </button>
                 </div>
             </Modal>

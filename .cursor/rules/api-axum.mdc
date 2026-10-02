@@ -18,6 +18,8 @@ Bind from `minirust_config` (`ServerKind::Api`). Default development address is 
 - Use `TraceLayer` and `tracing` for request/startup logs.
 - Graceful shutdown via `ctrl_c` is already wired; keep it.
 - Tests: `oneshot` against the router, not a live process.
+- File uploads use `POST /api/v1/uploads` (multipart, authenticated, 10 MB limit): the handler parses multipart, the application service owns validation and the generated file name, and `FileStore` performs the write.
+- Avatars use `POST /api/v1/users/me/avatar` and `GET /api/v1/users/me/avatar/{extension}`; the file lives at `<MINIRUST_UPLOAD_DIR>/<user id>/avatar.<extension>` and only PNG/JPEG/GIF/WebP are accepted.
 
 Example success response:
 

@@ -25,3 +25,4 @@ pub fn hello(&self) -> Greeting {
 - Keep `AppError` internal. Map user-facing HTTP/HTML in the app crate, not in `core`.
 - Logging: `tracing` only. No `println!` or `dbg!` in apps. Initialize tracing once in `main`.
 - Tests should assert behavior (config, health, greeting, rendered HTML), not line coverage.
+- Comments: none by default. Write one only when genuinely necessary (a non-obvious constraint, trade-off, or bug workaround) or when the user asks. Never restate code, narrate changes, keep commented-out code, or add banner/section dividers. Comments and doc comments are English.

@@ -23,6 +23,12 @@ SSR-only Leptos (`features = ["ssr"]`), served by Axum. Do not add hydration, `c
 - Prefer semantic HTML, accessible labels, and adequate contrast.
 - Verify representative narrow, medium, and wide viewport behavior when browser tooling is available.
 
+## Localization
+
+- User-facing text lives in `crates/locales/locales/<language>.json`, referenced through a typed `Key`. Never write both languages inline in a page.
+- `AppLayout` provides the locale as `ReadSignal<minirust_locales::Locale>`; translate with `minirust_locales::text(locale, key)`.
+- Adding text means extending `Key` (variant, `as_str()`, `Key::ALL`) plus both resource files; `cargo test -p minirust-locales` enforces parity and rejects unused keys.
+
 ## Styling
 
 - Tailwind CSS is the only CSS framework.

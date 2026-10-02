@@ -27,6 +27,8 @@ skill conflicts with a repository rule, the repository rule wins.
 5. **No business rules in the web app** — call `crates/services` for SSR or the
    `/api/v1/...` endpoints on hydrate paths. Never query another context's
    persistence directly and never duplicate a rule that lives in `crates/services`.
+6. **No inline bilingual strings** — user-facing text comes from `crates/locales`
+   resources through a `Key`; a page never contains both languages for one label.
 6. **Viewport meta tag** — supplied once by the shell in `lib.rs`; do not remove it.
 7. **Navigation is data-driven** — a page appears in the sidebar, and is reachable
    by direct URL, only when a migration registers it in the menus tables.
@@ -62,6 +64,8 @@ Do not start from a generic aesthetic skill when the request is really
 | `apps/web/src/pages/layouts.rs` | `AppLayout` (authenticated shell) and `AuthLayout` |
 | `apps/web/src/api.rs` | `api_json`, `api_json_with_meta`, `api_empty` helpers |
 | `apps/web/src/types.rs` | DTOs mirroring the API response envelopes |
+| `crates/locales/locales/*.json` | Localized user-facing text, one file per language |
+| `crates/locales/src/lib.rs` | `Key` enum + `text(locale, key)` lookup |
 | `apps/web/src/models/` | View models passed into pages |
 | `apps/web/tailwind.css` | Tailwind entry (`@import "tailwindcss"` + `@source "./src"`) |
 | `apps/web/src/generated.css` | Built CSS, inlined into the shell via `include_str!` |

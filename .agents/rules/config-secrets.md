@@ -27,6 +27,7 @@ globs: ["crates/config/**", ".env*", "docker-compose.yml"]
 | `MINIRUST_DB_USER` | MariaDB user | No (defaults `minirust`) |
 | `MINIRUST_DB_PASSWORD` | MariaDB password | No (defaults `minirust`) |
 | `MINIRUST_DB_MAX_CONNECTIONS` | MariaDB pool size | No (defaults `10`) |
+| `MINIRUST_UPLOAD_DIR` | Directory for uploaded files | No (defaults `uploaded`) |
 | `MINIRUST_DATABASE_URL` | Full SQLx URL; overrides all `MINIRUST_DB_*` | No — optional |
 | `MINIRUST_REDIS_URL` | Redis URL | No — optional |
 

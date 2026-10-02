@@ -7,6 +7,7 @@ pub struct UserResponse {
     pub email: String,
     pub is_admin: bool,
     pub is_premium: bool,
+    pub premium_expires_at: Option<i64>,
     pub full_name: Option<String>,
     pub avatar_url: Option<String>,
     pub is_locked: bool,
@@ -39,6 +40,12 @@ pub struct MenuListData {
 #[derive(Clone, Debug, Deserialize)]
 pub struct UserListData {
     pub users: Vec<UserResponse>,
+}
+
+#[cfg(feature = "hydrate")]
+#[derive(Clone, Debug, Deserialize)]
+pub struct AvatarResponse {
+    pub avatar_url: String,
 }
 
 #[cfg(feature = "hydrate")]

@@ -80,6 +80,8 @@ Do not implement product features such as authentication, CMS, notifications, AI
 ## Hard rules
 
 - English identifiers, comments, documentation, and user-facing strings.
+- User-facing text is defined once in `crates/locales` resources (one file per language) and referenced by key; never inline two languages in code.
+- Comment only when genuinely necessary or explicitly requested; otherwise leave the code uncommented.
 - Never commit `.env` or real secrets.
 - Do not commit, push, or open a PR unless explicitly requested.
 - Do not create speculative empty bounded contexts.

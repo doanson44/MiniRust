@@ -1,21 +1,23 @@
 //! MiniRust REST API application.
 
 use std::collections::{HashMap, VecDeque};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 mod email;
 mod handlers;
 mod response;
+mod storage;
 
 use axum::extract::rejection::JsonRejection;
 
 use minirust_core::{AppError, EntityId};
 use minirust_database::Database;
 use minirust_services::{
-    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService, MenuCommandHandler,
-    MenuQueryHandler, MenuService, UserAdminCommandHandler, UserAdminQueryHandler,
-    UserAdminService,
+    AuthCommandHandler, AuthError, AuthQueryHandler, AuthService, LoadAvatarQueryHandler,
+    MenuCommandHandler, MenuQueryHandler, MenuService, UploadAvatarCommandHandler,
+    UploadCommandHandler, UserAdminCommandHandler, UserAdminQueryHandler, UserAdminService,
 };
 use minirust_services::{EchoCommandHandler, GreetingQueryHandler};
 use response::{Locale, ProblemDetails};
@@ -24,6 +26,7 @@ use uuid::Uuid;
 
 use email::SmtpEmailSender;
 pub use email::SmtpEmailSender as PublicSmtpEmailSender;
+use storage::FilesystemStore;
 
 pub use handlers::router;
 
@@ -38,6 +41,9 @@ pub struct AppState {
     pub menu_commands: MenuCommandHandler<Database>,
     pub user_queries: UserAdminQueryHandler<Database>,
     pub menu_queries: MenuQueryHandler<Database>,
+    pub uploads: UploadCommandHandler<FilesystemStore>,
+    pub avatars: UploadAvatarCommandHandler<FilesystemStore>,
+    pub avatar_queries: LoadAvatarQueryHandler<FilesystemStore>,
     pub auth_rate_limiter: AuthRateLimiter,
     pub secure_cookies: bool,
     pub email_enabled: bool,
@@ -84,8 +90,14 @@ impl AppState {
         auth_secret: impl Into<Vec<u8>>,
         secure_cookies: bool,
     ) -> Result<Self, AuthError> {
-        let email_sender = SmtpEmailSender::disabled();
-        Self::with_email_sender(database, auth_secret, secure_cookies, email_sender)
+        let email_sender = SmtpEmailSender::disabled(String::new());
+        Self::with_email_sender(
+            database,
+            auth_secret,
+            secure_cookies,
+            email_sender,
+            minirust_config::DEFAULT_UPLOAD_DIRECTORY,
+        )
     }
 
     pub fn with_email_sender(
@@ -93,11 +105,16 @@ impl AppState {
         auth_secret: impl Into<Vec<u8>>,
         secure_cookies: bool,
         email_sender: SmtpEmailSender,
+        upload_directory: impl Into<PathBuf>,
     ) -> Result<Self, AuthError> {
         let email_enabled = email_sender.is_enabled();
         let auth = AuthService::new(database.clone(), email_sender, auth_secret)?;
         let users = UserAdminService::new(database.clone());
         let menus = MenuService::new(database.clone());
+        let store = FilesystemStore::new(upload_directory);
+        let uploads = UploadCommandHandler::new(store.clone());
+        let avatars = UploadAvatarCommandHandler::new(store.clone());
+        let avatar_queries = LoadAvatarQueryHandler::new(store);
         Ok(Self {
             echo: EchoCommandHandler,
             greeting: GreetingQueryHandler,
@@ -108,6 +125,9 @@ impl AppState {
             menu_commands: MenuCommandHandler::new(menus.clone()),
             user_queries: UserAdminQueryHandler::new(users),
             menu_queries: MenuQueryHandler::new(menus),
+            uploads,
+            avatars,
+            avatar_queries,
             auth_rate_limiter: AuthRateLimiter::default(),
             secure_cookies,
             email_enabled,
@@ -125,6 +145,7 @@ pub(crate) struct AuthUserResponse {
     pub email: String,
     pub is_admin: bool,
     pub is_premium: bool,
+    pub premium_expires_at: Option<i64>,
     pub full_name: Option<String>,
     pub avatar_url: Option<String>,
     pub is_locked: bool,
@@ -143,6 +164,7 @@ pub(crate) fn auth_user_response(user: minirust_services::UserAccess) -> AuthUse
         email: user.email,
         is_admin: user.is_admin,
         is_premium: user.is_premium,
+        premium_expires_at: user.premium_expires_at,
         full_name: user.full_name,
         avatar_url: user.avatar_url,
         is_locked: user.is_locked,
