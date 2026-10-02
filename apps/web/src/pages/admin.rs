@@ -337,6 +337,7 @@ pub fn AdminPage() -> impl IntoView {
                         if let Some(user) = users.iter_mut().find(|user| user.id == updated_user.id)
                         {
                             *user = updated_user;
+                            user.is_locked = locked_target;
                         }
                     });
                     toast.success("User changes saved.");
