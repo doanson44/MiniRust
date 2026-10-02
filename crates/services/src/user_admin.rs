@@ -242,8 +242,6 @@ where
         self.repository.update_locale(user_id, locale).await
     }
 
-}
-
 fn normalize_full_name(value: Option<&str>) -> Result<Option<String>, UserAdminError> {
     let Some(value) = value else {
         return Ok(None);
