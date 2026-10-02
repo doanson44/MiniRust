@@ -253,7 +253,11 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?;
         }
 
-        let locked_at = if is_locked { Some(current_epoch()) } else { None };
+        let locked_at = if is_locked {
+            Some(current_epoch())
+        } else {
+            None
+        };
         sqlx::query("UPDATE users SET locked_at = ? WHERE id = ?")
             .bind(locked_at)
             .bind(user_id.as_uuid().as_bytes().as_slice())
