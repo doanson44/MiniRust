@@ -162,7 +162,7 @@ pub fn GlobalToast(children: Children) -> impl IntoView {
     view! {
         {children()}
         <div
-            class="pointer-events-none fixed inset-x-4 top-20 z-[100] flex justify-end sm:left-auto sm:right-6 sm:w-full sm:max-w-md"
+            class="pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex justify-end sm:left-auto sm:right-6 sm:w-full sm:max-w-md"
             aria-live="polite"
             aria-atomic="true"
         >
