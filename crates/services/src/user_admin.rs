@@ -216,6 +216,32 @@ where
             .await
     }
 
+    pub async fn lock_own_account(&self, user_id: EntityId) -> Result<(), UserAdminError> {
+        let user = self
+            .repository
+            .find_user_by_id(user_id)
+            .await?
+            .ok_or(UserAdminError::NotFound)?;
+
+        let premium = self.repository.get_premium(user_id).await?;
+
+        self.repository
+            .update_user(
+                user_id,
+                if user.is_admin {
+                    AdminUserRole::Admin
+                } else {
+                    AdminUserRole::None
+                },
+                premium.active,
+                premium.expires_at,
+                true,
+            )
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn delete(&self, user_id: EntityId) -> Result<(), UserAdminError> {
         self.repository.delete_user(user_id).await
     }
@@ -313,6 +339,9 @@ pub enum UserAdminCommand {
     DeleteUser {
         user_id: EntityId,
     },
+    LockOwnAccount {
+        user_id: EntityId,
+    },
     UpdateProfile {
         user_id: EntityId,
         full_name: Option<String>,
@@ -327,6 +356,7 @@ pub enum UserAdminCommand {
 pub enum UserAdminCommandResult {
     User(UserAccess),
     Deleted,
+    Locked,
 }
 
 impl Command for UserAdminCommand {
@@ -386,6 +416,11 @@ where
                 .delete(user_id)
                 .await
                 .map(|_| UserAdminCommandResult::Deleted),
+            UserAdminCommand::LockOwnAccount { user_id } => self
+                .service
+                .lock_own_account(user_id)
+                .await
+                .map(|_| UserAdminCommandResult::Locked),
             UserAdminCommand::UpdateProfile {
                 user_id,
                 full_name,
