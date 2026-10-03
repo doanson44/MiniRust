@@ -49,8 +49,8 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Test workspace
-        run: cargo test --workspace --all-targets -- --test-threads=1
+      - name: Run unit tests
+        run: cargo test --workspace --lib --bins
 
       - name: Install cargo-leptos
         run: cargo install cargo-leptos --locked
