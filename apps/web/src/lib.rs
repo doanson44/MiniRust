@@ -153,7 +153,7 @@ fn shell(options: LeptosOptions) -> impl IntoView {
             <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
             <meta name="description" content="MiniRust closed application."/>
             <meta name="theme-color" content="#020617"/><style>{CSS}</style>
-            <leptos::hydration::HydrationScripts options=options.clone/><title>{APP_NAME} {" - Application"}</title>
+            <leptos::hydration::HydrationScripts options=options.clone()/><title>{APP_NAME} {" - Application"}</title>
         </head><body class="min-h-screen overflow-x-hidden bg-slate-950 antialiased"><App/></body></html>
     }
 }
