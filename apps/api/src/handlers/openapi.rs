@@ -17,6 +17,7 @@ fn document() -> serde_json::Value {
             "/api/v1/auth/register/request-verification": { "post": { "summary": "Request registration verification link", "responses": { "200": { "description": "Request accepted" } } } },
             "/api/v1/auth/register/verify": { "post": { "summary": "Verify registration link and create session", "responses": { "200": { "description": "Authenticated session" } } } },
             "/api/v1/auth/login/request-code": { "post": { "summary": "Request login verification code", "responses": { "200": { "description": "Request accepted" } } } },
+            "/api/v1/auth/invitation/verify": { "post": { "summary": "Verify invitation link and create session", "responses": { "200": { "description": "Authenticated session" }, "422": { "description": "Invalid or expired invitation link" } } } },
             "/api/v1/auth/login/verify-code": { "post": { "summary": "Verify login code and create session", "responses": { "200": { "description": "Authenticated session" } } } },
             "/api/v1/auth/logout": { "post": { "summary": "Revoke current session", "responses": { "200": { "description": "Session revoked" } } } },
             "/api/v1/auth/me": { "get": { "summary": "Get current authenticated user", "responses": { "200": { "description": "Current user" }, "401": { "description": "Invalid or expired session" } } } },

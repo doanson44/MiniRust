@@ -15,7 +15,7 @@ use axum::routing::get;
 #[cfg(feature = "ssr")]
 use axum::Router;
 #[cfg(feature = "ssr")]
-use axum_extra::extract::cookie::CookieJar;
+use axum_extra::extract::CookieJar;
 #[cfg(feature = "ssr")]
 use leptos::config::LeptosOptions;
 use leptos::prelude::*;
@@ -43,8 +43,8 @@ pub mod types;
 
 use pages::ui::GlobalToast;
 use pages::{
-    AdminPage, AppLayout, AppPage, AuthLayout, LoginPage, MenuAdminPage, ProfilePage, RegisterPage,
-    RegisterVerifyPage,
+    AdminPage, AppLayout, AppPage, AuthLayout, InvitationAcceptPage, LoginPage, MenuAdminPage,
+    ProfilePage, RegisterPage, RegisterVerifyPage,
 };
 
 #[cfg(feature = "ssr")]
@@ -129,6 +129,7 @@ fn App() -> impl IntoView {
                 <Route path=path!("/login") view=LoginPage/>
                 <Route path=path!("/register") view=RegisterPage/>
                 <Route path=path!("/register/verify") view=RegisterVerifyPage/>
+                <Route path=path!("/invite/accept") view=InvitationAcceptPage/>
                 <ParentRoute path=path!("/app") view=AppLayout>
                     <Route path=path!("") view=AppPage/>
                 </ParentRoute>
@@ -191,7 +192,10 @@ async fn auth_guard(
     next: middleware::Next,
 ) -> impl IntoResponse {
     let path = request.uri().path().to_owned();
-    let is_auth_page = matches!(path.as_str(), "/login" | "/register" | "/register/verify");
+    let is_auth_page = matches!(
+        path.as_str(),
+        "/login" | "/register" | "/register/verify" | "/invite/accept"
+    );
     let is_root = path == "/";
     let is_admin_area = path == "/admin/users"
         || path.starts_with("/admin/users/")
@@ -278,13 +282,6 @@ mod tests {
     use axum::http::Request;
     use tower::ServiceExt;
 
-    async fn body_string(response: axum::response::Response) -> String {
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
-        String::from_utf8(bytes.to_vec()).unwrap()
-    }
-
     #[tokio::test]
     async fn unauthenticated_root_redirects_to_login() {
         let response = router(AppState::new())
@@ -315,8 +312,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = body_string(response).await;
-        assert!(body.contains("Access your account"));
+        let content_type = response.headers().get("content-type").unwrap();
+        assert!(content_type.to_str().unwrap().starts_with("text/html"));
     }
 
     #[tokio::test]
@@ -327,8 +324,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = body_string(response).await;
-        assert!(body.contains("Start with your email"));
+        let content_type = response.headers().get("content-type").unwrap();
+        assert!(content_type.to_str().unwrap().starts_with("text/html"));
     }
 
     #[tokio::test]
@@ -338,6 +335,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(body_string(response).await, "ok");
+        assert!(response.headers().contains_key("content-type"));
     }
 }

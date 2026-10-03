@@ -228,6 +228,59 @@ pub fn RegisterPage() -> impl IntoView {
 
 #[component]
 #[allow(unused_variables)]
+pub fn InvitationAcceptPage() -> impl IntoView {
+    let locale = use_context::<ReadSignal<Locale>>().unwrap_or_else(|| signal(Locale::DEFAULT).0);
+    let text = move |key: Key| move || translate(locale.get(), key);
+    let (status, set_status) =
+        signal(translate(locale.get_untracked(), Key::AuthVerifying).to_owned());
+
+    #[cfg(feature = "hydrate")]
+    {
+        Effect::new(move |_| {
+            let token = web_sys::window()
+                .and_then(|window| window.location().search().ok())
+                .and_then(|search| search.strip_prefix("?token=").map(str::to_owned))
+                .and_then(|value| value.split('&').next().map(str::to_owned));
+
+            leptos::task::spawn_local(async move {
+                let Some(token) = token else {
+                    set_status
+                        .set(translate(locale.get_untracked(), Key::AuthInvalidLink).to_owned());
+                    return;
+                };
+
+                match api_empty(
+                    gloo_net::http::Method::POST,
+                    "/api/v1/auth/invitation/verify",
+                    Some(serde_json::json!({"token": token}).to_string()),
+                )
+                .await
+                {
+                    Ok(()) => {
+                        if let Some(window) = web_sys::window() {
+                            let _ = window.location().set_href("/app");
+                        }
+                    }
+                    Err(error) => set_status.set(error),
+                }
+            });
+        });
+    }
+
+    view! {
+        <AuthLayout>
+            <section class="rounded-3xl border border-line bg-surface p-6 text-center sm:p-8">
+                <p class=EYEBROW>{text(Key::AuthVerifyEyebrow)}</p>
+                <h1 class="mt-3 text-3xl font-black text-foreground">{text(Key::AuthVerifyTitle)}</h1>
+                <p class="mt-4 text-sm leading-6 text-subtle-foreground">{status}</p>
+                <a href="/login" class="mt-8 inline-block font-semibold text-accent transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">{text(Key::AuthLoginEyebrow)}</a>
+            </section>
+        </AuthLayout>
+    }
+}
+
+#[component]
+#[allow(unused_variables)]
 pub fn RegisterVerifyPage() -> impl IntoView {
     let locale = use_context::<ReadSignal<Locale>>().unwrap_or_else(|| signal(Locale::DEFAULT).0);
     let text = move |key: Key| move || translate(locale.get(), key);

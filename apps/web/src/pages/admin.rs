@@ -1001,9 +1001,9 @@ pub fn AdminPage() -> impl IntoView {
                             </Show>
                             // Sign-in access toggle; the current user cannot disable their own account.
                             <Show when=move || {
-                                !current_user_id
+                                current_user_id
                                     .get()
-                                    .is_some_and(|id| selected.get().as_deref() == Some(id.as_str()))
+                                    .is_none_or(|id| selected.get().as_deref() != Some(id.as_str()))
                             }>
                             <div class=move || format!("flex items-center justify-between gap-4 rounded-xl border px-4 py-3 {}", if edit_locked.get() { "border-amber-300/20 bg-amber-300/5" } else { "border-line bg-canvas" })>
                                 <div>

@@ -104,10 +104,19 @@ impl EmailSender for SmtpEmailSender {
         code: &str,
     ) -> Result<(), AuthError> {
         let _ = purpose; // Purpose can be ignored in the general template, or we could have multiple templates
-        let subject = format!("[MiniRust] Mã xác minh / Verification code - {code}");
+        let subject = "[MiniRust] Verifying it's you / Xác minh danh tính";
         let body_template = include_str!("../templates/email_verification_code.html");
         let body = body_template.replace("{code}", code);
-        self.enqueue(email, &subject, body)
+        self.enqueue(email, subject, body)
+    }
+
+    async fn send_invitation_link(&self, email: &str, token: &str) -> Result<(), AuthError> {
+        let base_url = self.web_url.trim_end_matches('/');
+        let link = format!("{base_url}/invite/accept?token={token}");
+        let subject = "[MiniRust] Bạn được mời / You are invited";
+        let body_template = include_str!("../templates/email_invitation.html");
+        let body = body_template.replace("{link}", &link);
+        self.enqueue(email, subject, body)
     }
 
     async fn send_registration_verification(
@@ -115,7 +124,8 @@ impl EmailSender for SmtpEmailSender {
         email: &str,
         token: &str,
     ) -> Result<(), AuthError> {
-        let link = format!("{}/register/verify?token={}", self.web_url, token);
+        let base_url = self.web_url.trim_end_matches('/');
+        let link = format!("{base_url}/register/verify?token={token}");
         let subject = "[MiniRust] Hoàn tất đăng ký / Complete registration";
         let body_template = include_str!("../templates/email_registration_verification.html");
         let body = body_template.replace("{link}", &link);

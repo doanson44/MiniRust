@@ -35,6 +35,10 @@ pub fn router(state: AppState) -> Router {
             post(auth::login_request_code),
         )
         .route(
+            "/api/v1/auth/invitation/verify",
+            post(auth::invitation_verify),
+        )
+        .route(
             "/api/v1/auth/login/verify-code",
             post(auth::login_verify_code),
         )
