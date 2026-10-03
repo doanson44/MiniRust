@@ -220,11 +220,7 @@ pub trait EmailSender: Clone + Send + Sync + 'static {
         code: &str,
     ) -> Result<(), AuthError>;
 
-    async fn send_invitation_link(
-        &self,
-        email: &str,
-        token: &str,
-    ) -> Result<(), AuthError>;
+    async fn send_invitation_link(&self, email: &str, token: &str) -> Result<(), AuthError>;
 
     async fn send_registration_verification(
         &self,
@@ -244,11 +240,7 @@ pub enum ConfiguredEmailSender {
 }
 
 impl EmailSender for ConfiguredEmailSender {
-    async fn send_invitation_link(
-        &self,
-        email: &str,
-        token: &str,
-    ) -> Result<(), AuthError> {
+    async fn send_invitation_link(&self, email: &str, token: &str) -> Result<(), AuthError> {
         match self {
             Self::Local => {
                 tracing::info!(email = %email, "local invitation email simulated");
@@ -292,11 +284,7 @@ impl EmailSender for ConfiguredEmailSender {
 }
 
 impl EmailSender for UnavailableEmailSender {
-    async fn send_invitation_link(
-        &self,
-        _email: &str,
-        _token: &str,
-    ) -> Result<(), AuthError> {
+    async fn send_invitation_link(&self, _email: &str, _token: &str) -> Result<(), AuthError> {
         Err(AuthError::EmailDeliveryUnavailable)
     }
 
@@ -402,10 +390,7 @@ where
         self.request_code(email, ChallengePurpose::Login).await
     }
 
-    pub async fn request_invitation(
-        &self,
-        email: &str,
-    ) -> Result<CodeRequestAccepted, AuthError> {
+    pub async fn request_invitation(&self, email: &str) -> Result<CodeRequestAccepted, AuthError> {
         let email = normalize_email(email)?;
         if !self.repository.user_exists(&email).await? {
             return Ok(CodeRequestAccepted {

@@ -110,12 +110,9 @@ impl EmailSender for SmtpEmailSender {
         self.enqueue(email, &subject, body)
     }
 
-    async fn send_invitation_link(
-        &self,
-        email: &str,
-        token: &str,
-    ) -> Result<(), AuthError> {
-        let link = format!("{}/invite/accept?token={}", self.web_url, token);
+    async fn send_invitation_link(&self, email: &str, token: &str) -> Result<(), AuthError> {
+        let base_url = self.web_url.trim_end_matches('/');
+        let link = format!("{base_url}/invite/accept?token={token}");
         let subject = "[MiniRust] Bạn được mời / You are invited";
         let body_template = include_str!("../templates/email_invitation.html");
         let body = body_template.replace("{link}", &link);
@@ -127,7 +124,8 @@ impl EmailSender for SmtpEmailSender {
         email: &str,
         token: &str,
     ) -> Result<(), AuthError> {
-        let link = format!("{}/register/verify?token={}", self.web_url, token);
+        let base_url = self.web_url.trim_end_matches('/');
+        let link = format!("{base_url}/register/verify?token={token}");
         let subject = "[MiniRust] Hoàn tất đăng ký / Complete registration";
         let body_template = include_str!("../templates/email_registration_verification.html");
         let body = body_template.replace("{link}", &link);
