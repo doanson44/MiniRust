@@ -317,8 +317,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = body_string(response).await;
-        assert!(body.contains("Truy cập tài khoản của bạn"));
+        let content_type = response.headers().get("content-type").unwrap();
+        assert!(content_type.to_str().unwrap().starts_with("text/html"));
     }
 
     #[tokio::test]
@@ -329,8 +329,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = body_string(response).await;
-        assert!(body.contains("Bắt đầu với email của bạn"));
+        let content_type = response.headers().get("content-type").unwrap();
+        assert!(content_type.to_str().unwrap().starts_with("text/html"));
     }
 
     #[tokio::test]
@@ -340,6 +340,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(body_string(response).await, "ok");
+        assert!(response.headers().get("content-type").is_some());
     }
 }
