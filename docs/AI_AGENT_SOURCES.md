@@ -172,3 +172,17 @@ When adding or changing API integration tests, assert stable contract semantics:
 - Error bodies must not be copied into assertion messages because they may contain localized or internal diagnostic text.
 
 Exact message assertions belong only in tests whose purpose is localization or Problem Details presentation.
+
+## 10. Locale-Independent Test Assertions
+
+For ordinary behavioral, API, SSR, and integration tests, assert stable machine-verifiable behavior rather than human-readable copy.
+
+Rules:
+- Do not assert localized UI messages, titles, labels, descriptions, or rendered prose as ordinary behavior assertions.
+- Do not change an assertion from English to Vietnamese (or another locale) merely to satisfy the test.
+- Prefer HTTP status, redirect location, content type, response envelope/shape, error code, authorization outcome, persistence state, and other stable contract semantics.
+- SSR/page-rendering tests should verify successful rendering and structural/protocol properties, not translated body text.
+- Exact text assertions are appropriate only when the test explicitly verifies localization, copy/content rendering, or Problem Details presentation.
+
+This rule exists because Locale::DEFAULT and translated copy are implementation/configuration details that should not make ordinary behavior tests locale-dependent.
+
