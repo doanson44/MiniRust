@@ -280,13 +280,6 @@ mod tests {
     use axum::http::Request;
     use tower::ServiceExt;
 
-    async fn body_string(response: axum::response::Response) -> String {
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
-        String::from_utf8(bytes.to_vec()).unwrap()
-    }
-
     #[tokio::test]
     async fn unauthenticated_root_redirects_to_login() {
         let response = router(AppState::new())
@@ -340,6 +333,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        assert!(response.headers().get("content-type").is_some());
+        assert!(response.headers().contains_key("content-type"));
     }
 }
