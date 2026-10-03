@@ -15,8 +15,6 @@ use axum::routing::get;
 #[cfg(feature = "ssr")]
 use axum::Router;
 #[cfg(feature = "ssr")]
-use axum_extra::extract::cookie::CookieJar;
-#[cfg(feature = "ssr")]
 use leptos::config::LeptosOptions;
 use leptos::prelude::*;
 #[cfg(feature = "ssr")]
@@ -155,7 +153,7 @@ fn shell(options: LeptosOptions) -> impl IntoView {
             <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
             <meta name="description" content="MiniRust closed application."/>
             <meta name="theme-color" content="#020617"/><style>{CSS}</style>
-            <leptos::hydration::HydrationScripts options=options.clone()/><title>{APP_NAME} {" - Application"}</title>
+            <leptos::hydration::HydrationScripts options=options.clone/><title>{APP_NAME} {" - Application"}</title>
         </head><body class="min-h-screen overflow-x-hidden bg-slate-950 antialiased"><App/></body></html>
     }
 }
@@ -320,7 +318,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = body_string(response).await;
-        assert!(body.contains("Access your account"));
+        assert!(body.contains("Truy cập tài khoản của bạn"));
     }
 
     #[tokio::test]
@@ -332,7 +330,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = body_string(response).await;
-        assert!(body.contains("Start with your email"));
+        assert!(body.contains("Bắt đầu với email của bạn"));
     }
 
     #[tokio::test]
