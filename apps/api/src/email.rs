@@ -1,97 +1,99 @@
 use std::sync::Arc;
 
-use anyhow::Context;
 use lettre::{
-    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
-    message::{MultiPart, SinglePart, header},
+    message::{header::ContentType, Mailbox},
     transport::smtp::authentication::Credentials,
+    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
-use minirust_services::auth::{AuthError, ChallengePurpose, EmailSender};
-use tokio::sync::mpsc;
-
-use crate::config::EmailConfig;
-
-const EMAIL_QUEUE_CAPACITY: usize = 64;
-
-#[derive(Debug, Clone)]
-struct EmailMessage {
-    recipient: String,
-    subject: String,
-    body: String,
-}
+use minirust_config::Config;
+use minirust_services::{AuthError, ChallengePurpose, EmailSender};
 
 #[derive(Clone)]
 pub struct SmtpEmailSender {
-    tx: mpsc::Sender<EmailMessage>,
+    transport: Option<Arc<AsyncSmtpTransport<Tokio1Executor>>>,
+    from: Option<Mailbox>,
+    local: bool,
     web_url: String,
 }
 
 impl SmtpEmailSender {
-    pub fn new(config: &EmailConfig) -> anyhow::Result<Self> {
-        let credentials = Credentials::new(config.username.clone(), config.password.clone());
-        let transport = AsyncSmtpTransport::<Tokio1Executor>::relay(&config.host)?
-            .port(config.port)
-            .credentials(credentials)
-            .build();
+    pub fn disabled(web_url: String) -> Self {
+        Self {
+            transport: None,
+            from: None,
+            local: false,
+            web_url,
+        }
+    }
 
-        let (tx, mut rx) = mpsc::channel::<EmailMessage>(EMAIL_QUEUE_CAPACITY);
-        let sender = Self {
-            tx,
-            web_url: config.web_url.clone(),
+    /// Creates an in-memory sender for integration tests; it never contacts SMTP.
+    pub fn local_for_tests(web_url: String) -> Self {
+        Self {
+            transport: None,
+            from: None,
+            local: true,
+            web_url,
+        }
+    }
+
+    pub fn from_config(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
+        let Some(smtp) = &config.smtp else {
+            return Ok(Self::disabled(config.web_url.clone()));
         };
+        let from = match &smtp.from_name {
+            Some(name) => format!("{name} <{}>", smtp.from_email).parse()?,
+            None => smtp.from_email.parse()?,
+        };
+        let transport = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp.host)?
+            .port(smtp.port)
+            .credentials(Credentials::new(
+                smtp.username.clone(),
+                smtp.password.clone(),
+            ))
+            .build();
+        Ok(Self {
+            transport: Some(Arc::new(transport)),
+            from: Some(from),
+            local: false,
+            web_url: config.web_url.clone(),
+        })
+    }
 
+    pub fn is_enabled(&self) -> bool {
+        self.transport.is_some() && self.from.is_some()
+    }
+
+    /// Queues delivery on a background task; the result only reports configuration
+    /// and recipient validation, never whether the message was delivered.
+    fn enqueue(&self, recipient: &str, subject: &str, body: String) -> Result<(), AuthError> {
+        if self.local {
+            tracing::info!(recipient = %recipient, subject, "local test email delivery simulated");
+            return Ok(());
+        }
+        let (Some(transport), Some(from)) = (self.transport.clone(), self.from.clone()) else {
+            return Err(AuthError::EmailDeliveryUnavailable);
+        };
+        let to = recipient.parse().map_err(|_| AuthError::InvalidEmail)?;
+        let message = Message::builder()
+            .from(from)
+            .to(to)
+            .subject(subject)
+            .header(ContentType::TEXT_HTML)
+            .body(body)
+            .map_err(|_| AuthError::EmailDeliveryUnavailable)?;
+
+        let recipient = recipient.to_owned();
         tokio::spawn(async move {
-            while let Some(message) = rx.recv().await {
-                if let Err(error) = send_message(&transport, &message).await {
-                    tracing::error!(%error, recipient = %message.recipient, "background email delivery failed");
-                } else {
-                    tracing::info!(recipient = %message.recipient, "background email delivered");
+            match transport.send(message).await {
+                Ok(_) => tracing::info!(recipient = %recipient, "background email delivered"),
+                Err(error) => {
+                    tracing::error!(%error, recipient = %recipient, "background email delivery failed")
                 }
             }
         });
 
-        Ok(sender)
+        Ok(())
     }
-
-    async fn enqueue(&self, recipient: &str, subject: &str, body: String) -> Result<(), AuthError> {
-        self.tx
-            .send(EmailMessage {
-                recipient: recipient.to_owned(),
-                subject: subject.to_owned(),
-                body,
-            })
-            .await
-            .map_err(|_| AuthError::EmailDeliveryFailed)
-    }
-}
-
-async fn send_message(
-    transport: &AsyncSmtpTransport<Tokio1Executor>,
-    message: &EmailMessage,
-) -> anyhow::Result<()> {
-    let from = std::env::var("MINIRUST_EMAIL_FROM")
-        .context("MINIRUST_EMAIL_FROM is required when email is enabled")?;
-
-    let message = Message::builder()
-        .from(from.parse()?)
-        .to(message.recipient.parse()?)
-        .subject(&message.subject)
-        .multipart(
-            MultiPart::alternative()
-                .singlepart(
-                    SinglePart::builder()
-                        .header(header::ContentType::TEXT_PLAIN)
-                        .body(message.body.clone()),
-                )
-                .singlepart(
-                    SinglePart::builder()
-                        .header(header::ContentType::TEXT_HTML)
-                        .body(message.body.clone()),
-                ),
-        )?;
-
-    transport.send(message).await?;
-    Ok(())
 }
 
 impl EmailSender for SmtpEmailSender {
@@ -124,7 +126,7 @@ impl EmailSender for SmtpEmailSender {
     ) -> Result<(), AuthError> {
         let base_url = self.web_url.trim_end_matches('/');
         let link = format!("{base_url}/register/verify?token={token}");
-        let subject = "[MiniRust] Verify your email / Xác minh email";
+        let subject = "[MiniRust] Hoàn tất đăng ký / Complete registration";
         let body_template = include_str!("../templates/email_registration_verification.html");
         let body = body_template.replace("{link}", &link);
         self.enqueue(email, subject, body)
