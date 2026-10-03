@@ -7,8 +7,6 @@ use axum::extract::FromRef;
 #[cfg(feature = "ssr")]
 use axum::http::StatusCode;
 #[cfg(feature = "ssr")]
-use axum_extra::extract::CookieJar;
-#[cfg(feature = "ssr")]
 use axum::middleware;
 #[cfg(feature = "ssr")]
 use axum::response::{Html, IntoResponse, Redirect};
@@ -16,6 +14,8 @@ use axum::response::{Html, IntoResponse, Redirect};
 use axum::routing::get;
 #[cfg(feature = "ssr")]
 use axum::Router;
+#[cfg(feature = "ssr")]
+use axum_extra::extract::CookieJar;
 #[cfg(feature = "ssr")]
 use leptos::config::LeptosOptions;
 use leptos::prelude::*;
