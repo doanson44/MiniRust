@@ -5,9 +5,9 @@
 #[cfg(feature = "ssr")]
 use axum::extract::FromRef;
 #[cfg(feature = "ssr")]
-use axum_extra::extract::CookieJar;
-#[cfg(feature = "ssr")]
 use axum::http::StatusCode;
+#[cfg(feature = "ssr")]
+use axum_extra::extract::CookieJar;
 #[cfg(feature = "ssr")]
 use axum::middleware;
 #[cfg(feature = "ssr")]
