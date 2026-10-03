@@ -117,6 +117,26 @@ cargo test --workspace --all-targets
 
 Never claim unverified tests, lint, builds, commits, pushes, PRs, or CI checks.
 
+## 13. Testing and Verification
+Unit test domain rules/pure functions; integration test repositories, DB boundaries, adapters, and HTTP endpoints; e2e-test important workflows.
+
+Test assertion rule:
+- Never assert localized user-facing messages, UI copy, rendered prose, or other human-readable text in ordinary behavioral tests.
+- Do not replace one literal locale string with another just to make a test pass.
+- Prefer stable behavioral or protocol assertions: HTTP status, redirect location, content type, response envelope/shape, error code, authorization result, persistence state, and other machine-verifiable contract semantics.
+- For SSR/page-rendering tests, verify that the page renders successfully and assert structural/protocol properties such as status and content type; do not assert translated titles, labels, descriptions, or body copy.
+- Exact message assertions are allowed only when the test's explicit purpose is localization, copy/content rendering, or Problem Details presentation.
+
+Every new API endpoint must have appropriate integration-test coverage. Use Docker-based isolated DB infrastructure for integration tests when practical.
+
+Use repository commands/CI. Typical checks:
+cargo fmt --all -- --check
+cargo check --workspace
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets
+
+Never claim unverified tests, lint, builds, commits, pushes, PRs, or CI checks.
+
 ## 14. CLI and Documentation
 Prefer Cargo, Git, Docker/Compose, migration tools, and official generators. Present commands in execution order.
 
