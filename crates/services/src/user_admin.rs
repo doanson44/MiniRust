@@ -62,17 +62,22 @@ impl std::fmt::Display for UserAdminError {
 
 impl std::error::Error for UserAdminError {}
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewUserAccess {
+    pub id: EntityId,
+    pub email: String,
+    pub role: AdminUserRole,
+    pub premium_active: bool,
+    pub premium_expires_at: Option<i64>,
+    pub is_locked: bool,
+    pub created_at: i64,
+}
+
 #[allow(async_fn_in_trait)]
 pub trait UserAdminRepository: Clone + Send + Sync + 'static {
     async fn create_user_with_access(
         &self,
-        id: EntityId,
-        email: &str,
-        role: AdminUserRole,
-        premium_active: bool,
-        premium_expires_at: Option<i64>,
-        is_locked: bool,
-        now: i64,
+        new_user: NewUserAccess,
     ) -> Result<UserAccess, UserAdminError>;
 
     async fn find_user(&self, email: &str) -> Result<Option<UserAccess>, UserAdminError>;
@@ -156,15 +161,15 @@ where
 
         let id = EntityId::new();
         self.repository
-            .create_user_with_access(
+            .create_user_with_access(NewUserAccess {
                 id,
-                &email,
+                email,
                 role,
                 premium_active,
                 premium_expires_at,
                 is_locked,
-                now(),
-            )
+                created_at: now(),
+            })
             .await
     }
 
