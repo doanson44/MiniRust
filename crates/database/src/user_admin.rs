@@ -1,7 +1,7 @@
 use minirust_core::EntityId;
 use minirust_services::{
-    AdminUserRole, Page, Pagination, PaginationMeta, PremiumEntitlement, UserAccess,
-    UserAdminError, UserAdminRepository, UserLocale,
+    AdminUserRole, NewUserAccess, Page, Pagination, PaginationMeta, PremiumEntitlement,
+    UserAccess, UserAdminError, UserAdminRepository, UserLocale,
 };
 use sqlx::Row;
 use tracing::error;
@@ -11,14 +11,18 @@ use crate::{current_epoch, row_to_id, row_to_user, Database};
 impl UserAdminRepository for Database {
     async fn create_user_with_access(
         &self,
-        id: EntityId,
-        email: &str,
-        role: AdminUserRole,
-        premium_active: bool,
-        premium_expires_at: Option<i64>,
-        is_locked: bool,
-        now: i64,
+        new_user: NewUserAccess,
     ) -> Result<UserAccess, UserAdminError> {
+        let NewUserAccess {
+            id,
+            email,
+            role,
+            premium_active,
+            premium_expires_at,
+            is_locked,
+            created_at,
+        } = new_user;
+
         let mut tx = self
             .pool
             .begin()
@@ -30,9 +34,9 @@ impl UserAdminRepository for Database {
              VALUES (?, ?, 0, ?, ?)",
         )
         .bind(id.as_uuid().as_bytes().as_slice())
-        .bind(email)
-        .bind(now)
-        .bind(if is_locked { Some(now) } else { None })
+        .bind(&email)
+        .bind(created_at)
+        .bind(if is_locked { Some(created_at) } else { None })
         .execute(&mut *tx)
         .await;
 
