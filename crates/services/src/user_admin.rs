@@ -64,10 +64,14 @@ impl std::error::Error for UserAdminError {}
 
 #[allow(async_fn_in_trait)]
 pub trait UserAdminRepository: Clone + Send + Sync + 'static {
-    async fn create_user(
+    async fn create_user_with_access(
         &self,
         id: EntityId,
         email: &str,
+        role: AdminUserRole,
+        premium_active: bool,
+        premium_expires_at: Option<i64>,
+        is_locked: bool,
         now: i64,
     ) -> Result<UserAccess, UserAdminError>;
 
@@ -151,29 +155,17 @@ where
         }
 
         let id = EntityId::new();
-        let user = self.repository.create_user(id, &email, now()).await?;
-
-        // Apply role and premium after creation within the same logical operation
-        let user = if role == AdminUserRole::Admin || premium_active {
-            let effective_role = if user.is_admin {
-                AdminUserRole::Admin
-            } else {
-                role
-            };
-            self.repository
-                .update_user(
-                    user.id,
-                    effective_role,
-                    premium_active,
-                    premium_expires_at,
-                    is_locked,
-                )
-                .await?
-        } else {
-            user
-        };
-
-        Ok(user)
+        self.repository
+            .create_user_with_access(
+                id,
+                &email,
+                role,
+                premium_active,
+                premium_expires_at,
+                is_locked,
+                now(),
+            )
+            .await
     }
 
     pub async fn get_by_id(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError> {
