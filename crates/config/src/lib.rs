@@ -22,6 +22,7 @@ pub const DEFAULT_DB_NAME: &str = "minirust";
 pub const DEFAULT_DB_USER: &str = "minirust";
 pub const DEFAULT_DB_PASSWORD: &str = "minirust";
 pub const DEFAULT_DB_MAX_CONNECTIONS: u32 = 10;
+pub const DEFAULT_DB_SSL_MODE: &str = "preferred";
 pub const DEFAULT_UPLOAD_DIRECTORY: &str = "uploaded";
 
 pub const ENV_ENVIRONMENT: &str = "MINIRUST_ENV";
@@ -40,6 +41,7 @@ pub const ENV_DB_NAME: &str = "MINIRUST_DB_NAME";
 pub const ENV_DB_USER: &str = "MINIRUST_DB_USER";
 pub const ENV_DB_PASSWORD: &str = "MINIRUST_DB_PASSWORD";
 pub const ENV_DB_MAX_CONNECTIONS: &str = "MINIRUST_DB_MAX_CONNECTIONS";
+pub const ENV_DB_SSL_MODE: &str = "MINIRUST_DB_SSL_MODE";
 pub const ENV_AUTH_SECRET: &str = "MINIRUST_AUTH_SECRET";
 pub const ENV_ADMIN_EMAIL: &str = "MINIRUST_ADMIN_EMAIL";
 pub const ENV_ADMIN_OTP: &str = "MINIRUST_ADMIN_OTP";
@@ -113,6 +115,7 @@ pub struct DatabaseConfig {
     pub user: String,
     pub password: String,
     pub max_connections: u32,
+    pub ssl_mode: String,
 }
 
 impl DatabaseConfig {
@@ -120,12 +123,13 @@ impl DatabaseConfig {
     /// percent-decodes them, so passwords with reserved characters survive.
     pub fn url(&self) -> String {
         format!(
-            "mysql://{}:{}@{}:{}/{}",
+            "mysql://{}:{}@{}:{}/{}?ssl-mode={}",
             encode_url_component(&self.user),
             encode_url_component(&self.password),
             self.host,
             self.port,
             encode_url_component(&self.name),
+            self.ssl_mode,
         )
     }
 }
@@ -261,6 +265,7 @@ pub enum ConfigError {
         value: String,
     },
     IncompleteSmtpConfig(String),
+    InvalidDatabaseSslMode { name: String, value: String },
 }
 
 impl fmt::Display for ConfigError {
@@ -277,6 +282,10 @@ impl fmt::Display for ConfigError {
             Self::IncompleteSmtpConfig(name) => write!(
                 formatter,
                 "incomplete SMTP configuration: {name} is required"
+            ),
+            Self::InvalidDatabaseSslMode { name, value } => write!(
+                formatter,
+                "invalid {name}: expected disabled, preferred, required, verify_ca, or verify_identity; got {value}"
             ),
             Self::InvalidMaxConnections { name, value } => {
                 write!(
@@ -296,7 +305,8 @@ impl std::error::Error for ConfigError {
             Self::Dotenv(_)
             | Self::MissingRequired(_)
             | Self::InvalidMaxConnections { .. }
-            | Self::IncompleteSmtpConfig(_) => None,
+            | Self::IncompleteSmtpConfig(_)
+            | Self::InvalidDatabaseSslMode { .. } => None,
         }
     }
 }
@@ -385,7 +395,20 @@ fn read_database(environment: Environment) -> Result<DatabaseConfig, ConfigError
         user,
         password,
         max_connections: read_max_connections()?,
+        ssl_mode: read_database_ssl_mode()?,
     })
+}
+
+
+fn read_database_ssl_mode() -> Result<String, ConfigError> {
+    let value = read_or_default(ENV_DB_SSL_MODE, DEFAULT_DB_SSL_MODE).to_ascii_lowercase();
+    match value.as_str() {
+        "disabled" | "preferred" | "required" | "verify_ca" | "verify_identity" => Ok(value),
+        _ => Err(ConfigError::InvalidDatabaseSslMode {
+            name: ENV_DB_SSL_MODE.to_owned(),
+            value,
+        }),
+    }
 }
 
 fn read_smtp() -> Result<Option<SmtpConfig>, ConfigError> {
