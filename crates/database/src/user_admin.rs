@@ -9,10 +9,14 @@ use tracing::error;
 use crate::{current_epoch, row_to_id, row_to_user, Database};
 
 impl UserAdminRepository for Database {
-    async fn create_user(
+    async fn create_user_with_access(
         &self,
         id: EntityId,
         email: &str,
+        role: AdminUserRole,
+        premium_active: bool,
+        premium_expires_at: Option<i64>,
+        is_locked: bool,
         now: i64,
     ) -> Result<UserAccess, UserAdminError> {
         let mut tx = self
@@ -22,12 +26,13 @@ impl UserAdminRepository for Database {
             .map_err(|_| UserAdminError::Persistence)?;
 
         let result = sqlx::query(
-            "INSERT INTO users (id, email, bootstrap_admin, created_at)
-             VALUES (?, ?, 0, ?)",
+            "INSERT INTO users (id, email, bootstrap_admin, created_at, locked_at)
+             VALUES (?, ?, 0, ?, ?)",
         )
         .bind(id.as_uuid().as_bytes().as_slice())
         .bind(email)
         .bind(now)
+        .bind(if is_locked { Some(now) } else { None })
         .execute(&mut *tx)
         .await;
 
@@ -41,6 +46,54 @@ impl UserAdminRepository for Database {
             }
             error!(%error, "failed to create user");
             return Err(UserAdminError::Persistence);
+        }
+
+        if role == AdminUserRole::Admin {
+            sqlx::query(
+                "INSERT INTO user_roles (user_id, role)
+                 VALUES (?, 'admin')",
+            )
+            .bind(id.as_uuid().as_bytes().as_slice())
+            .execute(&mut *tx)
+            .await
+            .map_err(|error| {
+                error!(%error, "failed to assign the initial user role");
+                UserAdminError::Persistence
+            })?;
+        }
+
+        let (effective_premium_active, effective_premium_expires_at) =
+            if role == AdminUserRole::Admin {
+                (true, None)
+            } else {
+                (premium_active, premium_expires_at)
+            };
+
+        sqlx::query(
+            "INSERT INTO user_entitlements (user_id, entitlement, active, expires_at)
+             VALUES (?, 'premium', ?, ?)",
+        )
+        .bind(id.as_uuid().as_bytes().as_slice())
+        .bind(if effective_premium_active { 1_i64 } else { 0_i64 })
+        .bind(effective_premium_expires_at)
+        .execute(&mut *tx)
+        .await
+        .map_err(|error| {
+            error!(%error, "failed to assign the initial user entitlement");
+            UserAdminError::Persistence
+        })?;
+
+        if is_locked {
+            sqlx::query(
+                "UPDATE auth_sessions
+                 SET revoked_at = ?
+                 WHERE user_id = ? AND revoked_at IS NULL",
+            )
+            .bind(now)
+            .bind(id.as_uuid().as_bytes().as_slice())
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| UserAdminError::Persistence)?;
         }
 
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
