@@ -1,0 +1,83 @@
+# Render Blueprint for MiniRust with an externally managed MariaDB.
+# Set the same Render region for all three services, as close as possible to
+# the external MariaDB region, before creating the Blueprint. If omitted,
+# Render defaults to Oregon.
+#
+# The database URL is entered as a secret for both API and Web. Include
+# ?ssl-mode=REQUIRED to prevent SQLx from falling back to plaintext.
+
+envVarGroups:
+  - name: minirust-shared
+    envVars:
+      - key: MINIRUST_ENV
+        value: production
+      - key: MINIRUST_AUTH_SECRET
+        generateValue: true
+      - key: MINIRUST_DB_MAX_CONNECTIONS
+        value: "5"
+
+services:
+  - type: pserv
+    runtime: docker
+    name: minirust-api
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: minirust-shared
+      - key: MINIRUST_DATABASE_URL
+        sync: false
+      - key: MINIRUST_ADMIN_EMAIL
+        sync: false
+      - key: MINIRUST_ADMIN_OTP
+        sync: false
+      - key: MINIRUST_WEB_URL
+        sync: false
+      - key: MINIRUST_SMTP_HOST
+        sync: false
+      - key: MINIRUST_SMTP_PORT
+        value: "587"
+      - key: MINIRUST_SMTP_USERNAME
+        sync: false
+      - key: MINIRUST_SMTP_PASSWORD
+        sync: false
+      - key: MINIRUST_SMTP_FROM_EMAIL
+        sync: false
+      - key: MINIRUST_SMTP_FROM_NAME
+        value: MiniRust
+
+  - type: pserv
+    runtime: docker
+    name: minirust-web
+    dockerfilePath: apps/web/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: minirust-shared
+      - key: MINIRUST_DATABASE_URL
+        sync: false
+      - key: MINIRUST_ADMIN_EMAIL
+        sync: false
+      - key: MINIRUST_ADMIN_OTP
+        sync: false
+      - key: MINIRUST_WEB_URL
+        sync: false
+
+  - type: web
+    runtime: docker
+    name: minirust-edge
+    dockerfilePath: deploy/render/Caddy.Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: MINIRUST_API_UPSTREAM
+        fromService:
+          type: pserv
+          name: minirust-api
+          property: hostport
+      - key: MINIRUST_WEB_UPSTREAM
+        fromService:
+          type: pserv
+          name: minirust-web
+          property: hostport
