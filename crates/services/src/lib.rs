@@ -35,7 +35,7 @@ pub use storage::{
 };
 
 pub use user_admin::{
-    AdminUserRole, PremiumEntitlement, UserAdminCommand, UserAdminCommandHandler,
+    AdminUserRole, NewUserAccess, PremiumEntitlement, UserAdminCommand, UserAdminCommandHandler,
     UserAdminCommandResult, UserAdminError, UserAdminQuery, UserAdminQueryHandler,
     UserAdminQueryResult, UserAdminRepository, UserAdminService,
 };
