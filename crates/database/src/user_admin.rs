@@ -1,7 +1,7 @@
 use minirust_core::EntityId;
 use minirust_services::{
-    AdminUserRole, NewUserAccess, Page, Pagination, PaginationMeta, PremiumEntitlement,
-    UserAccess, UserAdminError, UserAdminRepository, UserLocale,
+    AdminUserRole, NewUserAccess, Page, Pagination, PaginationMeta, PremiumEntitlement, UserAccess,
+    UserAdminError, UserAdminRepository, UserLocale,
 };
 use sqlx::Row;
 use tracing::error;
