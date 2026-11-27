@@ -83,19 +83,6 @@ impl UserAdminRepository for Database {
             UserAdminError::Persistence
         })?;
 
-        if is_locked {
-            sqlx::query(
-                "UPDATE auth_sessions
-                 SET revoked_at = ?
-                 WHERE user_id = ? AND revoked_at IS NULL",
-            )
-            .bind(now)
-            .bind(id.as_uuid().as_bytes().as_slice())
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| UserAdminError::Persistence)?;
-        }
-
         tx.commit().await.map_err(|_| UserAdminError::Persistence)?;
         self.find_user_by_id(id)
             .await?
