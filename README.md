@@ -124,7 +124,7 @@ MariaDB is the selected relational database. SQLx uses its `mysql` driver for Ma
 
 The API requires MariaDB connection settings because its current startup contract establishes a live database connection before serving requests.
 
-Connection settings come from the `MINIRUST_DB_*` variables. `MINIRUST_DATABASE_URL`, when set, overrides all of them.
+Connection settings come from the `MINIRUST_DB_*` variables. `MINIRUST_DB_SSL_MODE` controls SQLx's MySQL TLS mode (`preferred` by default; use `required` for external TLS-only MariaDB). `MINIRUST_DATABASE_URL`, when set, overrides the assembled connection URL, but the `MINIRUST_DB_*` settings are still loaded and validated during startup.
 
 Wrap values in single quotes inside `.env` when they contain `$`, because dotenvy expands `$VAR` in double-quoted and unquoted values only.
 
@@ -162,7 +162,7 @@ Docker must be running when database integration tests execute. No separate test
 | `MINIRUST_DB_PASSWORD` | `minirust` | MariaDB password |
 | `MINIRUST_DB_MAX_CONNECTIONS` | `10` | MariaDB connection pool size |
 | `MINIRUST_DB_SSL_MODE` | `preferred` | SQLx MySQL TLS mode; use `required` for TLS-only external databases |
-| `MINIRUST_DATABASE_URL` | — | Full SQLx URL; overrides every `MINIRUST_DB_*` variable |
+| `MINIRUST_DATABASE_URL` | — | Full SQLx URL override; component settings are still validated |
 | `MINIRUST_AUTH_SECRET` | required | Authentication/session secret |
 | `MINIRUST_ADMIN_EMAIL` | `admin@minirust.local` in development | Bootstrap administrator email |
 | `MINIRUST_ADMIN_OTP` | `123456` in development | Bootstrap administrator OTP |
