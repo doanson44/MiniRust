@@ -15,25 +15,31 @@ Caddy routes `/api/*` to the API and all other paths to the Web service. Render 
 3. Create the Blueprint from the repository root.
 4. Choose a plan that supports private services. Private services do not have a Free plan.
 
-## MariaDB connection string
+## MariaDB connection settings
 
-Enter the same `MINIRUST_DATABASE_URL` secret on both `minirust-api` and `minirust-web`.
+The Blueprint asks for the following database settings separately on both `minirust-api` and `minirust-web`:
 
-Use this form:
+- `MINIRUST_DB_HOST`: provider's TLS-enabled hostname
+- `MINIRUST_DB_PORT`: provider's TLS-enabled TCP port
+- `MINIRUST_DB_NAME`: database/schema name
+- `MINIRUST_DB_USER`: dedicated application account
+- `MINIRUST_DB_PASSWORD`: application account password
+- `MINIRUST_DB_SSL_MODE=required`: require encrypted transport
 
-```text
-mysql://DB_USER:URL_ENCODED_PASSWORD@DB_HOST:DB_PORT/DB_NAME?ssl-mode=REQUIRED
-```
+MiniRust builds the SQLx URL from these values and percent-encodes username, password, and database components.
 
-- Use the provider's TLS-enabled hostname and port.
-- URL-encode reserved characters in username/password/database components (for example `@`, `:`, `/`, `?`, `#`, and `%`).
-- `ssl-mode=REQUIRED` forces an encrypted connection and fails if TLS cannot be negotiated. It does not authenticate the server certificate.
-- Once the provider's CA certificate is available, prefer `ssl-mode=VERIFY_IDENTITY` with the provider CA configured for SQLx. Do not switch to that mode until the CA bundle and hostname requirements have been confirmed.
-- Do not put credentials in this file or commit them to Git.
+SQLx's `required` mode forces an encrypted connection and fails if TLS cannot be negotiated. It does not authenticate the server certificate. Once the provider's CA certificate is available, prefer `verify_identity` and configure the provider CA bundle for SQLx. Do not switch to that mode until the CA bundle and hostname requirements have been confirmed.
 
-MiniRust's SQLx URL override takes precedence over `MINIRUST_DB_*`. The Blueprint intentionally asks for this URL as a Render secret.
+The optional `MINIRUST_DATABASE_URL` override still takes precedence over the component variables. If you use it, include `?ssl-mode=REQUIRED` in the URL and still provide the component variables because current production configuration validates them at startup.
+
+Do not put credentials in this file or commit them to Git.
 
 ## Required secrets and settings
+
+The API and Web bind settings are configured in the Blueprint:
+
+- API: `MINIRUST_API_HOST=0.0.0.0`, `MINIRUST_API_PORT=3000`
+- Web: `MINIRUST_WEB_HOST=0.0.0.0`, `MINIRUST_WEB_PORT=3001`
 
 The Blueprint creates a shared environment group for:
 
@@ -45,25 +51,25 @@ During initial Blueprint creation, supply the following secrets when prompted. R
 
 ### API
 
-- `MINIRUST_DATABASE_URL`
+- `MINIRUST_DB_HOST`
+- `MINIRUST_DB_PORT`
+- `MINIRUST_DB_NAME`
+- `MINIRUST_DB_USER`
+- `MINIRUST_DB_PASSWORD`
 - `MINIRUST_ADMIN_EMAIL`
 - `MINIRUST_ADMIN_OTP` (exactly six digits)
 - `MINIRUST_WEB_URL` (the public HTTPS URL, e.g. `https://app.example.com`)
-- `MINIRUST_SMTP_HOST` (e.g. `smtp.gmail.com`)
-- `MINIRUST_SMTP_USERNAME`
-- `MINIRUST_SMTP_PASSWORD`
-- `MINIRUST_SMTP_FROM_EMAIL`
 
 ### Web
 
-- `MINIRUST_DATABASE_URL` (same value as API)
+- `MINIRUST_DB_HOST`, `MINIRUST_DB_PORT`, `MINIRUST_DB_NAME`, `MINIRUST_DB_USER`, `MINIRUST_DB_PASSWORD` (same values as API)
 - `MINIRUST_ADMIN_EMAIL` (same value as API)
 - `MINIRUST_ADMIN_OTP` (same value as API)
 - `MINIRUST_WEB_URL` (same value as API)
 
-The API and Web must use the same database, authentication secret, admin email, admin OTP, and public web URL. The Blueprint shares the generated authentication secret through an environment group; set the other duplicated values identically.
+The API and Web must use the same database settings, TLS mode, authentication secret, admin email, admin OTP, and public web URL. The Blueprint shares the generated authentication secret and connection limit through an environment group; set the other duplicated values identically.
 
-If SMTP is not configured, email-based registration/login flows cannot deliver verification messages.
+SMTP is optional. To enable email delivery, add `MINIRUST_SMTP_HOST`, `MINIRUST_SMTP_PORT`, `MINIRUST_SMTP_USERNAME`, `MINIRUST_SMTP_PASSWORD`, and `MINIRUST_SMTP_FROM_EMAIL` to the API service. If SMTP is not configured, email-based registration/login flows cannot deliver verification messages.
 
 ## Allowlist Render outbound IPs at the database provider
 
