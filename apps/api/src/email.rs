@@ -64,12 +64,7 @@ impl SmtpEmailSender {
     }
 
     /// Waits for the SMTP server to accept the message before reporting success.
-    async fn enqueue(
-        &self,
-        recipient: &str,
-        subject: &str,
-        body: String,
-    ) -> Result<(), AuthError> {
+    async fn enqueue(&self, recipient: &str, subject: &str, body: String) -> Result<(), AuthError> {
         if self.local {
             tracing::info!(recipient = %recipient, subject, "local test email delivery simulated");
             return Ok(());
