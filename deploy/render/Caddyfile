@@ -1,0 +1,11 @@
+:10000 {
+    encode zstd gzip
+
+    handle /api/* {
+        reverse_proxy {$MINIRUST_API_UPSTREAM}
+    }
+
+    handle {
+        reverse_proxy {$MINIRUST_WEB_UPSTREAM}
+    }
+}
