@@ -1,6 +1,6 @@
 use minirust_core::EntityId;
 use minirust_database::Database;
-use minirust_services::{AdminUserRole, UserAdminError, UserAdminRepository};
+use minirust_services::{NewUserAccess, UserAdminError, UserAdminRepository};
 use sqlx::{Connection, Executor, MySqlConnection};
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},
@@ -52,15 +52,15 @@ async fn database_connects_to_mariadb_running_in_docker() -> Result<(), Box<dyn 
     .await?;
 
     let result = database
-        .create_user_with_access(
-            EntityId::new(),
-            "rollback@example.com",
-            AdminUserRole::Admin,
-            true,
-            None,
-            false,
-            1_800_000_000,
-        )
+        .create_user_with_access(NewUserAccess {
+            id: EntityId::new(),
+            email: "rollback@example.com".to_owned(),
+            role: minirust_services::AdminUserRole::Admin,
+            premium_active: true,
+            premium_expires_at: None,
+            is_locked: false,
+            created_at: 1_800_000_000,
+        })
         .await;
 
     assert!(matches!(result, Err(UserAdminError::Persistence)));
