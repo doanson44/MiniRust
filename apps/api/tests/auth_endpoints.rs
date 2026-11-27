@@ -403,7 +403,7 @@ async fn admin_user_crud_and_modal_update() {
             Request::post("/api/v1/admin/users")
                 .header("content-type", "application/json")
                 .header("cookie", &cookie)
-                .body(Body::from(r#"{"email":"crud@example.com"}"#))
+                .body(Body::from(r#"{"email":"crud@example.com","role":"admin"}"#))
                 .unwrap(),
         )
         .await
@@ -415,6 +415,8 @@ async fn admin_user_crud_and_modal_update() {
         .unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let user_id = body["data"]["id"].as_str().unwrap().to_owned();
+    assert_eq!(body["data"]["is_admin"], true);
+    assert_eq!(body["data"]["is_premium"], true);
 
     let get = app
         .router()

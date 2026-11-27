@@ -63,9 +63,8 @@ impl SmtpEmailSender {
         self.transport.is_some() && self.from.is_some()
     }
 
-    /// Queues delivery on a background task; the result only reports configuration
-    /// and recipient validation, never whether the message was delivered.
-    fn enqueue(&self, recipient: &str, subject: &str, body: String) -> Result<(), AuthError> {
+    /// Waits for the SMTP server to accept the message before reporting success.
+    async fn enqueue(&self, recipient: &str, subject: &str, body: String) -> Result<(), AuthError> {
         if self.local {
             tracing::info!(recipient = %recipient, subject, "local test email delivery simulated");
             return Ok(());
@@ -82,16 +81,12 @@ impl SmtpEmailSender {
             .body(body)
             .map_err(|_| AuthError::EmailDeliveryUnavailable)?;
 
-        let recipient = recipient.to_owned();
-        tokio::spawn(async move {
-            match transport.send(message).await {
-                Ok(_) => tracing::info!(recipient = %recipient, "background email delivered"),
-                Err(error) => {
-                    tracing::error!(%error, recipient = %recipient, "background email delivery failed")
-                }
-            }
-        });
+        transport.send(message).await.map_err(|error| {
+            tracing::error!(%error, recipient = %recipient, "SMTP server rejected email delivery");
+            AuthError::EmailDeliveryUnavailable
+        })?;
 
+        tracing::info!(recipient = %recipient, "SMTP server accepted email");
         Ok(())
     }
 }
@@ -107,7 +102,7 @@ impl EmailSender for SmtpEmailSender {
         let subject = "[MiniRust] Verifying it's you / Xác minh danh tính";
         let body_template = include_str!("../templates/email_verification_code.html");
         let body = body_template.replace("{code}", code);
-        self.enqueue(email, subject, body)
+        self.enqueue(email, subject, body).await
     }
 
     async fn send_invitation_link(&self, email: &str, token: &str) -> Result<(), AuthError> {
@@ -116,7 +111,7 @@ impl EmailSender for SmtpEmailSender {
         let subject = "[MiniRust] Bạn được mời / You are invited";
         let body_template = include_str!("../templates/email_invitation.html");
         let body = body_template.replace("{link}", &link);
-        self.enqueue(email, subject, body)
+        self.enqueue(email, subject, body).await
     }
 
     async fn send_registration_verification(
@@ -129,6 +124,6 @@ impl EmailSender for SmtpEmailSender {
         let subject = "[MiniRust] Hoàn tất đăng ký / Complete registration";
         let body_template = include_str!("../templates/email_registration_verification.html");
         let body = body_template.replace("{link}", &link);
-        self.enqueue(email, subject, body)
+        self.enqueue(email, subject, body).await
     }
 }

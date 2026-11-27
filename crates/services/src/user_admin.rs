@@ -62,13 +62,22 @@ impl std::fmt::Display for UserAdminError {
 
 impl std::error::Error for UserAdminError {}
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewUserAccess {
+    pub id: EntityId,
+    pub email: String,
+    pub role: AdminUserRole,
+    pub premium_active: bool,
+    pub premium_expires_at: Option<i64>,
+    pub is_locked: bool,
+    pub created_at: i64,
+}
+
 #[allow(async_fn_in_trait)]
 pub trait UserAdminRepository: Clone + Send + Sync + 'static {
-    async fn create_user(
+    async fn create_user_with_access(
         &self,
-        id: EntityId,
-        email: &str,
-        now: i64,
+        new_user: NewUserAccess,
     ) -> Result<UserAccess, UserAdminError>;
 
     async fn find_user(&self, email: &str) -> Result<Option<UserAccess>, UserAdminError>;
@@ -151,29 +160,17 @@ where
         }
 
         let id = EntityId::new();
-        let user = self.repository.create_user(id, &email, now()).await?;
-
-        // Apply role and premium after creation within the same logical operation
-        let user = if role == AdminUserRole::Admin || premium_active {
-            let effective_role = if user.is_admin {
-                AdminUserRole::Admin
-            } else {
-                role
-            };
-            self.repository
-                .update_user(
-                    user.id,
-                    effective_role,
-                    premium_active,
-                    premium_expires_at,
-                    is_locked,
-                )
-                .await?
-        } else {
-            user
-        };
-
-        Ok(user)
+        self.repository
+            .create_user_with_access(NewUserAccess {
+                id,
+                email,
+                role,
+                premium_active,
+                premium_expires_at,
+                is_locked,
+                created_at: now(),
+            })
+            .await
     }
 
     pub async fn get_by_id(&self, user_id: EntityId) -> Result<UserAccess, UserAdminError> {
