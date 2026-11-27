@@ -103,7 +103,10 @@ pub async fn test_app_with(upload_directory: impl Into<PathBuf>) -> TestApp {
         "mysql://root:minirust_test_root@{}:{}/minirust_test",
         mariadb.host, mariadb.port
     );
-    let mut retries = 5;
+    // The MariaDB image can log readiness for its temporary initialization
+    // server before the TCP-enabled server is available. Retry an actual TCP
+    // connection rather than treating the container log message as readiness.
+    let mut retries = 60;
     let mut maintenance = loop {
         match MySqlConnection::connect(&maintenance_url).await {
             Ok(connection) => break connection,
@@ -121,9 +124,17 @@ pub async fn test_app_with(upload_directory: impl Into<PathBuf>) -> TestApp {
         .await
         .expect("test database must be created");
 
-    let database = Database::connect(&url)
-        .await
-        .expect("test MariaDB must accept connections");
+    let mut retries = 60;
+    let database = loop {
+        match Database::connect(&url).await {
+            Ok(database) => break database,
+            Err(_error) if retries > 0 => {
+                retries -= 1;
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            }
+            Err(error) => panic!("test database connection failed: {error}"),
+        }
+    };
     database
         .migrate()
         .await
