@@ -401,7 +401,14 @@ fn read_database(environment: Environment) -> Result<DatabaseConfig, ConfigError
 
 
 fn read_database_ssl_mode() -> Result<String, ConfigError> {
-    let value = read_or_default(ENV_DB_SSL_MODE, DEFAULT_DB_SSL_MODE).to_ascii_lowercase();
+    parse_database_ssl_mode(&read_or_default(
+        ENV_DB_SSL_MODE,
+        DEFAULT_DB_SSL_MODE,
+    ))
+}
+
+fn parse_database_ssl_mode(value: &str) -> Result<String, ConfigError> {
+    let value = value.to_ascii_lowercase();
     match value.as_str() {
         "disabled" | "preferred" | "required" | "verify_ca" | "verify_identity" => Ok(value),
         _ => Err(ConfigError::InvalidDatabaseSslMode {
@@ -468,4 +475,33 @@ fn encode_url_component(value: &str) -> String {
         }
     }
     encoded
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn database_url_encodes_credentials_and_enforces_configured_ssl_mode() {
+        let database = DatabaseConfig {
+            host: "db.example.com".to_owned(),
+            port: 3306,
+            name: "mini/rust".to_owned(),
+            user: "app@user".to_owned(),
+            password: "p@ss:/?#%".to_owned(),
+            max_connections: 5,
+            ssl_mode: "required".to_owned(),
+        };
+
+        assert_eq!(
+            database.url(),
+            "mysql://app%40user:p%40ss%3A%2F%3F%23%25@db.example.com:3306/mini%2Frust?ssl-mode=required"
+        );
+    }
+
+    #[test]
+    fn database_ssl_mode_rejects_unknown_values() {
+        assert!(parse_database_ssl_mode("verify_identity").is_ok());
+        assert!(parse_database_ssl_mode("unknown").is_err());
+    }
 }
