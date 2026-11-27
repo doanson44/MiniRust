@@ -1,0 +1,99 @@
+# Render Blueprint for MiniRust with an externally managed MariaDB.
+# Set the same Render region for all three services, close to the external
+# MariaDB region, before creating the Blueprint. If omitted, Render defaults
+# to Oregon.
+#
+# Configure MINIRUST_DB_SSL_MODE=required for encrypted connections. Use
+# verify_identity only after the provider CA bundle is available and configured.
+
+envVarGroups:
+  - name: minirust-shared
+    envVars:
+      - key: MINIRUST_ENV
+        value: production
+      - key: MINIRUST_AUTH_SECRET
+        generateValue: true
+      - key: MINIRUST_DB_MAX_CONNECTIONS
+        value: "5"
+
+services:
+  - type: pserv
+    runtime: docker
+    name: minirust-api
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: minirust-shared
+      - key: MINIRUST_API_HOST
+        value: 0.0.0.0
+      - key: MINIRUST_API_PORT
+        value: "3000"
+      - key: MINIRUST_DB_HOST
+        sync: false
+      - key: MINIRUST_DB_PORT
+        sync: false
+      - key: MINIRUST_DB_NAME
+        sync: false
+      - key: MINIRUST_DB_USER
+        sync: false
+      - key: MINIRUST_DB_PASSWORD
+        sync: false
+      - key: MINIRUST_DB_SSL_MODE
+        value: required
+      - key: MINIRUST_ADMIN_EMAIL
+        sync: false
+      - key: MINIRUST_ADMIN_OTP
+        sync: false
+      - key: MINIRUST_WEB_URL
+        sync: false
+
+  - type: pserv
+    runtime: docker
+    name: minirust-web
+    dockerfilePath: apps/web/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: minirust-shared
+      - key: MINIRUST_WEB_HOST
+        value: 0.0.0.0
+      - key: MINIRUST_WEB_PORT
+        value: "3001"
+      - key: MINIRUST_DB_HOST
+        sync: false
+      - key: MINIRUST_DB_PORT
+        sync: false
+      - key: MINIRUST_DB_NAME
+        sync: false
+      - key: MINIRUST_DB_USER
+        sync: false
+      - key: MINIRUST_DB_PASSWORD
+        sync: false
+      - key: MINIRUST_DB_SSL_MODE
+        value: required
+      - key: MINIRUST_ADMIN_EMAIL
+        sync: false
+      - key: MINIRUST_ADMIN_OTP
+        sync: false
+      - key: MINIRUST_WEB_URL
+        sync: false
+
+  - type: web
+    runtime: docker
+    name: minirust-edge
+    dockerfilePath: deploy/render/Caddy.Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: MINIRUST_API_UPSTREAM
+        fromService:
+          type: pserv
+          name: minirust-api
+          property: hostport
+      - key: MINIRUST_WEB_UPSTREAM
+        fromService:
+          type: pserv
+          name: minirust-web
+          property: hostport
