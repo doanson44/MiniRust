@@ -161,6 +161,7 @@ Docker must be running when database integration tests execute. No separate test
 | `MINIRUST_DB_USER` | `minirust` | MariaDB user |
 | `MINIRUST_DB_PASSWORD` | `minirust` | MariaDB password |
 | `MINIRUST_DB_MAX_CONNECTIONS` | `10` | MariaDB connection pool size |
+| `MINIRUST_DB_SSL_MODE` | `preferred` | SQLx MySQL TLS mode; use `required` for TLS-only external databases |
 | `MINIRUST_DATABASE_URL` | — | Full SQLx URL override; component settings are still validated |
 | `MINIRUST_AUTH_SECRET` | required | Authentication/session secret |
 | `MINIRUST_ADMIN_EMAIL` | `admin@minirust.local` in development | Bootstrap administrator email |
