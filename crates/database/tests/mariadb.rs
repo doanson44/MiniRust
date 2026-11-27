@@ -25,15 +25,18 @@ async fn database_connects_to_mariadb_running_in_docker() -> Result<(), Box<dyn 
     let port = container.get_host_port_ipv4(3306).await?;
     let url = format!("mysql://minirust:minirust@{host}:{port}/minirust_test");
 
-    let mut retries = 5;
+    // MariaDB's entrypoint can emit "ready for connections" for its temporary
+    // initialization server before the final TCP-enabled server is started.
+    // Retry the real SQL connection until that server is accepting connections.
+    let mut retries = 60;
     let database = loop {
         match Database::connect(&url).await {
             Ok(db) => break db,
-            Err(_e) if retries > 0 => {
+            Err(_error) if retries > 0 => {
                 retries -= 1;
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             }
-            Err(e) => return Err(e.into()),
+            Err(error) => return Err(error.into()),
         }
     };
 
